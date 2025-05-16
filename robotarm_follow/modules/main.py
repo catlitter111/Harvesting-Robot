@@ -16,8 +16,10 @@ import os
 import sys
 from typing import Tuple, Optional
 
-# 添加当前目录到路径，确保可以导入模块
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 添加父目录到路径，确保可以导入模块
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
 from modules.config import Config
 from modules.uart_controller import UARTController
