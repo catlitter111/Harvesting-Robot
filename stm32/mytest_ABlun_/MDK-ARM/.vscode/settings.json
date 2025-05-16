@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "bsp_system.h": "c",
+        "motor.h": "c",
+        "main.h": "c",
+        "uart_app.h": "c",
+        "gps_app.h": "c",
+        "ringbuffer.h": "c"
+    }
+}
