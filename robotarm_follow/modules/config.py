@@ -41,6 +41,19 @@ class Config:
                 "center_y": 280,
                 "speed": 7.5,
                 "catch_distance": 35
+            },
+            "chassis": {
+                "uart_device": None,  # 自动检测
+                "baudrate": 115200,
+                "default_speed": 50
+            },
+            "network": {
+                "server_url": "ws://101.201.150.96:1234",
+                "robot_id": "robot_123",
+                "video_preset": "medium",
+                "enable": False,
+                "reconnect_attempts": 5,
+                "reconnect_interval": 3
             }
         }
         
@@ -69,6 +82,19 @@ class Config:
         self.CENTERY = self.default_config["control"]["center_y"]
         self.SPEED = self.default_config["control"]["speed"]
         self.CATCH_DISTANCE = self.default_config["control"]["catch_distance"]
+        
+        # 底盘控制参数
+        self.CHASSIS_UART_DEVICE = self.default_config["chassis"]["uart_device"]
+        self.CHASSIS_BAUD_RATE = self.default_config["chassis"]["baudrate"]
+        self.CHASSIS_DEFAULT_SPEED = self.default_config["chassis"]["default_speed"]
+        
+        # 网络参数
+        self.NETWORK_SERVER_URL = self.default_config["network"]["server_url"]
+        self.NETWORK_ROBOT_ID = self.default_config["network"]["robot_id"]
+        self.NETWORK_VIDEO_PRESET = self.default_config["network"]["video_preset"]
+        self.NETWORK_ENABLE = self.default_config["network"]["enable"]
+        self.NETWORK_RECONNECT_ATTEMPTS = self.default_config["network"]["reconnect_attempts"]
+        self.NETWORK_RECONNECT_INTERVAL = self.default_config["network"]["reconnect_interval"]
         
         # COCO数据集类别
         self.CLASSES = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',

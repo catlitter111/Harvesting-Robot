@@ -26,6 +26,8 @@ from modules.uart_controller import UARTController
 from modules.object_detector import ObjectDetector
 from modules.depth_processor import DepthProcessor
 from modules.follow_controller import FollowController
+from modules.network_client import NetworkClient
+from modules.robot_controller import RobotController
 
 # 配置日志
 logging.basicConfig(
@@ -41,21 +43,28 @@ logger = logging.getLogger("主程序")
 class FollowSystem:
     """系统主类：整合所有模块并运行主循环"""
     
-    def __init__(self, config_file: str = "config/config.yaml"):
+    def __init__(self, config_file: str = "config/config.yaml", server_url: str = None, robot_id: str = None):
         """
         初始化跟随系统
         
         Args:
             config_file: 配置文件路径
+            server_url: WebSocket服务器URL，如果为None则不启用网络功能
+            robot_id: 机器人ID
         """
         # 加载配置
         self.config = Config(config_file)
+        
+        # 网络功能标志
+        self.enable_network = server_url is not None
         
         # 初始化串口控制器
         self.uart_controller = UARTController(
             self.config.UART_DEVICE,
             self.config.BAUD_RATE,
-            self.config.TIMEOUT
+            self.config.TIMEOUT,
+            chassis_device=self.config.CHASSIS_UART_DEVICE if hasattr(self.config, 'CHASSIS_UART_DEVICE') else None,
+            chassis_baudrate=self.config.CHASSIS_BAUD_RATE if hasattr(self.config, 'CHASSIS_BAUD_RATE') else 115200
         )
         
         # 初始化目标检测器
@@ -76,6 +85,24 @@ class FollowSystem:
             self.config
         )
         
+        # 如果启用网络功能，初始化相关模块
+        if self.enable_network:
+            # 初始化机器人控制器
+            self.robot_controller = RobotController(self.uart_controller)
+            
+            # 初始化网络客户端
+            self.network_client = NetworkClient(
+                server_url=server_url,
+                initial_preset="medium",
+                robot_id=robot_id
+            )
+            
+            # 设置命令回调
+            self.network_client.set_command_callback(self.handle_network_command)
+        else:
+            self.robot_controller = None
+            self.network_client = None
+        
         # 线程安全的队列，用于在线程间传递深度图
         self.depth_queue = queue.Queue(maxsize=1)
         
@@ -89,6 +116,16 @@ class FollowSystem:
         # 显示设置
         self.show_depth = False  # 是否显示深度图
         self.running = True  # 程序运行标志
+    
+    def handle_network_command(self, command_data):
+        """
+        处理从网络收到的命令
+        
+        Args:
+            command_data: 命令数据
+        """
+        if self.robot_controller:
+            self.robot_controller.handle_command(command_data)
     
     def initialize(self) -> bool:
         """
@@ -119,6 +156,17 @@ class FollowSystem:
         if not self.cap.isOpened():
             logger.error("无法打开摄像头，程序退出")
             return False
+        
+        # 如果启用网络功能，启动网络客户端
+        if self.enable_network and self.network_client:
+            if not self.network_client.start():
+                logger.error("网络客户端启动失败")
+                return False
+            
+            # 设置初始位置
+            if self.robot_controller:
+                # 设置默认位置(可根据实际情况修改)
+                self.robot_controller.set_position(39.9042, 116.4074)
         
         logger.info("系统初始化完成")
         return True
@@ -178,6 +226,10 @@ class FollowSystem:
                 # 分割左右图像
                 left_frame = frame[0:480, 0:640]
                 right_frame = frame[0:480, 640:1280]
+                
+                # 如果启用网络功能，发送左相机图像到网络客户端
+                if self.enable_network and self.network_client:
+                    self.network_client.add_frame_to_queue(left_frame.copy())
                 
                 # 如果处于识别模式，执行目标检测和跟随
                 if self.follow_controller.identify_flag == 1:
@@ -264,6 +316,10 @@ class FollowSystem:
         if self.cap is not None:
             self.cap.release()
         
+        # 停止网络客户端
+        if self.enable_network and self.network_client:
+            self.network_client.stop()
+        
         cv2.destroyAllWindows()
         self.object_detector.release()
         self.uart_controller.close()
@@ -277,6 +333,10 @@ def parse_arguments():
                         help='配置文件路径')
     parser.add_argument('--show-depth', action='store_true',
                         help='显示深度图')
+    parser.add_argument('--server-url', type=str, default=None,
+                        help='WebSocket服务器URL，例如ws://example.com:1234')
+    parser.add_argument('--robot-id', type=str, default='robot_123',
+                        help='机器人ID')
     return parser.parse_args()
 
 
@@ -285,7 +345,11 @@ if __name__ == '__main__':
     args = parse_arguments()
     
     # 创建并运行系统
-    system = FollowSystem(args.config)
+    system = FollowSystem(
+        args.config, 
+        server_url=args.server_url,
+        robot_id=args.robot_id
+    )
     system.show_depth = args.show_depth
     system.run()
 

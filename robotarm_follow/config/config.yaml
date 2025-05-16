@@ -1,13 +1,13 @@
 # 摄像头配置
 camera:
-  id: 21                # 摄像头设备号
+  id: 0                # 摄像头设备号
   width: 1280           # 摄像头宽度
   height: 480           # 摄像头高度
   fps: 30               # 帧率
 
 # 模型配置
 model:
-  path: r"robotarm_follow\models\yolo11n.rknn"  # 模型路径
+  path: "models/yolo11n.rknn"  # 模型路径
   size: [640, 640]      # 模型输入尺寸
   obj_thresh: 0.4       # 目标检测置信度阈值
   nms_thresh: 0.6       # 非极大值抑制阈值
@@ -24,3 +24,16 @@ control:
   center_y: 280         # 屏幕中心Y坐标
   speed: 7.5            # 舵机转动速度
   catch_distance: 35    # 触发抓取的距离（厘米）
+
+chassis:
+  uart_device: "COM16"  # Windows用户使用COM口
+  baudrate: 115200
+  default_speed: 50
+
+network:
+  server_url: "ws://101.201.150.96:1234"
+  robot_id: "robot_123"
+  video_preset: "medium"
+  enable: false
+  reconnect_attempts: 5
+  reconnect_interval: 3
