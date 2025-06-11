@@ -10,6 +10,8 @@
 #define CMD_SET_MOTOR       0x03  // 设置单个电机
 #define CMD_REQUEST_STATUS  0x04  // 请求小车状态
 #define CMD_SET_POSITION    0x05  // 设置/更新位置信息
+#define CMD_PID_TEST        0x06  // PID测试命令
+#define CMD_PID_PARAMS      0x07  // PID参数设置
 
 // 方向定义
 #define DIR_FORWARD    0x00  // 前进

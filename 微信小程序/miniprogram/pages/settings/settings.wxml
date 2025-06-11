@@ -1,0 +1,157 @@
+<!-- pages/settings/settings.wxml -->
+<view class="container">
+  <view class="header">
+    <image class="avatar" src="/images/robot-avatar.png"></image>
+    <view class="device-info">
+      <text class="device-name">智能采摘机器人 #A1286</text>
+      <text class="device-status online">在线</text>
+    </view>
+  </view>
+
+  <view class="settings-list">
+    <view class="settings-group">
+      <view class="group-title">基本设置</view>
+      
+      <view class="settings-item">
+        <text class="item-label">设备名称</text>
+        <view class="item-content">
+          <text>智能采摘机器人 #A1286</text>
+          <text class="icon-arrow">></text>
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">网络设置</text>
+        <view class="item-content">
+          <text>已连接 (农场-5G)</text>
+          <text class="icon-arrow">></text>
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">固件版本</text>
+        <view class="item-content">
+          <text>v2.3.5 (最新)</text>
+          <text class="update-tag">检查更新</text>
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">自动休眠</text>
+        <view class="item-content">
+          <text>30分钟无操作</text>
+          <switch checked="{{autoSleep}}" bindchange="toggleAutoSleep" color="#4CAF50" />
+        </view>
+      </view>
+    </view>
+    
+    <view class="settings-group">
+      <view class="group-title">采摘设置</view>
+      
+      <view class="settings-item">
+        <text class="item-label">采摘模式</text>
+        <view class="item-content">
+          <picker bindchange="changeHarvestMode" value="{{harvestModeIndex}}" range="{{harvestModes}}">
+            <view class="picker">
+              {{harvestModes[harvestModeIndex]}}
+              <text class="icon-arrow">></text>
+            </view>
+          </picker>
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">采摘速度</text>
+        <view class="item-content slider-content">
+          <slider bindchange="setHarvestSpeed" min="1" max="5" value="{{harvestSpeed}}" 
+                 activeColor="#4CAF50" block-size="24" block-color="#4CAF50" show-value />
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">自动识别</text>
+        <view class="item-content">
+          <switch checked="{{autoIdentify}}" bindchange="toggleAutoIdentify" color="#4CAF50" />
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">采摘阈值</text>
+        <view class="item-content" bindtap="setHarvestThreshold">
+          <text>{{harvestThreshold}}%</text>
+          <text class="icon-arrow">></text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="settings-group">
+      <view class="group-title">安全设置</view>
+      
+      <view class="settings-item">
+        <text class="item-label">操作密码</text>
+        <view class="item-content">
+          <text>已设置</text>
+          <text class="icon-arrow">></text>
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">远程控制授权</text>
+        <view class="item-content">
+          <text>仅限管理员</text>
+          <text class="icon-arrow">></text>
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">碰撞监测</text>
+        <view class="item-content">
+          <switch checked="{{collisionDetection}}" bindchange="toggleCollisionDetection" color="#4CAF50" />
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">紧急联系人</text>
+        <view class="item-content">
+          <text>张三 (13800138000)</text>
+          <text class="icon-arrow">></text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="settings-group">
+      <view class="group-title">通知设置</view>
+      
+      <view class="settings-item">
+        <text class="item-label">设备状态通知</text>
+        <view class="item-content">
+          <switch checked="{{statusNotification}}" bindchange="toggleStatusNotification" color="#4CAF50" />
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">任务完成通知</text>
+        <view class="item-content">
+          <switch checked="{{taskNotification}}" bindchange="toggleTaskNotification" color="#4CAF50" />
+        </view>
+      </view>
+      
+      <view class="settings-item">
+        <text class="item-label">异常警报</text>
+        <view class="item-content">
+          <switch checked="{{alertNotification}}" bindchange="toggleAlertNotification" color="#4CAF50" />
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <view class="actions">
+    <button class="btn-action btn-reset" bindtap="resetDevice">重置设备</button>
+    <button class="btn-action btn-logout" bindtap="logoutDevice">退出登录</button>
+  </view>
+  
+  <view class="footer">
+    <text class="version">应用版本：1.0.3</text>
+    <text class="copyright">© 2023 智能农业科技有限公司</text>
+  </view>
+</view>

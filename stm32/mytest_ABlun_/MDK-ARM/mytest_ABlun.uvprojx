@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F103xB</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include;../hardware;../applications</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include;../hardware;../applications;..\Components\pid</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -758,6 +758,86 @@
               <FileType>5</FileType>
               <FilePath>..\hardware\scheduler.h</FilePath>
             </File>
+            <File>
+              <FileName>encoder.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\encoder.h</FilePath>
+            </File>
+            <File>
+              <FileName>pid_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\pid_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>pid_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\pid_motor.h</FilePath>
+            </File>
+            <File>
+              <FileName>robot_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\robot_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>robot_control.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\robot_control.h</FilePath>
+            </File>
+            <File>
+              <FileName>encoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\encoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\config.h</FilePath>
+            </File>
+            <File>
+              <FileName>ringbuffer_s.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\ringbuffer_s.c</FilePath>
+            </File>
+            <File>
+              <FileName>ringbuffer_s.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\ringbuffer_s.h</FilePath>
+            </File>
+            <File>
+              <FileName>pid_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\pid_test.c</FilePath>
+            </File>
+            <File>
+              <FileName>pid_test.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\pid_test.h</FilePath>
+            </File>
+            <File>
+              <FileName>encoder_520.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\encoder_520.c</FilePath>
+            </File>
+            <File>
+              <FileName>encoder_520.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\encoder_520.h</FilePath>
+            </File>
+            <File>
+              <FileName>encoder_520_example.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\encoder_520_example.c</FilePath>
+            </File>
+            <File>
+              <FileName>encoder_520_example.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\encoder_520_example.h</FilePath>
+            </File>
+            <File>
+              <FileName>encoder_520_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\hardware\encoder_520_config.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -792,6 +872,21 @@
               <FileName>gps_app.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\applications\gps_app.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Components</GroupName>
+          <Files>
+            <File>
+              <FileName>pid.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\pid\pid.c</FilePath>
+            </File>
+            <File>
+              <FileName>pid.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\pid\pid.h</FilePath>
             </File>
           </Files>
         </Group>

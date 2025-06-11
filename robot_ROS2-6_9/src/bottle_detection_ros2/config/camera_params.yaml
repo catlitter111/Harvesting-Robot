@@ -1,0 +1,88 @@
+# 双目相机标定参数配置文件
+# 这些参数应该通过相机标定获得
+
+# 左相机参数
+left_camera:
+  # 内参矩阵 (3x3)
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data: [479.511022870591, -0.276113089875797, 325.165562307888,
+           0.0, 482.402195086215, 267.117105422009,
+           0.0, 0.0, 1.0]
+  
+  # 畸变系数 (k1, k2, p1, p2, k3)
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data: [0.0544639674308284, -0.0266591889115199, 0.00955609439715649, 
+           -0.0026033932373644, 0.0]
+
+# 右相机参数
+right_camera:
+  # 内参矩阵 (3x3)
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data: [478.352067946262, 0.544542937907123, 314.900427485172,
+           0.0, 481.875120562091, 267.794159848602,
+           0.0, 0.0, 1.0]
+  
+  # 畸变系数 (k1, k2, p1, p2, k3)
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data: [0.069434162778783, -0.115882071309996, 0.00979426351016958,
+           -0.000953149415242267, 0.0]
+
+# 立体标定参数
+stereo_calibration:
+  # 旋转矩阵 R (3x3) - 右相机相对于左相机的旋转
+  rotation_matrix:
+    rows: 3
+    cols: 3
+    data: [0.999896877234412, -0.00220178317092368, -0.0141910904351714,
+           0.00221406478831849, 0.999997187880575, 0.00084979294881938,
+           0.0141891794683169, -0.000881125309460678, 0.999898940295571]
+  
+  # 平移向量 T (3x1) - 右相机相对于左相机的平移 (mm)
+  translation_vector:
+    rows: 3
+    cols: 1
+    data: [-60.8066968317226, 0.142395217396486, -1.92683450371277]
+  
+  # 基线距离 (米)
+  baseline: 0.0608
+
+# 立体匹配参数
+stereo_matching:
+  # StereoBM 参数
+  num_disparities: 96     # 视差搜索范围，必须是16的倍数
+  block_size: 15          # 匹配块大小，必须是奇数
+  min_disparity: 18       # 最小视差值
+  pre_filter_cap: 31      # 预滤波器参数
+  texture_threshold: 50   # 纹理阈值
+  uniqueness_ratio: 18    # 唯一性比例
+  speckle_window_size: 83 # 斑点窗口大小
+  speckle_range: 32       # 斑点范围
+  disp12_max_diff: 1      # 左右视差图最大差异
+
+# 检测参数
+detection:
+  # 有效距离范围 (米)
+  min_distance: 0.2
+  max_distance: 5.0
+  
+  # 置信度阈值
+  confidence_threshold: 0.5
+  
+  # 目标跟踪参数
+  center_deadzone: 30     # 中心死区大小（像素）
+  smoothing_factor: 0.7   # 距离平滑系数
+
+# 显示参数
+visualization:
+  show_fps: true          # 显示帧率
+  show_distance_bar: true # 显示距离条
+  show_crosshair: true    # 显示十字准星
+  colormap_disparity: true # 对视差图应用颜色映射

@@ -1,0 +1,61 @@
+{
+    "pages": [
+      "pages/control/control",
+      "pages/statistics/statistics",
+      "pages/chat/chat",
+      "pages/settings/settings",
+      "pages/logs/logs"
+    ],
+    "window": {
+      "navigationBarTextStyle": "white",
+      "navigationBarTitleText": "农业采摘机器人",
+      "navigationBarBackgroundColor": "#4CAF50",
+      "navigationStyle": "default",
+      "backgroundColor": "#f6f6f6",
+      "backgroundTextStyle": "light",
+      "enablePullDownRefresh": false
+    },
+    "tabBar": {
+      "color": "#999999",
+      "selectedColor": "#4CAF50",
+      "backgroundColor": "#ffffff",
+      "borderStyle": "black",
+      "list": [
+        {
+          "pagePath": "pages/control/control",
+          "text": "控制中心",
+          "iconPath": "images/control.png",
+          "selectedIconPath": "images/control-active.png"
+        },
+        {
+          "pagePath": "pages/statistics/statistics",
+          "text": "数据统计",
+          "iconPath": "images/statistics.png",
+          "selectedIconPath": "images/statistics-active.png"
+        },
+        {
+          "pagePath": "pages/chat/chat",
+          "text": "AI助手",
+          "iconPath": "images/chat.png",
+          "selectedIconPath": "images/chat-active.png"
+        },
+        {
+          "pagePath": "pages/settings/settings",
+          "text": "设置",
+          "iconPath": "images/settings.png",
+          "selectedIconPath": "images/settings-active.png"
+        }
+      ]
+    },
+    "permission": {
+      "scope.userLocation": {
+        "desc": "需要获取您的地理位置以显示机器人作业区域和实时位置"
+      }
+    },
+    "style": "v2",
+    "componentFramework": "glass-easel",
+    "sitemapLocation": "sitemap.json",
+    "lazyCodeLoading": "requiredComponents",
+    "requiredBackgroundModes": ["location"],
+    "usingComponents": {}
+  }

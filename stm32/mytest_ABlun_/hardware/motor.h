@@ -5,7 +5,7 @@
 #include "tim.h"
 #include "gpio.h"
 
-// µç»ú±êÊ¶Ã¶¾Ù
+// ç”µæœºæ ‡è¯†ç¬¦æšä¸¾
 // typedef enum {
 //     MOTOR_FRONT_LEFT = 0,
 //     MOTOR_FRONT_RIGHT,
@@ -15,33 +15,33 @@
 // } Motor_ID;
 
 typedef enum {
-    MOTOR_REAR_RIGHT = 0,
-    MOTOR_FRONT_RIGHT,
-    MOTOR_REAR_LEFT,
-    MOTOR_FRONT_LEFT,
-    MOTOR_COUNT
+    MOTOR_REAR_RIGHT = 0,    // åå³ç”µæœº
+    MOTOR_FRONT_RIGHT,       // å‰å³ç”µæœº
+    MOTOR_REAR_LEFT,         // åå·¦ç”µæœº
+    MOTOR_FRONT_LEFT,        // å‰å·¦ç”µæœº
+    MOTOR_COUNT_NUM              // ç”µæœºæ€»æ•°
 } Motor_ID;
 
-// µç»ú·½ÏòÃ¶¾Ù
+// ç”µæœºæ–¹å‘æšä¸¾
 typedef enum {
     MOTOR_DIR_FORWARD = 0,
     MOTOR_DIR_BACKWARD,
     MOTOR_DIR_STOP
 } Motor_Direction;
 
-// µç»úÅäÖÃ½á¹¹Ìå
+// ç”µæœºé…ç½®ç»“æ„ä½“
 typedef struct {
-    TIM_HandleTypeDef* htim;      // ¶¨Ê±Æ÷¾ä±ú
-    uint32_t channel;             // ¶¨Ê±Æ÷Í¨µÀ
-    GPIO_TypeDef* pwm_port;       // PWM¶Ë¿Ú
-    uint16_t pwm_pin;             // PWMÒı½Å
-    GPIO_TypeDef* in1_port;       // ÊäÈë1¶Ë¿Ú
-    uint16_t in1_pin;             // ÊäÈë1Òı½Å
-    GPIO_TypeDef* in2_port;       // ÊäÈë2¶Ë¿Ú
-    uint16_t in2_pin;             // ÊäÈë2Òı½Å
+    TIM_HandleTypeDef* htim;      // å®šæ—¶å™¨å¥æŸ„
+    uint32_t channel;             // å®šæ—¶å™¨é€šé“
+    GPIO_TypeDef* pwm_port;       // PWMç«¯å£
+    uint16_t pwm_pin;             // PWMå¼•è„š
+    GPIO_TypeDef* in1_port;       // è¾“å…¥1ç«¯å£
+    uint16_t in1_pin;             // è¾“å…¥1å¼•è„š
+    GPIO_TypeDef* in2_port;       // è¾“å…¥2ç«¯å£
+    uint16_t in2_pin;             // è¾“å…¥2å¼•è„š
 } Motor_Config;
 
-// »úÆ÷ÈËÒÆ¶¯·½ÏòÃ¶¾Ù
+// æœºå™¨äººç§»åŠ¨æ–¹å‘æšä¸¾
 typedef enum {
     ROBOT_DIR_FORWARD = 0,
     ROBOT_DIR_BACKWARD,
@@ -50,11 +50,11 @@ typedef enum {
     ROBOT_DIR_STOP
 } Robot_Direction;
 
-// º¯ÊıÔ­ĞÍÉùÃ÷
+// å‡½æ•°åŸå‹å£°æ˜
 HAL_StatusTypeDef Motor_Init(void);
 HAL_StatusTypeDef Motor_SetPWM(Motor_ID motor, uint8_t duty_cycle);
 void Motor_SetDirection(Motor_ID motor, Motor_Direction direction);
-void Motor_SetSpeed(Motor_ID motor, int8_t speed); // -100µ½+100£¬¸ºÊı±íÊ¾·´Ïò
+void Motor_SetSpeed(Motor_ID motor, int8_t speed); // -100åˆ°+100ï¼Œè´Ÿæ•°è¡¨ç¤ºåè½¬
 void Robot_Move(Robot_Direction direction);
 void Robot_SetSpeed(uint8_t speed);
 void Motor_Test(void);

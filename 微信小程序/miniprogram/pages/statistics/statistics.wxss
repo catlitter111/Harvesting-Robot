@@ -1,0 +1,602 @@
+/* pages/statistics/statistics.wxss */
+.container {
+    min-height: 100vh;
+    background-color: #f6f6f6;
+  }
+  
+  /* 头部区域 */
+  .header {
+    background-color: #4CAF50;
+    padding: 30rpx 30rpx 40rpx;
+    color: white;
+    box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.1);
+  }
+  
+  .date-selector {
+    margin-bottom: 30rpx;
+  }
+  
+  .picker-view {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .selected-date {
+    font-size: 34rpx;
+    font-weight: bold;
+    margin-right: 10rpx;
+  }
+  
+  .icon-calendar {
+    font-size: 24rpx;
+  }
+  
+  .summary-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 12rpx;
+    padding: 20rpx;
+  }
+  
+  .summary-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .summary-value {
+    font-size: 40rpx;
+    font-weight: bold;
+    margin-bottom: 10rpx;
+  }
+  
+  .summary-label {
+    font-size: 24rpx;
+    opacity: 0.9;
+  }
+  
+  .divider {
+    width: 2rpx;
+    height: 60rpx;
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  /* 内容区域 */
+  .content {
+    padding: 30rpx;
+  }
+  
+  .tab-header {
+    display: flex;
+    background-color: white;
+    border-radius: 12rpx;
+    margin-bottom: 30rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+  
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 20rpx 0;
+    font-size: 28rpx;
+    color: #666;
+    position: relative;
+  }
+  
+  .tab.active {
+    color: #4CAF50;
+    font-weight: bold;
+  }
+  
+  .tab.active:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 25%;
+    width: 50%;
+    height: 6rpx;
+    background-color: #4CAF50;
+    border-radius: 6rpx;
+  }
+  
+  /* 数据概览 */
+  .chart-container {
+    background-color: white;
+    border-radius: 12rpx;
+    padding: 30rpx;
+    margin-bottom: 30rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+  }
+  
+  .chart-title {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20rpx;
+  }
+  
+  .chart-placeholder {
+    height: 400rpx;
+    background-color: #f9f9f9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8rpx;
+  }
+  
+  .chart-placeholder image {
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* 数据表格样式 */
+  .chart-data-table {
+    background-color: #fff;
+    border-radius: 8rpx;
+    overflow: hidden;
+    border: 1rpx solid #eee;
+  }
+  
+  .table-header {
+    display: flex;
+    background-color: #f8f9fa;
+    border-bottom: 1rpx solid #dee2e6;
+  }
+  
+  .table-col-header {
+    flex: 1;
+    padding: 20rpx 10rpx;
+    text-align: center;
+    font-size: 26rpx;
+    font-weight: bold;
+    color: #495057;
+  }
+  
+  .table-col-header:first-child {
+    flex: 0.8;
+  }
+  
+  .table-col-header:last-child {
+    flex: 1.2;
+  }
+  
+  .table-body {
+    background-color: #fff;
+  }
+  
+  .table-row {
+    display: flex;
+    border-bottom: 1rpx solid #eee;
+    transition: background-color 0.2s ease;
+  }
+  
+  .table-row:last-child {
+    border-bottom: none;
+  }
+  
+  .table-row:hover {
+    background-color: #f8f9fa;
+  }
+  
+  .table-col {
+    flex: 1;
+    padding: 24rpx 10rpx;
+    text-align: center;
+    font-size: 26rpx;
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80rpx;
+  }
+  
+  .table-col:first-child {
+    flex: 0.8;
+    font-weight: bold;
+    color: #4CAF50;
+  }
+  
+  .table-col:last-child {
+    flex: 1.2;
+  }
+  
+  .efficiency-bar {
+    position: relative;
+    width: 80%;
+    height: 24rpx;
+    background-color: #e9ecef;
+    border-radius: 12rpx;
+    overflow: hidden;
+  }
+  
+  .efficiency-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #20c997);
+    border-radius: 12rpx;
+    transition: width 0.3s ease;
+  }
+  
+  .efficiency-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20rpx;
+    color: #fff;
+    font-weight: bold;
+    text-shadow: 0 1rpx 2rpx rgba(0,0,0,0.3);
+  }
+  
+  .table-summary {
+    background-color: #f8f9fa;
+    padding: 20rpx;
+    border-top: 2rpx solid #4CAF50;
+  }
+  
+  .summary-text {
+    font-size: 26rpx;
+    color: #495057;
+    text-align: center;
+  }
+  
+  .summary-value {
+    font-weight: bold;
+    color: #4CAF50;
+  }
+  
+  .data-grid {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 30rpx;
+  }
+  
+  .grid-item {
+    width: 50%;
+    padding: 20rpx;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    background-color: white;
+    border-radius: 12rpx;
+    margin-bottom: 20rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+  }
+  
+  .grid-item:nth-child(odd) {
+    padding-right: 10rpx;
+  }
+  
+  .grid-item:nth-child(even) {
+    padding-left: 10rpx;
+  }
+  
+  .grid-icon {
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: 50%;
+    background-color: rgba(76, 175, 80, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 20rpx;
+  }
+  
+  .grid-data {
+    flex: 1;
+  }
+  
+  .grid-value {
+    display: block;
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .grid-label {
+    display: block;
+    font-size: 24rpx;
+    color: #999;
+  }
+  
+  .health-status {
+    padding: 20rpx 0;
+  }
+  
+  .health-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20rpx;
+  }
+  
+  .health-label {
+    width: 180rpx;
+    font-size: 28rpx;
+    color: #666;
+  }
+  
+  .health-item progress {
+    flex: 1;
+    margin: 0 20rpx;
+  }
+  
+  .health-value {
+    font-size: 28rpx;
+    color: #333;
+    width: 60rpx;
+    text-align: right;
+  }
+  
+  /* 实时位置 */
+  .map-container {
+    background-color: white;
+    border-radius: 12rpx;
+    padding: 30rpx;
+    margin-bottom: 30rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+    position: relative;
+  }
+  
+  /* 地图组件样式 */
+  .map-component {
+    width: 100%;
+    height: 500rpx;
+    border-radius: 8rpx;
+    margin-bottom: 20rpx;
+  }
+  
+  /* 地图控制按钮 */
+  .map-controls {
+    position: absolute;
+    top: 50rpx;
+    right: 50rpx;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+  }
+  
+  .map-btn {
+    width: 70rpx;
+    height: 70rpx;
+    margin-bottom: 15rpx;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+    border-radius: 8rpx;
+    box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.2);
+  }
+  
+  .map-btn-icon {
+    font-size: 36rpx;
+    color: #4CAF50;
+    font-weight: bold;
+  }
+  
+  .location-info {
+    padding: 20rpx 0;
+  }
+  
+  .location-item {
+    display: flex;
+    margin-bottom: 10rpx;
+  }
+  
+  .location-label {
+    width: 160rpx;
+    font-size: 28rpx;
+    color: #666;
+  }
+  
+  .location-value {
+    flex: 1;
+    font-size: 28rpx;
+    color: #333;
+  }
+  
+  .route-info {
+    background-color: white;
+    border-radius: 12rpx;
+    padding: 30rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+  }
+  
+  .route-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30rpx;
+  }
+  
+  .route-title {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .route-time {
+    font-size: 24rpx;
+    color: #999;
+  }
+  
+  .route-details {
+    position: relative;
+  }
+  
+  .route-line {
+    position: absolute;
+    left: 48rpx;
+    top: 0;
+    bottom: 0;
+    width: 2rpx;
+    background-color: #eee;
+    z-index: 1;
+  }
+  
+  .route-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 20rpx 0;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .route-time {
+    width: 90rpx;
+    font-size: 24rpx;
+    color: #999;
+  }
+  
+  .route-dot {
+    width: 16rpx;
+    height: 16rpx;
+    border-radius: 50%;
+    background-color: #4CAF50;
+    margin: 10rpx 20rpx 0;
+  }
+  
+  .route-dot.start {
+    background-color: #FF9800;
+  }
+  
+  .route-dot.current {
+    background-color: #f44336;
+    box-shadow: 0 0 0 6rpx rgba(244, 67, 54, 0.2);
+  }
+  
+  .route-desc {
+    flex: 1;
+    font-size: 28rpx;
+    color: #333;
+  }
+  
+  .route-item.current .route-desc {
+    font-weight: bold;
+    color: #f44336;
+  }
+  
+  /* 历史记录 */
+  .filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: white;
+    border-radius: 12rpx;
+    padding: 20rpx 30rpx;
+    margin-bottom: 30rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+  }
+  
+  .month-picker {
+    font-size: 28rpx;
+    color: #333;
+    display: flex;
+    align-items: center;
+  }
+  
+  .icon-down {
+    font-size: 24rpx;
+    margin-left: 10rpx;
+    color: #999;
+  }
+  
+  .filter-actions {
+    display: flex;
+  }
+  
+  .filter-btn {
+    padding: 10rpx 30rpx;
+    font-size: 28rpx;
+    color: #666;
+    border-radius: 30rpx;
+    margin-left: 10rpx;
+  }
+  
+  .filter-btn.active {
+    background-color: #4CAF50;
+    color: white;
+  }
+  
+  .history-list {
+    background-color: white;
+    border-radius: 12rpx;
+    padding: 20rpx;
+    box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+  }
+  
+  .history-item {
+    display: flex;
+    padding: 20rpx;
+    border-bottom: 2rpx solid #f0f0f0;
+  }
+  
+  .history-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100rpx;
+    padding-right: 20rpx;
+    border-right: 2rpx solid #f0f0f0;
+  }
+  
+  .date-day {
+    font-size: 40rpx;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .date-month {
+    font-size: 24rpx;
+    color: #999;
+  }
+  
+  .history-content {
+    flex: 1;
+    padding: 0 20rpx;
+  }
+  
+  .history-title {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10rpx;
+  }
+  
+  .history-details {
+    font-size: 26rpx;
+    color: #666;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .history-details text {
+    margin-right: 20rpx;
+  }
+  
+  .history-actions {
+    display: flex;
+    align-items: center;
+  }
+  
+  .btn-detail {
+    font-size: 24rpx;
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+    padding: 10rpx 20rpx;
+    border-radius: 30rpx;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .no-route-data {
+    padding: 40rpx 0;
+    text-align: center;
+    color: #999;
+    font-size: 28rpx;
+  }

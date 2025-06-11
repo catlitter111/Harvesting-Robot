@@ -1,0 +1,157 @@
+# 瓶子检测与采摘系统配置文件
+
+# 相机配置
+camera:
+  id: 21                    # 双目相机设备ID
+  width: 1280              # 总宽度（左右相机）
+  height: 480              # 高度
+  calibration_file: ""     # 标定文件路径（留空使用默认参数）
+  
+  # 双目相机参数（默认值）
+  stereo:
+    baseline: 60.8         # 基线距离(mm)
+    min_disparity: 18      # 最小视差
+    num_disparities: 96    # 视差范围
+    block_size: 15         # 匹配块大小
+    
+# YOLO模型配置
+model:
+  path: "yolo11n.rknn"     # 模型文件路径
+  input_size: [640, 640]   # 模型输入尺寸
+  obj_threshold: 0.2       # 目标检测阈值
+  nms_threshold: 0.5       # NMS阈值
+  
+# 检测参数
+detection:
+  confidence_threshold: 0.5   # 瓶子检测置信度阈值
+  min_distance: 0.2          # 最小有效距离(m)
+  max_distance: 5.0          # 最大有效距离(m)
+  distance_filter_size: 5    # 距离滤波器窗口大小
+  
+# 异步处理配置
+async_processing:
+  thread_num: 3              # 处理线程数
+  queue_size: 10             # 队列大小
+  prefill_size: 3            # 预填充帧数
+  
+# 机器人控制配置
+robot_control:
+  serial_port: "/dev/ttyS3"  # 控制串口
+  baudrate: 115200           # 波特率
+  max_linear_speed: 0.5      # 最大直线速度(m/s)
+  max_angular_speed: 1.0     # 最大角速度(rad/s)
+  
+  # 速度映射
+  speed_mapping:
+    slow: 0.2
+    normal: 0.5
+    fast: 0.8
+    
+# 舵机控制配置
+servo_control:
+  serial_port: "/dev/ttyS9"  # 舵机串口
+  baudrate: 115200           # 波特率
+  servo_mode: 3              # 180度顺时针模式
+  
+  # 舵机限位
+  min_position: 500
+  max_position: 2500
+  center_position: 1500
+  
+  # 跟踪参数
+  tracking:
+    enabled: true
+    deadzone: 30             # 死区大小(像素)
+    speed: 7.5               # 跟踪速度系数
+    smooth_factor: 0.7       # 平滑系数
+    
+# 自动采摘配置
+auto_harvest:
+  control_rate: 10.0         # 控制频率(Hz)
+  search_timeout: 5.0        # 搜索超时(秒)
+  
+  # 距离阈值
+  distance_thresholds:
+    far: 1.2                 # 远距离
+    near: 0.8                # 近距离
+    harvest: 0.5             # 采摘距离
+    stop: 0.3                # 停止距离
+    
+  # 速度配置
+  speeds:
+    approach: 0.3            # 接近速度(m/s)
+    turn: 0.5                # 转向速度(rad/s)
+    fine_approach: 0.1       # 精细接近速度
+    fine_turn: 0.3           # 精细转向速度
+    
+  # 中心死区
+  center_deadzone: 80        # 像素
+  
+# WebSocket配置
+websocket:
+  server_url: "ws://101.201.150.96:1234/ws/robot/robot_123"
+  robot_id: "robot_123"
+  reconnect_attempts: 5
+  reconnect_interval: 3.0    # 秒
+  
+  # 心跳配置
+  heartbeat:
+    enabled: true
+    interval: 30.0           # 秒
+    
+# 视频流配置
+video_stream:
+  default_quality: "medium"
+  publish_compressed: true
+  
+  # 质量预设
+  quality_presets:
+    high:
+      resolution: [640, 480]
+      fps: 15
+      bitrate: 800           # Kbps
+      jpeg_quality: 80
+      
+    medium:
+      resolution: [480, 360]
+      fps: 10
+      bitrate: 500
+      jpeg_quality: 70
+      
+    low:
+      resolution: [320, 240]
+      fps: 8
+      bitrate: 300
+      jpeg_quality: 60
+      
+    very_low:
+      resolution: [240, 180]
+      fps: 5
+      bitrate: 150
+      jpeg_quality: 50
+      
+    minimum:
+      resolution: [160, 120]
+      fps: 3
+      bitrate: 80
+      jpeg_quality: 40
+      
+# 日志配置
+logging:
+  level: "INFO"              # DEBUG, INFO, WARN, ERROR
+  save_to_file: false
+  log_dir: "~/.ros/logs"
+  
+# 显示配置
+display:
+  show_windows: true         # 是否显示窗口
+  show_fps: true            # 显示帧率
+  show_distance_bar: true   # 显示距离条
+  show_mode_info: true      # 显示模式信息
+  
+  # 颜色配置(BGR)
+  colors:
+    bottle_box: [0, 255, 0]
+    text: [0, 255, 255]
+    distance: [255, 255, 0]
+    crosshair: [0, 0, 255]

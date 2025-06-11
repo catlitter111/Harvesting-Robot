@@ -5,6 +5,7 @@
         "main.h": "c",
         "uart_app.h": "c",
         "gps_app.h": "c",
-        "ringbuffer.h": "c"
+        "ringbuffer.h": "c",
+        "config.h": "c"
     }
 }

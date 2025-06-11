@@ -1,0 +1,207 @@
+<!-- pages/control/control.wxml -->
+<view class="container">
+  <view class="video-container">
+    <view class="video-placeholder">
+      <!-- 根据不同状态显示不同内容 -->
+      <block wx:if="{{!connected}}">
+        <view class="no-connection">
+          <image src="/images/server-offline.png" mode="aspectFit"></image>
+          <text>服务器未连接</text>
+        </view>
+      </block>
+      <block wx:elif="{{!robotConnected}}">
+        <view class="no-connection">
+          <image src="/images/robot-offline.png" mode="aspectFit"></image>
+          <text>机器人未连接</text>
+        </view>
+      </block>
+      <block wx:elif="{{videoExpired}}">
+        <view class="no-connection">
+          <image src="/images/video-timeout.png" mode="aspectFit"></image>
+          <text>视频连接超时</text>
+        </view>
+      </block>
+      <block wx:elif="{{videoBase64}}">
+        <image 
+          src="{{videoBase64}}" 
+          mode="aspectFill"
+          lazy-load="{{false}}"
+          show-menu-by-longpress="{{false}}"
+        ></image>
+      </block>
+      <block wx:else>
+        <view class="loading-connection">
+          <image src="/images/loading.png" mode="aspectFit" class="rotating"></image>
+          <text>加载视频中...</text>
+        </view>
+      </block>
+      
+      <view class="connection-status {{connected && robotConnected ? 'connected' : 'disconnected'}}">
+        {{connectionStatusText}}
+      </view>
+      
+      <!-- 视频质量指示器 (仅在连接状态显示) -->
+      <view class="video-quality-indicator" bindtap="toggleQualityPanel" wx:if="{{connected && robotConnected && !videoExpired && videoBase64}}">
+        <text class="quality-label">{{qualityLabels[currentQuality]}}</text>
+        <text class="quality-stats">{{videoFps}}fps | {{frameLatency}}ms</text>
+      </view>
+    </view>
+    
+    <!-- 视频质量设置面板 -->
+    <view class="quality-panel" wx:if="{{showQualityPanel}}">
+      <view class="quality-panel-header">
+        <text class="quality-panel-title">视频质量设置</text>
+        <view class="auto-quality-switch">
+          <text>自动调整</text>
+          <switch checked="{{autoQuality}}" bindchange="toggleAutoQuality" color="#4CAF50" />
+        </view>
+      </view>
+      
+      <view class="quality-presets">
+        <view class="quality-preset-item {{currentQuality === 'high' ? 'active' : ''}}" 
+              bindtap="selectQualityPreset" data-preset="high">
+          <text class="preset-name">高清</text>
+          <text class="preset-info">640×480 | 15fps</text>
+        </view>
+        <view class="quality-preset-item {{currentQuality === 'medium' ? 'active' : ''}}" 
+              bindtap="selectQualityPreset" data-preset="medium">
+          <text class="preset-name">标准</text>
+          <text class="preset-info">480×360 | 10fps</text>
+        </view>
+        <view class="quality-preset-item {{currentQuality === 'low' ? 'active' : ''}}" 
+              bindtap="selectQualityPreset" data-preset="low">
+          <text class="preset-name">流畅</text>
+          <text class="preset-info">320×240 | 8fps</text>
+        </view>
+        <view class="quality-preset-item {{currentQuality === 'very_low' ? 'active' : ''}}" 
+              bindtap="selectQualityPreset" data-preset="very_low">
+          <text class="preset-name">省流</text>
+          <text class="preset-info">240×180 | 5fps</text>
+        </view>
+        <view class="quality-preset-item {{currentQuality === 'minimum' ? 'active' : ''}}" 
+              bindtap="selectQualityPreset" data-preset="minimum">
+          <text class="preset-name">最小</text>
+          <text class="preset-info">160×120 | 3fps</text>
+        </view>
+      </view>
+      
+      <view class="quality-stats-panel">
+        <view class="stats-item">
+          <text class="stats-label">当前延迟:</text>
+          <text class="stats-value">{{frameLatency}}ms</text>
+        </view>
+        <view class="stats-item">
+          <text class="stats-label">帧率:</text>
+          <text class="stats-value">{{framesPerSecond}}fps</text>
+        </view>
+        <view class="stats-item">
+          <text class="stats-label">抖动:</text>
+          <text class="stats-value">{{frameJitter}}ms</text>
+        </view>
+        <view class="stats-item">
+          <text class="stats-label">缓冲健康度:</text>
+          <progress percent="{{bufferHealth}}" stroke-width="4" activeColor="{{bufferHealth > 60 ? '#4CAF50' : '#FF9800'}}" backgroundColor="#eee" />
+          <text class="stats-value">{{bufferHealth}}%</text>
+        </view>
+      </view>
+      
+      <button class="close-panel-btn" bindtap="toggleQualityPanel">关闭</button>
+    </view>
+    
+    <view class="video-info">
+      <view class="info-item">
+        <text class="label">设备状态：</text>
+        <text class="value {{robotConnected ? 'online' : 'offline'}}">{{robotConnected ? '在线' : '离线'}}</text>
+      </view>
+      <view class="info-item">
+        <text class="label">电池电量：</text>
+        <text class="value">{{robotConnected ? batteryLevel + '%' : '--'}}</text>
+      </view>
+      <view class="info-item">
+        <text class="label">信号强度：</text>
+        <text class="value">{{robotConnected ? signalStrength : '--'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <scroll-view class="control-container {{!robotConnected ? 'disabled' : ''}}" scroll-y="true">
+    <view class="control-header">
+      <text class="title">操作控制</text>
+      <view class="mode-switch">
+        <text class="{{operationMode === 'manual' ? 'active' : ''}}">手动模式</text>
+        <switch checked="{{operationMode === 'auto'}}" bindchange="switchMode" color="#4CAF50" />
+        <text class="{{operationMode === 'auto' ? 'active' : ''}}">自动模式</text>
+      </view>
+    </view>
+
+    <view class="control-panel" wx:if="{{operationMode === 'manual'}}">
+      <view class="direction-controls">
+        <view class="btn-row">
+          <button class="btn-control btn-transparent"></button>
+          <button class="btn-control btn-direction" bindtap="moveForward">
+            <text class="iconfont icon-up">↑</text>
+          </button>
+          <button class="btn-control btn-transparent"></button>
+        </view>
+        <view class="btn-row">
+          <button class="btn-control btn-direction" bindtap="moveLeft">
+            <text class="iconfont icon-left">←</text>
+          </button>
+          <button class="btn-control btn-stop" bindtap="stopMovement">
+            <text class="iconfont icon-stop">■</text>
+          </button>
+          <button class="btn-control btn-direction" bindtap="moveRight">
+            <text class="iconfont icon-right">→</text>
+          </button>
+        </view>
+        <view class="btn-row">
+          <button class="btn-control btn-transparent"></button>
+          <button class="btn-control btn-direction" bindtap="moveBackward">
+            <text class="iconfont icon-down">↓</text>
+          </button>
+          <button class="btn-control btn-transparent"></button>
+        </view>
+      </view>
+      
+      <!-- 添加速度控制滑块 -->
+      <view class="speed-control">
+        <text class="speed-label">电机速度：{{motorSpeed}}%</text>
+        <slider bindchange="changeMotorSpeed" min="0" max="100" value="{{motorSpeed}}" 
+                activeColor="#4CAF50" block-size="25" show-value="{{false}}" />
+        <view class="speed-indicators">
+          <text>慢</text>
+          <text>快</text>
+        </view>
+      </view>
+
+      <view class="action-controls">
+        <button class="btn-action" bindtap="startHarvesting">开始采摘</button>
+        <button class="btn-action" bindtap="pauseHarvesting">暂停采摘</button>
+        <button class="btn-action btn-emergency" bindtap="emergencyStop">紧急停止</button>
+      </view>
+    </view>
+
+    <view class="auto-panel" wx:else>
+      <view class="auto-status">
+        <text class="status-label">当前状态：</text>
+        <text class="status-value">{{autoStatus}}</text>
+      </view>
+      <view class="progress-container">
+        <progress percent="{{autoProgress}}" stroke-width="12" color="#4CAF50" active active-mode="forwards" />
+        <text class="progress-text">作业进度: {{autoProgress}}%</text>
+      </view>
+      <view class="auto-controls">
+        <button class="btn-auto btn-start" bindtap="startAutoMode">开始自动作业</button>
+        <button class="btn-auto btn-pause" bindtap="pauseAutoMode">暂停</button>
+        <button class="btn-auto btn-emergency" bindtap="emergencyStop">紧急停止</button>
+      </view>
+    </view>
+  </scroll-view>
+  
+  <!-- 连接控制 -->
+  <view class="connection-control">
+    <button class="btn-refresh {{connectionChecking ? 'checking' : ''}}" bindtap="refreshConnection" disabled="{{connectionChecking}}">
+      <text class="refresh-icon">⟳</text> {{connectionChecking ? '正在刷新...' : '刷新连接'}}
+    </button>
+  </view>
+</view>

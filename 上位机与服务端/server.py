@@ -59,6 +59,111 @@ adaptive_video_manager = None  # 自适应视频管理器实例
 daily_statistics = {}  # 格式: {robot_id: {date: {data}}}
 monthly_records = {}  # 格式: {robot_id: {year-month: [记录列表]}}
 
+# AI聊天相关
+ai_knowledge_base = {
+    "greeting": ["您好！我是AgriSage智能助手，专门为农业采摘机器人提供服务。", "欢迎使用AgriSage智能助手！有什么可以帮您的吗？"],
+    "robot_status": ["机器人当前运行状态良好，各项指标正常。", "设备连接正常，所有系统运行稳定。"],
+    "harvest_info": ["今天的采摘进展顺利，机器人工作效率很高。", "采摘准确率保持在95%以上，表现优异。"],
+    "weather": ["今天天气适合农作物采摘，机器人可以正常工作。", "当前环境条件良好，有利于自动化采摘作业。"],
+    "help": ["我可以帮您查看机器人状态、采摘数据、位置信息等。您有什么具体问题吗？", "我能为您提供设备监控、数据分析、操作指导等服务。"],
+    "default": ["感谢您的提问。我正在学习中，如有不当之处请见谅。您可以问我关于机器人状态、采摘数据等问题。", "抱歉，我可能没有完全理解您的问题。您可以尝试询问机器人状态、工作进度等相关信息。"]
+}
+
+
+# AI响应生成函数
+async def generate_ai_response(user_message: str, robot_id: str = "robot_123") -> str:
+    """
+    生成AI智能回复（模拟实现）
+    """
+    try:
+        # 模拟AI处理时间（1-3秒）
+        await asyncio.sleep(random.uniform(1.0, 3.0))
+        
+        message_lower = user_message.lower()
+        
+        # 关键词匹配逻辑
+        if any(word in message_lower for word in ["你好", "hi", "hello", "您好"]):
+            responses = ai_knowledge_base["greeting"]
+        elif any(word in message_lower for word in ["状态", "运行", "工作", "设备", "机器人"]):
+            # 获取实际机器人数据
+            robot_data = get_robot_data_for_ai(robot_id)
+            if robot_data:
+                battery = robot_data.get("battery_level", 85)
+                harvested = robot_data.get("today_harvested", 0)
+                status = "工作中" if robot_data.get("working", False) else "待机中"
+                return f"机器人当前状态：{status}，电池电量：{battery}%，今日采摘：{harvested}个。设备运行正常，各项指标稳定。"
+            else:
+                responses = ai_knowledge_base["robot_status"]
+        elif any(word in message_lower for word in ["采摘", "收获", "产量", "效率", "数据"]):
+            # 获取采摘相关数据
+            robot_data = get_robot_data_for_ai(robot_id)
+            if robot_data:
+                today = robot_data.get("today_harvested", 0)
+                total = robot_data.get("total_harvested", 0)
+                accuracy = robot_data.get("harvest_accuracy", 95)
+                return f"采摘数据统计：今日已采摘{today}个，累计采摘{total}个，采摘准确率{accuracy}%。工作效率良好，质量稳定。"
+            else:
+                responses = ai_knowledge_base["harvest_info"]
+        elif any(word in message_lower for word in ["天气", "环境", "气候"]):
+            responses = ai_knowledge_base["weather"]
+        elif any(word in message_lower for word in ["帮助", "功能", "能做什么", "怎么用"]):
+            responses = ai_knowledge_base["help"]
+        elif any(word in message_lower for word in ["位置", "坐标", "地点", "在哪"]):
+            robot_data = get_robot_data_for_ai(robot_id)
+            if robot_data:
+                location = robot_data.get("position", {}).get("location_name", "未知位置")
+                lng = robot_data.get("longitude", 108.2415)
+                lat = robot_data.get("latitude", 34.9385)
+                return f"机器人当前位置：{location}（经度：{lng:.4f}，纬度：{lat:.4f}）。定位系统工作正常。"
+            else:
+                return "机器人位置信息：当前位置定位中，GPS系统正在校准。"
+        elif any(word in message_lower for word in ["电量", "电池", "续航"]):
+            robot_data = get_robot_data_for_ai(robot_id)
+            if robot_data:
+                battery = robot_data.get("battery_level", 85)
+                if battery > 80:
+                    status = "电量充足"
+                elif battery > 50:
+                    status = "电量正常"
+                else:
+                    status = "电量偏低，建议及时充电"
+                return f"机器人电池状态：{battery}%，{status}。预计可连续工作{int(battery/10)}小时。"
+            else:
+                return "机器人电池状态：85%，电量充足，可正常工作。"
+        else:
+            responses = ai_knowledge_base["default"]
+        
+        # 随机选择一个回复
+        response = random.choice(responses)
+        
+        # 添加个性化元素
+        if random.random() < 0.3:  # 30%概率添加额外信息
+            extra_info = [
+                "如需更详细信息，请查看统计页面。",
+                "有其他问题可以随时询问我。",
+                "建议定期检查设备状态确保正常运行。",
+                "您可以在控制中心查看实时视频。"
+            ]
+            response += " " + random.choice(extra_info)
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"生成AI回复时出错: {e}")
+        return "抱歉，我暂时无法处理您的问题，请稍后重试。"
+
+def get_robot_data_for_ai(robot_id: str) -> dict:
+    """
+    获取机器人数据用于AI回复
+    """
+    try:
+        if robot_id in robots and "data" in robots[robot_id]:
+            return robots[robot_id]["data"]
+        return None
+    except Exception as e:
+        logger.error(f"获取机器人数据出错: {e}")
+        return None
+
 
 # 命令监听器
 class ServerCommandListener(CommandListener):
@@ -418,8 +523,25 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
                     command = message.get("command")
                     params = message.get("params", {})
 
-                    if robot_id in robots:
+                    # 检查是否是模式切换命令
+                    if command in ["switch_to_auto", "switch_to_manual"]:
+                        # 调用专门处理模式切换的函数
+                        asyncio.create_task(forward_mode_command(robot_id, command))
+                        # 向客户端发送确认
+                        await websocket.send_json({
+                            "type": "command_result",
+                            "result": "success",
+                            "message": "模式切换命令已发送"
+                        })
+                    elif robot_id in robots:
+                        # 转发其他命令
                         await forward_command_to_robot(robot_id, command, params)
+                        # 向客户端发送确认
+                        await websocket.send_json({
+                            "type": "command_result",
+                            "result": "success",
+                            "message": "命令已发送"
+                        })
                     else:
                         await websocket.send_json({
                             "type": "command_result",
@@ -563,6 +685,146 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
                             "message": "机器人不在线，无法请求视频流"
                         })
 
+                elif message_type == "get_position":
+                    # 处理位置数据请求
+                    robot_id = message.get("robot_id")
+                    if robot_id in robots and "data" in robots[robot_id]:
+                        robot_data = robots[robot_id]["data"]
+
+                        # 构建位置数据
+                        position_data = {
+                            "longitude": robot_data.get("longitude", 108.2415),
+                            "latitude": robot_data.get("latitude", 34.9385),
+                            "location_name": robot_data.get("position", {}).get("location_name", "未知位置"),
+                            "work_status": robot_data.get("work_status", {}),
+                            "speed": robot_data.get("speed", 0),
+                            "route_history": robot_data.get("route_history", [])
+                        }
+
+                        await websocket.send_json({
+                            "type": "position_update",
+                            "data": position_data
+                        })
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "未找到机器人位置数据"
+                        })
+
+                elif message_type == "get_position_history":
+                    # 处理位置历史请求
+                    robot_id = message.get("robot_id")
+                    date = message.get("date")
+
+                    if robot_id in robots and "data" in robots[robot_id]:
+                        # 获取当前的采摘点历史
+                        robot_data = robots[robot_id]["data"]
+                        harvest_points = robot_data.get("harvest_points", [])
+
+                        # 转换为位置历史格式
+                        history_positions = []
+                        for point in harvest_points:
+                            if "position" in point:
+                                history_positions.append({
+                                    "longitude": point["position"].get("longitude", 108.2415),
+                                    "latitude": point["position"].get("latitude", 34.9385),
+                                    "time": point.get("time", "")
+                                })
+
+                        # 发送位置历史
+                        await websocket.send_json({
+                            "type": "position_history",
+                            "positions": history_positions
+                        })
+                    else:
+                        # 如果没有数据，发送空历史
+                        await websocket.send_json({
+                            "type": "position_history",
+                            "positions": []
+                        })
+
+                elif message_type == "get_route_history":
+                    # 处理路线历史请求
+                    robot_id = message.get("robot_id")
+                    date = message.get("date")
+
+                    if robot_id in robots and "data" in robots[robot_id]:
+                        # 获取路线历史
+                        robot_data = robots[robot_id]["data"]
+                        route_history = robot_data.get("route_history", [])
+
+                        # 确保格式正确
+                        formatted_routes = []
+                        for route in route_history:
+                            formatted_routes.append({
+                                "time": route.get("time", "--:--"),
+                                "location": route.get("location", "未知位置")
+                            })
+
+                        # 如果没有路线历史，创建默认的
+                        if not formatted_routes:
+                            formatted_routes = [{
+                                "time": time.strftime("%H:%M"),
+                                "location": "等待开始作业"
+                            }]
+
+                        # 发送路线历史
+                        await websocket.send_json({
+                            "type": "route_history",
+                            "routes": formatted_routes
+                        })
+                    else:
+                        # 发送默认路线
+                        await websocket.send_json({
+                            "type": "route_history",
+                            "routes": [{
+                                "time": time.strftime("%H:%M"),
+                                "location": "等待开始作业"
+                            }]
+                        })
+
+                elif message_type == "ai_chat_request":
+                    # 处理AI聊天请求
+                    user_message = message.get("message", "").strip()
+                    timestamp = message.get("timestamp", int(time.time() * 1000))  # 保存客户端的timestamp
+                    robot_id = message.get("robot_id", "robot_123")
+
+                    logger.info(f"收到AI聊天请求 - 客户端: {client_id}, 消息: {user_message[:50]}...")
+
+                    try:
+                        # 验证消息内容
+                        if not user_message:
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": "消息内容不能为空",
+                                "context": "ai_chat",
+                                "timestamp": timestamp  # 返回原始timestamp
+                            })
+                            continue
+
+                        # 生成AI响应（模拟实现）
+                        ai_response = await generate_ai_response(user_message, robot_id)
+
+                        # 发送AI回复 - 重要：必须返回客户端的原始timestamp
+                        await websocket.send_json({
+                            "type": "ai_chat_response",
+                            "message": ai_response,
+                            "timestamp": timestamp,  # 使用客户端发送的原始timestamp
+                            "status": "success",
+                            "robot_id": robot_id
+                        })
+
+                        logger.info(f"AI回复已发送 - 客户端: {client_id}, 回复长度: {len(ai_response)}字符")
+
+                    except Exception as e:
+                        logger.error(f"处理AI聊天请求出错: {e}")
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "AI服务暂时不可用，请稍后重试",
+                            "context": "ai_chat",
+                            "timestamp": timestamp  # 错误时也要返回原始timestamp
+                        })
+
             except json.JSONDecodeError:
                 logger.error(f"收到无效JSON: {data}")
             except Exception as e:
@@ -572,6 +834,47 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
         logger.info(f"微信客户端 {client_id} 已断开连接")
         # 清理客户端连接
         await handle_client_disconnect(client_id)
+
+
+# 将模式切换命令转换为机器人可以理解的格式并转发
+async def forward_mode_command(robot_id, mode_command):
+    """
+    将模式切换命令转换为机器人可以理解的格式并转发
+    :param robot_id: 机器人ID
+    :param mode_command: 模式命令(switch_to_auto 或 switch_to_manual)
+    :return: 成功返回True，失败返回False
+    """
+    # 根据命令类型决定要发送的模式
+    if mode_command == "switch_to_auto":
+        mode = "auto"
+        harvest = True
+    elif mode_command == "switch_to_manual":
+        mode = "manual"
+        harvest = False
+    else:
+        logger.warning(f"未知的模式命令: {mode_command}")
+        return False
+
+    # 创建模式控制消息
+    mode_message = {
+        "type": "mode_control",
+        "mode": mode,
+        "harvest": harvest
+    }
+
+    # 发送到机器人
+    async with lock:
+        if robot_id in robots and "websocket" in robots[robot_id]:
+            try:
+                await robots[robot_id]["websocket"].send_json(mode_message)
+                logger.info(f"向机器人 {robot_id} 转发模式切换命令: {mode}")
+                return True
+            except Exception as e:
+                logger.error(f"向机器人 {robot_id} 转发模式切换命令失败: {e}")
+                return False
+        else:
+            logger.warning(f"找不到机器人 {robot_id}")
+            return False
 
 
 # 新增：客户端断开连接处理函数
@@ -797,34 +1100,19 @@ async def connect_client_to_robot(client_id, robot_id):
 async def broadcast_statistics_update(robot_id):
     async with lock:
         if robot_id in robot_to_clients and robot_id in robots and "data" in robots[robot_id]:
-            # 获取路径历史数据
-            route_history = []
-            if "route_history" in robots[robot_id]["data"]:
-                route_history = robots[robot_id]["data"]["route_history"]
+            robot_data = robots[robot_id]["data"]
 
-            # 如果机器人数据中没有路径历史，但有位置信息，创建一个临时记录
-            if not route_history and "position" in robots[robot_id]["data"]:
-                position = robots[robot_id]["data"]["position"]
-                if "location_name" in position:
-                    current_time = datetime.datetime.now().strftime("%H:%M")
-                    route_history = [{
-                        "time": current_time,
-                        "location": position["location_name"]
-                    }]
+            # 确保数据包含所有必需字段
+            if "route_history" not in robot_data:
+                robot_data["route_history"] = []
 
-            # 确保路径历史格式正确
-            formatted_route_history = []
-            for record in route_history:
-                if isinstance(record, dict):
-                    formatted_record = {
-                        "time": record.get("time", "--:--"),
-                        "location": record.get("location", "未知位置")
-                    }
-                    formatted_route_history.append(formatted_record)
-
-            # 组装要发送给客户端的数据
-            client_data = robots[robot_id]["data"].copy()
-            client_data["route_history"] = formatted_route_history
+            # 如果没有路线历史，创建一个基本的
+            if not robot_data["route_history"] and "position" in robot_data:
+                position = robot_data["position"]
+                robot_data["route_history"] = [{
+                    "time": time.strftime("%H:%M"),
+                    "location": position.get("location_name", "当前位置")
+                }]
 
             # 向所有关联的客户端发送数据
             for client_id in robot_to_clients[robot_id]:
@@ -832,10 +1120,110 @@ async def broadcast_statistics_update(robot_id):
                     try:
                         await clients[client_id]["websocket"].send_json({
                             "type": "statistics_update",
-                            "data": client_data
+                            "data": robot_data
                         })
                     except Exception as e:
                         logger.error(f"向客户端 {client_id} 发送统计数据更新失败: {e}")
+
+
+async def generate_test_data(robot_id):
+    """生成测试统计数据"""
+    import random
+    import math
+
+    # 基础数据
+    base_time = time.time()
+    working_hours = random.uniform(1.0, 8.0)
+
+    # 生成采摘点历史
+    harvest_points = []
+    for i in range(10):
+        point_time = time.strftime("%H:%M", time.localtime(base_time - (9 - i) * 600))
+        harvest_points.append({
+            "time": point_time,
+            "location": f"N34.{938500 + i * 100}, E108.{241500 + i * 100}",
+            "position": {
+                "longitude": 108.2415 + i * 0.001,
+                "latitude": 34.9385 + i * 0.001
+            }
+        })
+
+    # 生成路线历史
+    route_history = []
+    for i in range(5):
+        route_time = time.strftime("%H:%M", time.localtime(base_time - (4 - i) * 1800))
+        route_history.append({
+            "time": route_time,
+            "location": f"采摘区 {chr(65 + i)}-{random.randint(1, 20)}"
+        })
+
+    # 生成统计数据
+    test_data = {
+        "today_harvested": random.randint(100, 500),
+        "working_area": round(random.uniform(1.0, 5.0), 2),
+        "working_hours": round(working_hours, 2),
+        "total_harvested": random.randint(1000, 5000),
+        "total_area": round(random.uniform(10.0, 50.0), 1),
+        "total_hours": round(working_hours * 10, 1),
+        "harvest_accuracy": round(random.uniform(92.0, 98.0), 1),
+        "battery_level": random.randint(20, 100),
+        "longitude": 108.2415 + random.uniform(-0.01, 0.01),
+        "latitude": 34.9385 + random.uniform(-0.01, 0.01),
+        "speed": round(random.uniform(0.0, 0.5), 2),
+        "position": {
+            "longitude": 108.2415 + random.uniform(-0.01, 0.01),
+            "latitude": 34.9385 + random.uniform(-0.01, 0.01),
+            "location_name": f"苹果园区3号地块 {chr(random.randint(65, 68))}-{random.randint(1, 20)} 区域"
+        },
+        "work_status": {
+            "mode": random.choice(["harvesting", "moving", "idle"]),
+            "status": "active"
+        },
+        "route_history": route_history,
+        "harvest_points": harvest_points,
+        "cpu_usage": random.randint(10, 80),
+        "timestamp": int(time.time() * 1000)
+    }
+
+    return test_data
+
+
+async def test_data_generator_task():
+    """定期生成测试数据"""
+    test_robot_id = "robot_123"
+
+    # 模拟机器人连接
+    async with lock:
+        robots[test_robot_id] = {
+            "websocket": None,  # 测试模式下没有实际WebSocket
+            "last_active": datetime.datetime.now(),
+            "data": {},
+            "connection_id": f"{test_robot_id}_test"
+        }
+
+    # 通知客户端机器人已连接
+    await broadcast_robot_status(test_robot_id, True)
+
+    while True:
+        try:
+            # 生成测试数据
+            test_data = await generate_test_data(test_robot_id)
+
+            # 更新机器人数据
+            async with lock:
+                if test_robot_id in robots:
+                    robots[test_robot_id]["data"] = test_data
+                    robots[test_robot_id]["last_active"] = datetime.datetime.now()
+
+            # 广播数据更新
+            await broadcast_statistics_update(test_robot_id)
+
+            # 每10秒更新一次
+            await asyncio.sleep(10)
+
+        except Exception as e:
+            logger.error(f"测试数据生成错误: {e}")
+            await asyncio.sleep(10)
 
 
 # 保存每日统计数据
@@ -1011,6 +1399,10 @@ async def startup_event():
 
     # 启动连接监控
     asyncio.create_task(connection_monitor())
+    
+    # 启动测试数据生成器（可选，如果需要在没有真实机器人时测试）
+    # 取消下面一行的注释来启用测试数据生成
+    # asyncio.create_task(test_data_generator_task())
 
 
 # 关闭事件

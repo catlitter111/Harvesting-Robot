@@ -26,6 +26,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "bsp_system.h"
+#include "../../hardware/config.h"
+#include "../../hardware/pid_motor.h"
+#include "../../hardware/encoder.h"
+#include "../../hardware/pid_test.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -93,10 +97,22 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  // 基础模块初始化
   scheduler_init();
   Motor_Init();
   uart_init();
   gps_init();
+  
+  // PID控制系统初始化
+  Encoder_Init();              // 编码器初始化(必须在PID前)
+  FourWheel_PID_Init();        // 四轮PID控制器初始化
+  Robot_Enable_PID(1);         // 启用PID控制
+  PID_Test_Init();             // PID测试模块初始化
+  
+  #ifdef DEBUG
+  DEBUG_PRINTF("系统初始化完成 - %s", COPYRIGHT_INFO);
+  DEBUG_PRINTF("PID配置: Kp=%.2f, Ki=%.3f, Kd=%.2f", PID_KP_DEFAULT, PID_KI_DEFAULT, PID_KD_DEFAULT);
+  #endif
   /* USER CODE END 2 */
 
   /* Infinite loop */

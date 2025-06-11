@@ -1,0 +1,47 @@
+<!--聊天页面布局-->
+<view class="chat-container">
+  <!-- 连接状态提示 -->
+  <view class="connection-status" wx:if="{{!connected}}">
+    <text>网络连接已断开，请检查网络设置</text>
+  </view>
+  
+    <!-- 消息列表区域 -->
+  <scroll-view class="message-list" scroll-y="true" scroll-top="{{scrollTop}}" scroll-into-view="{{scrollIntoView}}" enable-back-to-top="true">
+    <block wx:for="{{messages}}" wx:key="id">
+      <view class="message-item {{item.type}}" id="msg-{{item.id}}">
+        <view class="message-bubble">
+          <!-- 消息内容区域 -->
+          <view class="message-content">
+            <text class="message-text" decode="true">{{item.expanded || item.text.length <= 200 ? item.text : item.text.substring(0, 200) + '...'}}</text>
+            
+            <!-- 展开/收起按钮 -->
+            <view class="expand-btn" wx:if="{{item.text.length > 200}}" bindtap="toggleMessage" data-id="{{item.id}}">
+              <text class="expand-text">{{item.expanded ? '收起' : '展开'}}</text>
+            </view>
+          </view>
+          
+          <!-- 消息信息区域 -->
+          <view class="message-info">
+            <text class="message-time">{{item.time}}</text>
+            <view class="message-status" wx:if="{{item.type === 'user'}}">
+               <image class="status-icon" src="{{item.status === 'sending' ? '/images/loading.png' : item.status === 'success' ? '/images/success.png' : '/images/error.png'}}" />
+               <text class="retry-btn" wx:if="{{item.status === 'error'}}" bindtap="retryMessage" data-id="{{item.id}}">重发</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+    
+    <!-- 消息列表底部占位 -->
+    <view class="message-list-bottom"></view>
+  </scroll-view>
+  
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <input class="message-input" type="text" placeholder="输入您的问题..." value="{{inputText}}" bindinput="onInputChange" confirm-type="send" bindconfirm="sendMessage" />
+    <button class="send-button" bindtap="sendMessage" disabled="{{!inputText || sending}}">
+      <text wx:if="{{!sending}}">发送</text>
+             <image wx:else class="loading-icon" src="/images/loading.png" />
+    </button>
+  </view>
+</view> 

@@ -2,6 +2,8 @@
 #include "ringbuffer.h"
 #include "motor.h"
 #include "gps_app.h"  // 添加GPS头文件
+#include "../hardware/pid_test.h"
+#include "../hardware/pid_motor.h"
 
 // DMA接收缓冲区
 uint8_t uart_dma_buff[256] = {0};
@@ -16,7 +18,7 @@ static UartPacket packet = {0};
 // 小车当前状态
 static uint8_t current_direction = DIR_STOP;
 static uint8_t current_speed = 50;
-static int8_t motor_speeds[MOTOR_COUNT] = {0, 0, 0, 0};
+static int8_t motor_speeds[MOTOR_COUNT_NUM] = {0, 0, 0, 0};
 // 经纬度信息
 float current_latitude = 0.0f;
 float current_longitude = 0.0f;
@@ -80,7 +82,7 @@ void uart_init(void) {
 
 // 执行命令
 void execute_command(UartPacket *pkt) {
-    uint8_t response[5] = {0};
+    uint8_t response[20] = {0};
     
     switch(pkt->cmd) {
         case CMD_SET_DIRECTION:
@@ -155,7 +157,7 @@ void execute_command(UartPacket *pkt) {
                 int8_t speed = (int8_t)pkt->data[1];
                 uint8_t direction = pkt->data[2];
                 
-                if(motor_id < MOTOR_COUNT) {
+                if(motor_id < MOTOR_COUNT_NUM) {
                     // 根据方向设置速度值的正负
                     if(direction == DIR_BACKWARD) {
                         speed = -speed;
@@ -218,6 +220,51 @@ void execute_command(UartPacket *pkt) {
             }
             break;
             
+        case CMD_PID_TEST:
+            if(pkt->length >= 2) {
+                uint8_t test_mode = pkt->data[0];
+                uint8_t speed = pkt->data[1];
+                
+                switch(test_mode) {
+                    case 0: PID_Test_Stop(); break;
+                    case 1: PID_Test_Start(PID_TEST_FORWARD, speed); break;
+                    case 2: PID_Test_Start(PID_TEST_BACKWARD, speed); break;
+                    case 3: PID_Test_Start(PID_TEST_LEFT_TURN, speed); break;
+                    case 4: PID_Test_Start(PID_TEST_CIRCLE, speed); break;
+                    case 5: PID_Test_Start(PID_TEST_ACCEL_BRAKE, speed); break;
+                    case 6: PID_Test_Sequence(); break;
+                    default: printf("无效测试模式: %d\r\n", test_mode); break;
+                }
+                
+                response[0] = test_mode;
+                response[1] = speed;
+                uart_send_packet(CMD_PID_TEST, response, 2);
+            } else {
+                printf("Error: CMD_PID_TEST requires 2 data bytes\r\n");
+                uart_send_ack(pkt->cmd, 0xFE);
+            }
+            break;
+            
+        case CMD_PID_PARAMS:
+            if(pkt->length >= 12) {
+                // 解析PID参数(每个参数4字节浮点数)
+                float kp, ki, kd;
+                memcpy(&kp, &pkt->data[0], 4);
+                memcpy(&ki, &pkt->data[4], 4);
+                memcpy(&kd, &pkt->data[8], 4);
+                
+                Robot_Set_PID_Params(kp, ki, kd);
+                printf("PID参数更新: Kp=%.3f, Ki=%.3f, Kd=%.3f\r\n", kp, ki, kd);
+                
+                // 发送确认
+                memcpy(response, pkt->data, 12);
+                uart_send_packet(CMD_PID_PARAMS, response, 12);
+            } else {
+                printf("Error: CMD_PID_PARAMS requires 12 data bytes\r\n");
+                uart_send_ack(pkt->cmd, 0xFE);
+            }
+            break;
+            
         default:
             // 未知命令，发送错误响应
             uart_send_ack(pkt->cmd, 0xFF);
@@ -241,7 +288,7 @@ void uart_send_status(void) {
     status[1] = current_speed;      // 当前速度
     
     // 添加四个电机的速度状态
-    for(int i = 0; i < MOTOR_COUNT; i++) {
+    for(int i = 0; i < MOTOR_COUNT_NUM; i++) {
         status[i+2] = (uint8_t)fabs(motor_speeds[i]);  // 发送绝对值
     }
     

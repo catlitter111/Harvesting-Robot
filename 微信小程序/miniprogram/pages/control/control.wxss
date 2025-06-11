@@ -1,0 +1,536 @@
+/* pages/control/control.wxss */
+/* 主容器样式 */
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #f6f6f6;
+    padding: 0;
+    
+  }
+  
+  /* 视频部分 - 调整高度和位置 */
+  .video-container {
+    width: 100%;
+    height: 40vh;  /* 减小高度，从45vh改为40vh */
+    min-height: 280rpx;
+    max-height: 450rpx;
+    background-color: #fff;
+    border-bottom: 1rpx solid #eee;
+    position: relative;
+    box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+    margin-top: -10rpx;  /* 轻微上移，确保内容完整显示 */
+  }
+  
+  .video-placeholder {
+    width: 100%;
+    height: calc(100% - 50rpx);  /* 减小底部信息栏的高度 */
+    background-color: #2c2c2c;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .video-placeholder image {
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* 视频占位符状态样式 */
+  .no-connection {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+  
+  .no-connection image {
+    width: 120rpx;
+    height: 120rpx;
+    margin-bottom: 20rpx;
+    opacity: 0.7;
+  }
+  
+  .no-connection text {
+    color: white;
+    font-size: 28rpx;
+  }
+  
+  .loading-connection {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+  
+  .loading-connection image {
+    width: 80rpx;
+    height: 80rpx;
+    margin-bottom: 20rpx;
+  }
+  
+  .loading-connection text {
+    color: white;
+    font-size: 28rpx;
+  }
+  
+  /* 旋转动画 */
+  @keyframes rotating {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  .rotating {
+    animation: rotating 2s linear infinite;
+  }
+  
+  /* 连接状态样式 */
+  .connection-status {
+    position: absolute;
+    top: 20rpx;
+    right: 20rpx;
+    padding: 8rpx 20rpx;
+    border-radius: 30rpx;
+    font-size: 24rpx;
+    color: white;
+  }
+  
+  .connection-status.connected {
+    background-color: rgba(76, 175, 80, 0.7);
+  }
+  
+  .connection-status.disconnected {
+    background-color: rgba(244, 67, 54, 0.7);
+  }
+  
+  .video-info {
+    height: 50rpx;  /* 从60rpx减小到50rpx */
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 20rpx;
+    background-color: white;
+    font-size: 24rpx;  /* 稍微减小字体 */
+  }
+  
+  .info-item {
+    display: flex;
+    align-items: center;
+  }
+  
+  .label {
+    font-size: 24rpx;
+    color: #666;
+    margin-right: 10rpx;
+  }
+  
+  .value {
+    font-size: 26rpx;
+    color: #333;
+    font-weight: 500;
+  }
+  
+  .value.online {
+    color: #4CAF50;
+  }
+  
+  .value.offline {
+    color: #F44336;
+  }
+  
+  /* 视频质量相关样式 */
+  .video-quality-indicator {
+    position: absolute;
+    bottom: 20rpx;
+    left: 20rpx;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10rpx 20rpx;
+    border-radius: 10rpx;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .quality-label {
+    color: white;
+    font-size: 24rpx;
+    margin-bottom: 4rpx;
+  }
+  
+  .quality-stats {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 20rpx;
+  }
+  
+  .quality-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    background-color: white;
+    border-radius: 20rpx;
+    box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    padding: 30rpx;
+  }
+  
+  .quality-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30rpx;
+    padding-bottom: 20rpx;
+    border-bottom: 2rpx solid #f0f0f0;
+  }
+  
+  .quality-panel-title {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .auto-quality-switch {
+    display: flex;
+    align-items: center;
+    font-size: 28rpx;
+    color: #666;
+  }
+  
+  .auto-quality-switch text {
+    margin-right: 10rpx;
+  }
+  
+  .quality-presets {
+    margin-bottom: 20rpx;
+  }
+  
+  .quality-preset-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20rpx;
+    border-bottom: 2rpx solid #f0f0f0;
+  }
+  
+  .quality-preset-item.active {
+    background-color: rgba(76, 175, 80, 0.1);
+    border-radius: 10rpx;
+  }
+  
+  .preset-name {
+    font-size: 28rpx;
+    color: #333;
+    font-weight: 500;
+  }
+  
+  .preset-info {
+    font-size: 24rpx;
+    color: #999;
+  }
+  
+  .quality-stats-panel {
+    background-color: #f9f9f9;
+    padding: 20rpx;
+    border-radius: 10rpx;
+    margin-bottom: 20rpx;
+  }
+  
+  .stats-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10rpx;
+  }
+  
+  .stats-label {
+    width: 180rpx;
+    font-size: 24rpx;
+    color: #666;
+  }
+  
+  .stats-item progress {
+    flex: 1;
+    margin: 0 10rpx;
+  }
+  
+  .stats-value {
+    font-size: 24rpx;
+    color: #333;
+    min-width: 80rpx;
+    text-align: right;
+  }
+  
+  .close-panel-btn {
+    background-color: #4CAF50;
+    color: white;
+    font-size: 28rpx;
+    border-radius: 40rpx;
+    margin-top: 10rpx;
+  }
+  
+  /* 控制部分 */
+  .control-container {
+    flex: 1;
+    width: 100%;
+    padding: 30rpx;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+  
+  /* 控制容器禁用样式 */
+  .control-container.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30rpx;
+  }
+  
+  .title {
+    font-size: 34rpx;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .mode-switch {
+    display: flex;
+    align-items: center;
+    font-size: 26rpx;
+    color: #666;
+  }
+  
+  .mode-switch text {
+    margin: 0 10rpx;
+  }
+  
+  .mode-switch text.active {
+    color: #4CAF50;
+    font-weight: 500;
+  }
+  
+  /* 手动控制面板 */
+  .control-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .direction-controls {
+    width: 100%;
+    margin-bottom: 20rpx;
+  }
+  
+  .btn-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20rpx;
+  }
+  
+  .btn-control {
+    width: 140rpx;
+    height: 140rpx;
+    margin: 0 20rpx;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    font-size: 60rpx;
+  }
+  
+  .btn-direction {
+    background-color: #4CAF50;
+    color: white;
+    box-shadow: 0 4rpx 8rpx rgba(76, 175, 80, 0.3);
+  }
+  
+  .btn-stop {
+    background-color: #ff5722;
+    color: white;
+    box-shadow: 0 4rpx 8rpx rgba(255, 87, 34, 0.3);
+  }
+  
+  .btn-transparent {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  
+  /* 速度控制样式 */
+  .speed-control {
+    width: 90%;
+    margin: 10rpx auto 30rpx;
+    padding: 20rpx;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 15rpx;
+    box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+  }
+  
+  .speed-label {
+    display: block;
+    font-size: 28rpx;
+    color: #333;
+    margin-bottom: 15rpx;
+    text-align: center;
+    font-weight: 500;
+  }
+  
+  .speed-indicators {
+    display: flex;
+    justify-content: space-between;
+    font-size: 24rpx;
+    color: #666;
+    margin-top: 5rpx;
+  }
+  
+  .action-controls {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+  }
+  
+  .btn-action {
+    width: 200rpx;
+    height: 80rpx;
+    margin: 20rpx 10rpx;
+    font-size: 28rpx;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 40rpx;
+    background-color: #4CAF50;
+    color: white;
+    box-shadow: 0 4rpx 8rpx rgba(76, 175, 80, 0.3);
+  }
+  
+  .btn-emergency {
+    background-color: #f44336;
+    box-shadow: 0 4rpx 8rpx rgba(244, 67, 54, 0.3);
+  }
+  
+  /* 自动模式面板 */
+  .auto-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30rpx 0;
+  }
+  
+  .auto-status {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 40rpx;
+  }
+  
+  .status-label {
+    font-size: 30rpx;
+    color: #666;
+  }
+  
+  .status-value {
+    font-size: 32rpx;
+    color: #4CAF50;
+    font-weight: bold;
+  }
+  
+  .progress-container {
+    width: 90%;
+    margin-bottom: 40rpx;
+  }
+  
+  progress {
+    margin-bottom: 10rpx;
+  }
+  
+  .progress-text {
+    display: block;
+    text-align: center;
+    font-size: 28rpx;
+    color: #666;
+  }
+  
+  .auto-controls {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+  }
+  
+  .btn-auto {
+    width: 200rpx;
+    height: 80rpx;
+    font-size: 28rpx;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 40rpx;
+  }
+  
+  .btn-start {
+    background-color: #4CAF50;
+    color: white;
+    box-shadow: 0 4rpx 8rpx rgba(76, 175, 80, 0.3);
+  }
+  
+  .btn-pause {
+    background-color: #FF9800;
+    color: white;
+    box-shadow: 0 4rpx 8rpx rgba(255, 152, 0, 0.3);
+  }
+  
+  /* 为方向按钮准备的图标 */
+  .iconfont {
+    font-family: sans-serif;
+    font-style: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* 连接控制部分 */
+  .connection-control {
+    padding: 20rpx 0;
+    background-color: #fff;
+    border-top: 1rpx solid #eee;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  /* 刷新按钮样式 */
+  .btn-refresh {
+    font-size: 28rpx;
+    color: white;
+    background-color: #4CAF50;
+    border-radius: 40rpx;
+    padding: 10rpx 30rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 240rpx;
+  }
+  
+  .btn-refresh.checking {
+    background-color: #999;
+  }
+  
+  .refresh-icon {
+    margin-right: 10rpx;
+    font-size: 32rpx;
+  }
+  
+  .btn-refresh.checking .refresh-icon {
+    animation: rotating 1s linear infinite;
+  }

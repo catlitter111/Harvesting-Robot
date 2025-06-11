@@ -1,0 +1,236 @@
+<!-- pages/statistics/statistics.wxml -->
+<view class="container">
+  <view class="header">
+    <view class="date-selector">
+      <picker mode="date" value="{{currentDate}}" start="2023-01-01" end="2025-12-31" bindchange="dateChange">
+        <view class="picker-view">
+          <text class="selected-date">{{currentDate}}</text>
+          <text class="icon-calendar">▼</text>
+        </view>
+      </picker>
+    </view>
+    <view class="summary-bar">
+      <view class="summary-item">
+        <text class="summary-value">{{todayHarvested}}</text>
+        <text class="summary-label">今日采摘(个)</text>
+      </view>
+      <view class="divider"></view>
+      <view class="summary-item">
+        <text class="summary-value">{{todayArea}}</text>
+        <text class="summary-label">作业面积(亩)</text>
+      </view>
+      <view class="divider"></view>
+      <view class="summary-item">
+        <text class="summary-value">{{todayHours}}</text>
+        <text class="summary-label">工作时长(h)</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="content">
+    <view class="tab-header">
+      <view class="tab {{currentTab === 'overview' ? 'active' : ''}}" bindtap="switchTab" data-tab="overview">数据概览</view>
+      <view class="tab {{currentTab === 'position' ? 'active' : ''}}" bindtap="switchTab" data-tab="position">实时位置</view>
+      <view class="tab {{currentTab === 'history' ? 'active' : ''}}" bindtap="switchTab" data-tab="history">历史记录</view>
+    </view>
+
+    <!-- 数据概览 -->
+    <view class="tab-content" wx:if="{{currentTab === 'overview'}}">
+      <view class="chart-container">
+        <view class="chart-title">采摘数量统计（近7天）</view>
+        <view class="chart-data-table">
+          <view class="table-header">
+            <view class="table-col-header">日期</view>
+            <view class="table-col-header">采摘量(个)</view>
+            <view class="table-col-header">面积(亩)</view>
+            <view class="table-col-header">工时(h)</view>
+            <view class="table-col-header">效率</view>
+          </view>
+          <view class="table-body">
+            <view class="table-row" wx:for="{{weeklyData}}" wx:key="date">
+              <view class="table-col">{{item.dateDisplay}}</view>
+              <view class="table-col">{{item.harvested}}</view>
+              <view class="table-col">{{item.area}}</view>
+              <view class="table-col">{{item.hours}}</view>
+              <view class="table-col">
+                <view class="efficiency-bar">
+                  <view class="efficiency-fill" style="width: {{item.efficiency}}%"></view>
+                  <text class="efficiency-text">{{item.efficiency}}%</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          <view class="table-summary">
+            <view class="summary-text">
+              <text>7日总计: </text>
+              <text class="summary-value">{{weeklyTotal.harvested}}个</text>
+              <text> | </text>
+              <text class="summary-value">{{weeklyTotal.area}}亩</text>
+              <text> | </text>
+              <text class="summary-value">{{weeklyTotal.hours}}小时</text>
+              <text> | 平均效率: </text>
+              <text class="summary-value">{{weeklyTotal.avgEfficiency}}%</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="data-grid">
+        <view class="grid-item">
+          <view class="grid-icon icon-fruit"></view>
+          <view class="grid-data">
+            <text class="grid-value">{{totalHarvested}}</text>
+            <text class="grid-label">总采摘量(个)</text>
+          </view>
+        </view>
+        <view class="grid-item">
+          <view class="grid-icon icon-area"></view>
+          <view class="grid-data">
+            <text class="grid-value">{{totalArea}}</text>
+            <text class="grid-label">总作业面积(亩)</text>
+          </view>
+        </view>
+        <view class="grid-item">
+          <view class="grid-icon icon-accuracy"></view>
+          <view class="grid-data">
+            <text class="grid-value">{{harvestAccuracy}}%</text>
+            <text class="grid-label">采摘准确率</text>
+          </view>
+        </view>
+        <view class="grid-item">
+          <view class="grid-icon icon-time"></view>
+          <view class="grid-data">
+            <text class="grid-value">{{totalHours}}</text>
+            <text class="grid-label">总工作时长(h)</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="chart-container">
+        <view class="chart-title">设备健康状态</view>
+        <view class="health-status">
+          <view class="health-item">
+            <text class="health-label">电池状态:</text>
+            <progress percent="{{batteryHealth}}" stroke-width="4" activeColor="{{batteryHealth > 60 ? '#4CAF50' : '#FF9800'}}" backgroundColor="#eee" />
+            <text class="health-value">{{batteryHealth}}%</text>
+          </view>
+          <view class="health-item">
+            <text class="health-label">摄像头状态:</text>
+            <progress percent="{{cameraHealth}}" stroke-width="4" activeColor="{{cameraHealth > 60 ? '#4CAF50' : '#FF9800'}}" backgroundColor="#eee" />
+            <text class="health-value">{{cameraHealth}}%</text>
+          </view>
+          <view class="health-item">
+            <text class="health-label">机械臂状态:</text>
+            <progress percent="{{armHealth}}" stroke-width="4" activeColor="{{armHealth > 60 ? '#4CAF50' : '#FF9800'}}" backgroundColor="#eee" />
+            <text class="health-value">{{armHealth}}%</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 实时位置 -->
+    <view class="tab-content" wx:if="{{currentTab === 'position'}}">
+      <view class="map-container">
+        <!-- 使用微信地图组件 -->
+        <map id="robotMap"
+            longitude="{{longitude}}" 
+            latitude="{{latitude}}"
+            scale="18"
+            markers="{{markers}}"
+            polyline="{{polyline}}"
+            polygons="{{polygons}}"
+            show-location
+            enable-rotate
+            class="map-component">
+        </map>
+        
+        <view class="map-controls">
+          <button class="map-btn" bindtap="zoomIn"><text class="map-btn-icon">+</text></button>
+          <button class="map-btn" bindtap="zoomOut"><text class="map-btn-icon">-</text></button>
+          <button class="map-btn" bindtap="centerOnRobot"><text class="map-btn-icon">⊙</text></button>
+          <button class="map-btn" bindtap="showWorkArea"><text class="map-btn-icon">◎</text></button>
+        </view>
+        
+        <view class="location-info">
+          <view class="location-item">
+            <text class="location-label">当前位置:</text>
+            <text class="location-value">{{locationName}}</text>
+          </view>
+          <view class="location-item">
+            <text class="location-label">坐标:</text>
+            <text class="location-value">{{formattedCoordinates}}</text>
+          </view>
+          <view class="location-item">
+            <text class="location-label">移动状态:</text>
+            <text class="location-value">{{movementStatus}}</text>
+          </view>
+          <view class="location-item">
+            <text class="location-label">更新时间:</text>
+            <text class="location-value">{{lastUpdateTime}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="route-info">
+        <view class="route-header">
+          <text class="route-title">今日行进路线</text>
+          <text class="route-time">更新时间: {{lastUpdateTime}}</text>
+        </view>
+        
+        <!-- 动态生成路线历史 -->
+        <view class="route-details">
+          <block wx:if="{{routeHistory.length > 0}}">
+            <view class="route-line"></view>
+            <view wx:for="{{routeHistory}}" wx:key="index" class="route-item {{index === currentRouteIndex ? 'current' : ''}}">
+              <text class="route-time">{{item.time}}</text>
+              <view class="route-dot {{index === 0 ? 'start' : ''}} {{index === currentRouteIndex ? 'current' : ''}}"></view>
+              <text class="route-desc">{{item.location}}</text>
+            </view>
+          </block>
+          
+          <!-- 无路线历史数据时显示提示 -->
+          <view wx:if="{{routeHistory.length === 0}}" class="no-route-data">
+            <text>暂无今日行进路线数据</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 历史记录 -->
+    <view class="tab-content" wx:if="{{currentTab === 'history'}}">
+      <view class="filter-bar">
+        <picker mode="date" fields="month" value="{{currentMonth}}" start="2023-01" end="2025-12" bindchange="monthChange">
+          <view class="month-picker">
+            <text>{{currentMonth}}</text>
+            <text class="icon-down">▼</text>
+          </view>
+        </picker>
+        <view class="filter-actions">
+          <view class="filter-btn {{filter === 'day' ? 'active' : ''}}" bindtap="setFilter" data-filter="day">日</view>
+          <view class="filter-btn {{filter === 'week' ? 'active' : ''}}" bindtap="setFilter" data-filter="week">周</view>
+          <view class="filter-btn {{filter === 'month' ? 'active' : ''}}" bindtap="setFilter" data-filter="month">月</view>
+        </view>
+      </view>
+
+      <view class="history-list">
+        <view class="history-item" wx:for="{{historyRecords}}" wx:key="date">
+          <view class="history-date">
+            <text class="date-day">{{item.day}}</text>
+            <text class="date-month">{{item.month}}月</text>
+          </view>
+          <view class="history-content">
+            <view class="history-title">{{item.title}}</view>
+            <view class="history-details">
+              <text>采摘量: {{item.harvested}}个</text>
+              <text>面积: {{item.area}}亩</text>
+              <text>时长: {{item.hours}}小时</text>
+            </view>
+          </view>
+          <view class="history-actions">
+            <button class="btn-detail" bindtap="viewDetail" data-date="{{item.date}}">详情</button>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,25 @@
+# 激光雷达避障参数配置
+laser_obstacle_avoidance:
+  ros__parameters:
+    # 避障开关
+    avoidance_enabled: true
+    
+    # 距离阈值（米）
+    response_distance: 1.2      # 响应距离：开始检测障碍物的距离
+    danger_distance: 0.6        # 危险距离：需要采取避障动作的距离
+    emergency_distance: 0.3     # 紧急距离：立即停止的距离
+    
+    # 角度扇区定义（度）
+    front_angle: 30.0           # 前方扇区：±30度
+    side_angle: 60.0            # 侧面扇区：30-60度
+    
+    # 速度限制
+    max_linear_speed: 0.5       # 最大线速度（m/s）
+    max_angular_speed: 1.0      # 最大角速度（rad/s）
+    slow_down_factor: 0.4       # 减速因子
+    
+    # 障碍物检测参数
+    obstacle_count_threshold: 8  # 障碍物点数阈值（触发避障的最小点数）
+    
+    # 控制参数
+    cmd_timeout: 2.0            # 指令超时时间（秒） 
