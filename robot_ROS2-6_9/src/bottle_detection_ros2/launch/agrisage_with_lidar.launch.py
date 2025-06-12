@@ -88,7 +88,7 @@ def generate_launch_description():
     )
     
     # ==================== AgriSage3 核心节点 ====================
-    # 集成瓶子检测节点
+    # 集成瓶子检测节点（提升发布频率）
     bottle_detection_node = Node(
         package='bottle_detection_ros2',
         executable='integrated_bottle_detection_node',
@@ -99,7 +99,7 @@ def generate_launch_description():
             {'model_path': '/home/elf/Desktop/robot_ROS2/src/bottle_detection_ros2/data/yolo11n.rknn'},
             {'thread_num': 2},
             {'queue_size': 3},
-            {'publish_rate': 15.0},
+            {'publish_rate': 30.0},  # 提升至30Hz
             {'show_display': LaunchConfiguration('enable_display')},
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
         ]
@@ -122,7 +122,7 @@ def generate_launch_description():
         ]
     )
     
-    # 舵机控制节点
+    # 舵机控制节点（高优先级和高频率配置）
     servo_control_node = Node(
         package='bottle_detection_ros2',
         executable='servo_control_node',
@@ -135,8 +135,12 @@ def generate_launch_description():
             {'tracking_deadzone': 30},
             {'tracking_speed': 7.5},
             {'enable_tracking': True},
+            {'tracking_frequency': 50.0},  # 50Hz跟踪频率
             {'use_sim_time': LaunchConfiguration('use_sim_time')}
-        ]
+        ],
+        # 设置高优先级和CPU亲和性
+        additional_env={'ROS_DOMAIN_ID': '0'},
+        arguments=['--ros-args', '--log-level', 'INFO']
     )
     
     # 机器人控制节点

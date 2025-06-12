@@ -284,9 +284,10 @@ class IntegratedBottleDetectionNode(Node):
         self.bottle_detection_pub = self.create_publisher(
             BottleDetection, 'bottle_detection/detection', 10)
         
-        # 舵机跟踪目标发布者
+        # 舵机跟踪目标发布者（高频率低延迟）
+        from bottle_detection_ros2.core.qos_profiles import HIGH_FREQUENCY_QOS
         self.tracking_target_pub = self.create_publisher(
-            Point, 'servo/tracking_target', 10)
+            Point, 'servo/tracking_target', HIGH_FREQUENCY_QOS)
     
     @trace_errors
     def _create_subscribers(self):

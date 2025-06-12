@@ -7,6 +7,8 @@
 
 import rclpy
 from rclpy.node import Node
+from rclpy.callback_groups import RealtimeCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Float32, Int32, Bool, String
 from geometry_msgs.msg import Point
 from bottle_detection_msgs.msg import HarvestCommand, ServoCommand, ServoStatus
@@ -14,6 +16,7 @@ from serial import Serial
 import threading
 import time
 import json
+from bottle_detection_ros2.core.qos_profiles import HIGH_FREQUENCY_QOS, REALTIME_CONTROL_QOS, STATUS_UPDATE_QOS
 
 # 舵机控制常量
 DEFAULT_SERVO_ID = 0
@@ -96,6 +99,9 @@ class ServoControlNode(Node):
     def __init__(self):
         super().__init__('servo_control_node')
         
+        # 创建实时回调组
+        self.realtime_callback_group = RealtimeCallbackGroup()
+        
         # 声明参数
         self.declare_parameter('serial_port', '/dev/ttyS9')
         self.declare_parameter('baudrate', 115200)
@@ -103,6 +109,7 @@ class ServoControlNode(Node):
         self.declare_parameter('tracking_deadzone', 30)  # 像素
         self.declare_parameter('tracking_speed', 7.5)
         self.declare_parameter('enable_tracking', True)
+        self.declare_parameter('tracking_frequency', 50.0)  # 跟踪频率50Hz
         
         # 获取参数
         self.serial_port = self.get_parameter('serial_port').value
@@ -111,6 +118,7 @@ class ServoControlNode(Node):
         self.tracking_deadzone = self.get_parameter('tracking_deadzone').value
         self.tracking_speed = self.get_parameter('tracking_speed').value
         self.enable_tracking = self.get_parameter('enable_tracking').value
+        self.tracking_frequency = self.get_parameter('tracking_frequency').value
         
         # 初始化串口
         self.serial = None
@@ -156,39 +164,42 @@ class ServoControlNode(Node):
         self.tracking_enabled = False
         self.show_debug = True
         
-        # 创建订阅者
+        # 创建订阅者（使用高性能QoS和实时回调组）
         self.servo_cmd_sub = self.create_subscription(
             ServoCommand,
             'servo/command',
             self.servo_command_callback,
-            10
+            REALTIME_CONTROL_QOS,
+            callback_group=self.realtime_callback_group
         )
         
         self.harvest_cmd_sub = self.create_subscription(
             HarvestCommand,
             'robot/harvest_command',
             self.harvest_command_callback,
-            10
+            REALTIME_CONTROL_QOS,
+            callback_group=self.realtime_callback_group
         )
         
         self.tracking_target_sub = self.create_subscription(
             Point,
             'servo/tracking_target',
             self.tracking_target_callback,
-            10
+            HIGH_FREQUENCY_QOS,  # 高频率低延迟
+            callback_group=self.realtime_callback_group
         )
         
-        # 创建发布者
+        # 创建发布者（使用优化的QoS）
         self.servo_status_pub = self.create_publisher(
             ServoStatus,
             'servo/status',
-            10
+            STATUS_UPDATE_QOS
         )
         
         self.harvest_status_pub = self.create_publisher(
             String,
             'harvest/status',
-            10
+            STATUS_UPDATE_QOS
         )
         
         # 状态变量
@@ -200,11 +211,11 @@ class ServoControlNode(Node):
         # 跟踪相关变量
         self.tracking_active = False
         
-        # 创建定时器处理采摘状态机
-        self.create_timer(0.1, self.harvest_state_machine)
+        # 创建定时器处理采摘状态机（高频率处理）
+        self.create_timer(0.02, self.harvest_state_machine, callback_group=self.realtime_callback_group)  # 50Hz
         
-        # 创建状态发布定时器
-        self.create_timer(0.5, self.publish_status)
+        # 创建状态发布定时器（降低频率减少负载）
+        self.create_timer(0.1, self.publish_status)  # 10Hz状态发布
         
         # 初始化舵机（在连接串口后）
         if self.serial:
@@ -684,12 +695,20 @@ class ServoControlNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     
+    # 使用多线程执行器提升并发性能
+    executor = MultiThreadedExecutor(num_threads=4)
+    
     try:
         node = ServoControlNode()
-        rclpy.spin(node)
+        executor.add_node(node)
+        node.get_logger().info('舵机控制节点启动，使用多线程执行器')
+        executor.spin()
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info('收到中断信号，正在关闭舵机控制节点...')
+    except Exception as e:
+        node.get_logger().error(f'舵机控制节点出现错误: {e}')
     finally:
+        executor.shutdown()
         node.destroy_node()
         rclpy.shutdown()
 

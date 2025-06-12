@@ -217,6 +217,34 @@ ros2 run bottle_detection_ros2 websocket_bridge_node
    - 维护提醒：保养计划建议
    - 聊天记录：一键清空聊天历史
 
+## 🚀 性能优化升级
+
+### ROS2系统性能优化
+1. **通信延迟优化**
+   - 提升topic发布频率：30Hz检测频率，50Hz舵机跟踪
+   - 使用高性能QoS配置：BEST_EFFORT策略降低延迟
+   - 优化缓冲区大小：最小化数据队列减少延迟
+
+2. **节点调度优化**  
+   - 舵机控制节点高优先级调度
+   - 多线程执行器提升并发性能
+   - CPU亲和性绑定避免核心竞争
+   - 实时调度策略(FIFO)优化
+
+3. **系统级优化**
+   - 网络缓冲区调优
+   - 实时优先级设置脚本
+   - 高性能配置文件管理
+
+### 使用方法
+```bash
+# 启动高性能模式
+ros2 launch bottle_detection_ros2 agrisage_with_lidar.launch.py
+
+# 设置实时优先级（需root权限）
+sudo ./robot_ROS2-6_9/scripts/set_realtime_priority.sh
+```
+
 4. **⚙️ 系统设置**
    - 连接配置：WiFi、服务器设置
    - 参数调节：速度、精度参数

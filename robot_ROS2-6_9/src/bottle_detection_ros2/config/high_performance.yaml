@@ -1,0 +1,52 @@
+# 高性能优化配置文件
+# 用于减少通信延迟和提升响应速度
+
+# 舵机控制节点优化参数
+servo_control_node:
+  # 串口配置
+  serial_port: '/dev/ttyS9'
+  baudrate: 115200
+  timeout: 0.5  # 降低超时，减少等待时间
+  
+  # 跟踪性能优化
+  tracking_deadzone: 20  # 减小死区，提高精度
+  tracking_speed: 10.0   # 提高跟踪速度
+  tracking_frequency: 50.0  # 50Hz高频跟踪
+  enable_tracking: true
+  
+  # 舵机响应优化
+  servo_move_timeout: 500  # 降低移动超时
+  position_update_rate: 100.0  # 100Hz位置更新
+
+# 瓶子检测节点优化参数  
+bottle_detection_node:
+  # 检测性能
+  publish_rate: 30.0    # 30Hz发布频率
+  thread_num: 4         # 增加线程数
+  queue_size: 2         # 减小队列，降低延迟
+  
+  # 相机配置
+  camera_id: 21
+  frame_width: 640
+  frame_height: 480
+  
+  # 处理优化
+  detection_threshold: 0.5
+  nms_threshold: 0.4
+  max_detection_count: 10
+
+# 自动采摘控制优化
+auto_harvest_controller:
+  control_rate: 20.0      # 20Hz控制频率
+  search_timeout: 3.0     # 减少搜索超时
+  approach_speed: 40.0    # 提高接近速度
+  turn_speed: 25.0        # 提高转向速度
+  fine_approach_speed: 15.0
+  fine_turn_speed: 20.0
+
+# QoS配置
+qos_settings:
+  reliability: 'best_effort'  # 最佳努力，降低延迟
+  history: 'keep_last'
+  depth: 1                    # 最小缓冲区
+  durability: 'volatile'      # 易失性数据 

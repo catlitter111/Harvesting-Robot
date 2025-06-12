@@ -2,7 +2,7 @@
 laser_obstacle_avoidance:
   ros__parameters:
     # 避障开关
-    avoidance_enabled: true
+    avoidance_enabled: false
     
     # 距离阈值（米）
     response_distance: 1.2      # 响应距离：开始检测障碍物的距离
