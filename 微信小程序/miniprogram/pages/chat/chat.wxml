@@ -5,6 +5,18 @@
     <text>网络连接已断开，请检查网络设置</text>
   </view>
   
+  <!-- 功能工具栏 -->
+  <view class="toolbar">
+    <view class="toolbar-left">
+      <text class="chat-title">AI助手</text>
+    </view>
+    <view class="toolbar-right">
+      <button class="clear-button" bindtap="clearMessages">
+        <text class="clear-text">清空</text>
+      </button>
+    </view>
+  </view>
+  
     <!-- 消息列表区域 -->
   <scroll-view class="message-list" scroll-y="true" scroll-top="{{scrollTop}}" scroll-into-view="{{scrollIntoView}}" enable-back-to-top="true">
     <block wx:for="{{messages}}" wx:key="id">

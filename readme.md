@@ -215,6 +215,7 @@ ros2 run bottle_detection_ros2 websocket_bridge_node
    - 智能问答：设备使用指导
    - 故障诊断：问题自动识别
    - 维护提醒：保养计划建议
+   - 聊天记录：一键清空聊天历史
 
 4. **⚙️ 系统设置**
    - 连接配置：WiFi、服务器设置

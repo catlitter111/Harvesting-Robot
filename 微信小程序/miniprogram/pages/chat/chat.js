@@ -443,11 +443,8 @@ Page({
           id: generateUniqueMessageId(msg.type || 'unknown')
         }));
         
-        // 保留默认欢迎消息，然后添加历史消息
-        const defaultMessages = this.data.messages;
-        const allMessages = [...defaultMessages, ...processedMessages];
-        
-        this.setData({ messages: allMessages });
+        // 直接使用历史消息，不保留默认欢迎消息
+        this.setData({ messages: processedMessages });
         console.log('已加载聊天历史', savedMessages.length, '条消息');
         return true;
       }
@@ -458,39 +455,7 @@ Page({
   },
 
   // 清空聊天记录
-  clearMessages: function() {
-    wx.showModal({
-      title: '确认清空',
-      content: '确定要清空所有聊天记录吗？',
-      success: (res) => {
-        if (res.confirm) {
-          const resetMessages = [{
-            id: generateUniqueMessageId('reset'),
-            type: 'ai',
-            text: '聊天记录已清空。您好！我是AgriSage智能助手，有什么可以帮您的吗？',
-            time: this.formatTime(new Date()),
-            status: 'success',
-            expanded: false
-          }];
-          
-          this.setData({ messages: resetMessages });
-          
-          // 同时清空本地存储
-          try {
-            wx.removeStorageSync('chat_messages');
-          } catch (e) {
-            console.warn('清空本地聊天记录失败:', e);
-          }
-          
-          wx.showToast({
-            title: '已清空聊天记录',
-            icon: 'success',
-            duration: 2000
-          });
-        }
-      }
-    });
-  },
+  clearMessages(){wx.showModal({title:'确认清空',content:'确定要清空所有聊天记录吗？',success:r=>r.confirm&&(this.setData({messages:[{id:generateUniqueMessageId('welcome'),type:'ai',text:'您好！我是AgriSage智能助手，很高兴为您服务。有什么问题可以随时问我！',time:this.formatTime(new Date()),status:'success',expanded:!1}]}),wx.removeStorageSync('chat_messages'),wx.showToast({title:'已清空聊天记录',icon:'success'}))})},
 
   // 计算消息统计信息
   getMessageStats: function() {

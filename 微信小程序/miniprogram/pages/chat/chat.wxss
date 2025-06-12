@@ -15,6 +15,31 @@
   font-size: 28rpx;
 }
 
+/* 功能工具栏 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  background-color: white;
+  border-bottom: 1rpx solid #e8e8e8;
+}
+
+.toolbar-left {
+  flex: 1;
+}
+
+.chat-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
 /* 消息列表区域 */
 .message-list {
   flex: 1;
@@ -125,6 +150,20 @@
   background-color: white;
   border-top: 2rpx solid #e5e5e5;
   box-sizing: border-box;
+}
+
+.clear-button {
+  padding: 8rpx 16rpx;
+  background-color: #f5f5f5;
+  border: 1rpx solid #ddd;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+
+.clear-text {
+  color: #666;
+  font-size: 24rpx;
 }
 
 .message-input {
