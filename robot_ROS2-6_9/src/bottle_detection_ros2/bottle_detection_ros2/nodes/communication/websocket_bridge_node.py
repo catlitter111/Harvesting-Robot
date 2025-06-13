@@ -863,6 +863,9 @@ class WebSocketBridgeNode(Node):
             if message.tool_calls:
                 # 执行函数调用
                 function_results = []
+                query_functions = ["get_robot_status"]  # 查询类函数列表
+                action_functions = []  # 执行类函数结果
+                
                 for tool_call in message.tool_calls:
                     function_name = tool_call.function.name
                     function_args = json.loads(tool_call.function.arguments)
@@ -876,17 +879,49 @@ class WebSocketBridgeNode(Node):
                         "arguments": function_args,
                         "result": result
                     })
-                
-                # 构建包含函数执行结果的回复
-                function_summary = []
-                for func_result in function_results:
-                    if func_result["result"]["success"]:
-                        function_summary.append(f"✅ {func_result['function']}: {func_result['result']['message']}")
+                    
+                    # 分类处理查询类和执行类函数
+                    if function_name in query_functions:
+                        # 查询类函数，直接使用返回的数据
+                        if result["success"] and "status" in result:
+                            status = result["status"]
+                            query_response = f"""📊 机器人状态信息：
+
+🔋 电池电量：{status['battery_level']}%
+⚙️ 工作模式：{status['current_mode']}
+🤖 自动采摘：{'启用' if status['auto_harvest_active'] else '禁用'}
+🏃 当前速度：{status['current_speed']:.2f} m/s
+💻 CPU使用率：{status['cpu_usage']}%
+
+📍 位置信息：
+  • X坐标：{status['position']['x']:.3f}
+  • Y坐标：{status['position']['y']:.3f}
+  • 经度：{status['position']['longitude']:.6f}
+  • 纬度：{status['position']['latitude']:.6f}
+
+🍎 采摘统计：
+  • 今日采摘：{status['today_harvested']}个
+  • 历史总计：{status['harvested_count']}个
+  • 作业面积：{status['working_area']:.2f}亩
+
+⏰ 更新时间：{status['timestamp']}"""
+                            action_functions.append(query_response)
+                        else:
+                            action_functions.append(f"❌ 获取状态失败：{result.get('error', '未知错误')}")
                     else:
-                        function_summary.append(f"❌ {func_result['function']}: {func_result['result']['error']}")
+                        # 执行类函数，显示执行结果
+                        if result["success"]:
+                            action_functions.append(f"✅ {function_name}: {result['message']}")
+                        else:
+                            action_functions.append(f"❌ {function_name}: {result['error']}")
                 
-                # 生成最终回复
-                ai_response = f"我已经为您执行了以下操作：\n\n" + "\n".join(function_summary)
+                # 构建最终回复
+                if len([f for f in function_results if f["function"] in query_functions]) > 0:
+                    # 包含查询类函数，直接返回查询结果
+                    ai_response = "\n\n".join(action_functions)
+                else:
+                    # 只有执行类函数，显示执行结果
+                    ai_response = f"我已经为您执行了以下操作：\n\n" + "\n".join(action_functions)
                 
                 if message.content:
                     ai_response += f"\n\n{message.content}"
@@ -1062,6 +1097,8 @@ class WebSocketBridgeNode(Node):
             if use_functions and response_message.tool_calls:
                 # 执行函数调用
                 function_results = []
+                query_functions = ["get_robot_status"]  # 查询类函数列表
+                action_functions = []  # 执行类函数结果
                 messages_for_second_call = [
                     {
                         "role": "system",
@@ -1088,6 +1125,41 @@ class WebSocketBridgeNode(Node):
                         "result": result
                     })
                     
+                    # 分类处理查询类和执行类函数
+                    if function_name in query_functions:
+                        # 查询类函数，直接使用返回的数据
+                        if result["success"] and "status" in result:
+                            status = result["status"]
+                            query_response = f"""📊 机器人状态信息：
+
+🔋 电池电量：{status['battery_level']}%
+⚙️ 工作模式：{status['current_mode']}
+🤖 自动采摘：{'启用' if status['auto_harvest_active'] else '禁用'}
+🏃 当前速度：{status['current_speed']:.2f} m/s
+💻 CPU使用率：{status['cpu_usage']}%
+
+📍 位置信息：
+  • X坐标：{status['position']['x']:.3f}
+  • Y坐标：{status['position']['y']:.3f}
+  • 经度：{status['position']['longitude']:.6f}
+  • 纬度：{status['position']['latitude']:.6f}
+
+🍎 采摘统计：
+  • 今日采摘：{status['today_harvested']}个
+  • 历史总计：{status['harvested_count']}个
+  • 作业面积：{status['working_area']:.2f}亩
+
+⏰ 更新时间：{status['timestamp']}"""
+                            action_functions.append(query_response)
+                        else:
+                            action_functions.append(f"❌ 获取状态失败：{result.get('error', '未知错误')}")
+                    else:
+                        # 执行类函数，显示执行结果
+                        if result["success"]:
+                            action_functions.append(f"✅ {function_name}: {result['message']}")
+                        else:
+                            action_functions.append(f"❌ {function_name}: {result['error']}")
+                    
                     # 添加函数执行结果到消息历史
                     messages_for_second_call.append({
                         "role": "tool",
@@ -1095,16 +1167,19 @@ class WebSocketBridgeNode(Node):
                         "content": json.dumps(result)
                     })
                 
-                # 第二次调用AI，让它基于函数执行结果生成最终回复
-                completion2 = self.ai_client.chat.completions.create(
-                    model=self.ai_model,
-                    messages=messages_for_second_call,
-                    max_tokens=self.ai_max_tokens,
-                    temperature=0.7
-                )
-                
-                # 获取AI的最终回复
-                ai_response = completion2.choices[0].message.content
+                # 构建最终回复
+                if len([f for f in function_results if f["function"] in query_functions]) > 0:
+                    # 包含查询类函数，直接返回查询结果
+                    ai_response = "\n\n".join(action_functions)
+                else:
+                    # 只有执行类函数，使用AI生成的回复
+                    completion2 = self.ai_client.chat.completions.create(
+                        model=self.ai_model,
+                        messages=messages_for_second_call,
+                        max_tokens=self.ai_max_tokens,
+                        temperature=0.7
+                    )
+                    ai_response = completion2.choices[0].message.content
                 
                 # 发布包含函数执行结果的AI回复
                 response_data = {
