@@ -41,8 +41,8 @@ class WebSocketBridgeNode(Node):
         # AI相关参数
         self.declare_parameter('ai_enabled', True)
         self.declare_parameter('ai_base_url', 'https://ai-gateway.vei.volces.com/v1')
-        self.declare_parameter('ai_api_key', 'sk-1b880a05df7249d3927443d4872e2839oklzor2ja52wf1eu')
-        self.declare_parameter('ai_model', 'doubao-1.5-lite-32k')
+        self.declare_parameter('ai_api_key', 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30')
+        self.declare_parameter('ai_model', 'doubao-1.5-thinking-pro-vision')
         self.declare_parameter('ai_max_tokens', 300)
         
         # 获取参数
@@ -179,6 +179,51 @@ class WebSocketBridgeNode(Node):
         self.get_logger().info(f'WebSocket桥接节点已启动，连接到: {self.server_url}')
     
     # ===================== Function Calling 功能定义 =====================
+    
+    def should_use_functions(self, user_message):
+        """判断用户消息是否需要调用函数"""
+        # 转换为小写进行匹配
+        message_lower = user_message.lower()
+        
+        # 需要调用函数的关键词
+        function_keywords = [
+            # 模式控制
+            '切换模式', '自动模式', '手动模式', '切换到', '模式',
+            # 采摘控制
+            '开始采摘', '停止采摘', '采摘', '开始工作', '停止工作',
+            # 移动控制
+            '前进', '后退', '左转', '右转', '移动', '行走', '停止', '向前', '向后', '向左', '向右',
+            # 状态查询
+            '状态', '电量', '位置', '采摘数量', '工作面积', '统计', '数据',
+            # 紧急操作
+            '紧急停止', '急停', '立即停止',
+            # 英文关键词
+            'switch', 'mode', 'harvest', 'move', 'forward', 'backward', 'left', 'right', 
+            'stop', 'status', 'battery', 'position', 'emergency'
+        ]
+        
+        # 不需要调用函数的关键词（优先级更高）
+        chat_keywords = [
+            '你好', 'hello', 'hi', '再见', 'bye',
+            '你是', '你叫', '你的名字', '你是什么', '你是谁',
+            '豆包', '模型', '助手', '智能', 'ai',
+            '谢谢', '感谢', 'thank', 
+            '怎么样', '如何', '什么是', '为什么',
+            '天气', '时间', '日期'
+        ]
+        
+        # 首先检查是否是闲聊/一般性问题
+        for keyword in chat_keywords:
+            if keyword in message_lower:
+                return False
+        
+        # 然后检查是否包含功能性关键词
+        for keyword in function_keywords:
+            if keyword in message_lower:
+                return True
+        
+        # 默认不调用函数
+        return False
     
     def get_available_functions(self):
         """定义可供AI调用的函数（OpenAI标准格式）"""
@@ -892,18 +937,19 @@ class WebSocketBridgeNode(Node):
         """构建包含机器人状态的上下文信息"""
         context = """你是AgriSage智能助手，专门为农业采摘机器人提供服务。
 
-重要功能：
-- 你可以直接控制机器人的各种功能
-- 当用户要求切换模式、开始采摘、控制移动等操作时，你应该调用相应的函数来执行
-- 优先使用函数来执行用户的指令，而不是仅仅提供建议
+重要指导原则：
+1. 只有当用户明确要求执行机器人操作时，才调用相应函数
+2. 对于一般性问题、闲聊、关于你自己的问题，请直接回答，不要调用任何函数
+3. 判断用户意图：
+   - 如果用户要求"切换模式"、"开始采摘"、"移动"等操作 → 调用函数
+   - 如果用户询问"机器人状态"、"采摘数量"等具体数据 → 调用get_robot_status
+   - 如果用户问候、闲聊、询问你的身份等 → 直接回答，不调用函数
 
-你具备以下控制能力：
-1. 切换机器人工作模式（手动/自动）
-2. 开启/关闭自动采摘功能
-3. 控制机器人移动（前进、后退、左转、右转、停止）
-4. 开始/停止采摘操作
-5. 获取机器人实时状态
-6. 紧急停止所有操作
+功能说明：
+- 你可以控制机器人的工作模式（手动/自动）
+- 你可以控制机器人移动和采摘操作
+- 你可以查询机器人的实时状态
+- 你可以执行紧急停止
 
 当前机器人状态信息：
 """
@@ -939,12 +985,10 @@ class WebSocketBridgeNode(Node):
         
         context += """
 
-使用指南：
-- 当用户询问状态时，主动调用get_robot_status函数获取最新信息
-- 当用户要求执行操作时，立即调用相应函数而不是仅提供建议
-- 执行操作后，向用户确认操作结果
-- 始终保持友好、专业的对话风格
-- 基于实时状态数据提供准确的信息和建议
+记住：
+- 对于一般性问题和闲聊，请友好回答，不要调用函数
+- 只有当用户明确要求执行操作或查询具体数据时，才使用函数
+- 你是一个有用的AI助手，可以正常对话
 """
         
         return context
@@ -979,13 +1023,18 @@ class WebSocketBridgeNode(Node):
             # 构建上下文
             system_message = self.build_robot_context(robot_id)
             
-            # 获取可用函数
-            tools = self.get_available_functions()
+            # 智能判断是否需要使用函数
+            use_functions = self.should_use_functions(user_message)
             
-            # 第一次调用AI API（支持Function Calling）
-            completion = self.ai_client.chat.completions.create(
-                model=self.ai_model,
-                messages=[
+            self.get_logger().info(f'内部AI请求: "{user_message[:50]}...", 是否使用函数: {use_functions}')
+            
+            # 获取可用函数
+            tools = self.get_available_functions() if use_functions else None
+            
+            # 第一次调用AI API（根据判断结果决定是否支持Function Calling）
+            api_params = {
+                "model": self.ai_model,
+                "messages": [
                     {
                         "role": "system",
                         "content": system_message
@@ -995,17 +1044,22 @@ class WebSocketBridgeNode(Node):
                         "content": user_message
                     }
                 ],
-                max_tokens=self.ai_max_tokens,
-                temperature=0.7,
-                tools=tools,
-                tool_choice="auto"
-            )
+                "max_tokens": self.ai_max_tokens,
+                "temperature": 0.7
+            }
+            
+            # 只有在判断需要时才添加tools参数
+            if use_functions and tools:
+                api_params["tools"] = tools
+                api_params["tool_choice"] = "auto"
+            
+            completion = self.ai_client.chat.completions.create(**api_params)
             
             # 处理AI回复
             response_message = completion.choices[0].message
             
             # 检查是否需要调用函数
-            if response_message.tool_calls:
+            if use_functions and response_message.tool_calls:
                 # 执行函数调用
                 function_results = []
                 messages_for_second_call = [
