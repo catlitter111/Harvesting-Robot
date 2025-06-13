@@ -43,10 +43,11 @@
           
           <!-- 消息内容区域 -->
           <view class="message-content">
-            <text class="message-text" decode="true">{{item.expanded || item.text.length <= 200 ? item.text : item.text.substring(0, 200) + '...'}}</text>
+            <!-- 修复后的文本显示逻辑 -->
+            <text class="message-text" decode="true">{{item.expanded || !item.text || item.text.length <= 200 ? (item.text || '消息内容为空') : item.text.substring(0, 200) + '...'}}</text>
             
             <!-- 展开/收起按钮 -->
-            <view class="expand-btn" wx:if="{{item.text.length > 200}}" bindtap="toggleMessage" data-id="{{item.id}}">
+            <view class="expand-btn" wx:if="{{item.text && item.text.length > 200}}" bindtap="toggleMessage" data-id="{{item.id}}">
               <text class="expand-text">{{item.expanded ? '收起' : '展开'}}</text>
             </view>
           </view>

@@ -1,4 +1,4 @@
-// 聊天页面 - AI集成优化版
+// 聊天页面 - AI集成优化版（修复undefined问题）
 const util = require('../../utils/util.js');
 
 // 全局消息ID计数器，确保ID唯一性
@@ -507,11 +507,16 @@ Page({
     }
   },
 
-  // 切换消息展开状态
+  // 切换消息展开状态 - 增强安全检查
   toggleMessage: function(e) {
     const messageId = e.currentTarget.dataset.id;
     const messages = this.data.messages.map(msg => {
       if (msg.id == messageId) {
+        // 确保text字段存在且有值
+        if (!msg.text || typeof msg.text !== 'string') {
+          msg.text = '消息内容为空';
+          console.warn('消息text字段为空，已设置默认值:', msg);
+        }
         return { ...msg, expanded: !msg.expanded };
       }
       return msg;
@@ -520,8 +525,14 @@ Page({
     this.setData({ messages });
   },
 
-  // 添加消息到列表（带性能优化）
+  // 添加消息到列表（带性能优化和安全检查）
   addMessage: function(message) {
+    // 确保消息text字段有值
+    if (!message.text || typeof message.text !== 'string') {
+      message.text = '消息内容为空';
+      console.warn('消息text字段为空，已设置默认值:', message);
+    }
+    
     const messages = [...this.data.messages, message];
     
     // 限制消息历史数量，避免内存过大（保留最近100条消息）
@@ -536,7 +547,7 @@ Page({
     this.saveMessageHistory(messages);
   },
 
-  // 保存消息历史到本地存储
+  // 保存消息历史到本地存储 - 增强安全检查
   saveMessageHistory: function(messages) {
     try {
       // 只保存最近20条消息到本地存储，避免存储过大，过滤掉思考消息
@@ -546,7 +557,7 @@ Page({
         .map(msg => ({
           id: msg.id,
           type: msg.type,
-          text: msg.text,
+          text: msg.text || '消息内容为空', // 确保text字段有值
           time: msg.time,
           status: msg.status === 'sending' ? 'failed' : msg.status,
           expanded: false
@@ -558,15 +569,16 @@ Page({
     }
   },
 
-  // 加载消息历史
+  // 加载消息历史 - 增强安全检查
   loadMessageHistory: function() {
     try {
       const savedMessages = wx.getStorageSync('chat_messages');
       if (savedMessages && Array.isArray(savedMessages) && savedMessages.length > 0) {
-        // 为历史消息重新生成ID，防止重复
+        // 为历史消息重新生成ID，防止重复，并确保text字段有值
         const processedMessages = savedMessages.map(msg => ({
           ...msg,
-          id: generateUniqueMessageId(msg.type || 'unknown')
+          id: generateUniqueMessageId(msg.type || 'unknown'),
+          text: msg.text || '消息内容为空' // 确保text字段有值
         }));
         
         // 检查是否有AI消息，如果有则更新AI服务状态为可用
@@ -630,7 +642,7 @@ Page({
     }
   },
 
-  // 处理AI回复（优化版）
+  // 处理AI回复（优化版 - 修复文本显示问题）
   handleAIResponse: function(data) {
     console.log('收到AI回复:', data);
     
@@ -646,14 +658,20 @@ Page({
       this.markUserMessageSuccess(data.timestamp);
     }
     
-    // 检查AI回复内容
-    const aiResponseText = data.message || 'AI暂时无法回答您的问题，请稍后重试。';
+    // 检查AI回复内容 - 增强安全检查
+    let aiResponseText = '';
+    if (data.message && typeof data.message === 'string' && data.message.trim()) {
+      aiResponseText = data.message.trim();
+    } else {
+      aiResponseText = 'AI暂时无法回答您的问题，请稍后重试。';
+      console.warn('AI响应消息为空或无效:', data.message);
+    }
     
     // 创建AI回复消息
     const aiMessage = {
       id: generateUniqueMessageId('ai'),
       type: 'ai',
-      text: aiResponseText,
+      text: aiResponseText, // 确保text字段始终有值
       time: this.formatTime(new Date()),
       status: 'success',
       expanded: false,
