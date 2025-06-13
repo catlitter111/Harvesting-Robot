@@ -4,7 +4,7 @@
 WebSocket桥接节点
 负责连接WebSocket服务器，接收控制命令并转发到ROS2系统
 同时将视频流和状态信息发送到服务器
-现在集成了真实的AI对话功能
+集成了AI对话功能和Function Calling功能
 """
 
 import rclpy
@@ -138,6 +138,18 @@ class WebSocketBridgeNode(Node):
         self.current_mode = "manual"
         self.auto_harvest_active = False
         
+        # 机器人状态（用于function calling）
+        self.robot_status = {
+            'battery_level': 0,
+            'current_speed': 0,
+            'position_x': 0,
+            'position_y': 0,
+            'latitude': 0,
+            'longitude': 0,
+            'harvested_count': 0,
+            'cpu_usage': 0
+        }
+        
         # 统计数据初始化
         self.statistics_data = {
             'start_time': time.time(),
@@ -165,6 +177,339 @@ class WebSocketBridgeNode(Node):
         self.connect_to_server()
         
         self.get_logger().info(f'WebSocket桥接节点已启动，连接到: {self.server_url}')
+    
+    # ===================== Function Calling 功能定义 =====================
+    
+    def get_available_functions(self):
+        """定义可供AI调用的函数（OpenAI标准格式）"""
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "switch_robot_mode",
+                    "description": "切换机器人的工作模式",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "mode": {
+                                "type": "string",
+                                "enum": ["manual", "auto"],
+                                "description": "机器人模式: manual（手动模式）或 auto（自动模式）"
+                            }
+                        },
+                        "required": ["mode"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "toggle_auto_harvest",
+                    "description": "开启或关闭自动采摘功能",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "是否启用自动采摘功能"
+                            }
+                        },
+                        "required": ["enabled"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "start_harvest",
+                    "description": "立即开始采摘操作",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "stop_harvest",
+                    "description": "停止当前的采摘操作",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "control_robot_movement",
+                    "description": "控制机器人移动",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["forward", "backward", "left", "right", "stop"],
+                                "description": "移动方向：forward（前进）、backward（后退）、left（左转）、right（右转）、stop（停止）"
+                            },
+                            "speed": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "移动速度百分比（0-100）"
+                            },
+                            "duration": {
+                                "type": "number",
+                                "minimum": 0.1,
+                                "maximum": 10.0,
+                                "description": "持续时间（秒），可选参数"
+                            }
+                        },
+                        "required": ["action"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_robot_status",
+                    "description": "获取机器人当前状态信息",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "emergency_stop",
+                    "description": "紧急停止机器人所有操作",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            }
+        ]
+    
+    def execute_function(self, function_name, arguments):
+        """执行被AI调用的函数"""
+        try:
+            if function_name == "switch_robot_mode":
+                return self.func_switch_robot_mode(arguments.get("mode"))
+            
+            elif function_name == "toggle_auto_harvest":
+                return self.func_toggle_auto_harvest(arguments.get("enabled"))
+            
+            elif function_name == "start_harvest":
+                return self.func_start_harvest()
+            
+            elif function_name == "stop_harvest":
+                return self.func_stop_harvest()
+            
+            elif function_name == "control_robot_movement":
+                return self.func_control_robot_movement(
+                    arguments.get("action"),
+                    arguments.get("speed", 50),
+                    arguments.get("duration")
+                )
+            
+            elif function_name == "get_robot_status":
+                return self.func_get_robot_status()
+            
+            elif function_name == "emergency_stop":
+                return self.func_emergency_stop()
+            
+            else:
+                return {"success": False, "error": f"未知函数: {function_name}"}
+                
+        except Exception as e:
+            self.get_logger().error(f"执行函数 {function_name} 时出错: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def func_switch_robot_mode(self, mode):
+        """切换机器人模式"""
+        if mode not in ["manual", "auto"]:
+            return {"success": False, "error": "无效的模式，只支持 manual 或 auto"}
+        
+        old_mode = self.current_mode
+        self.current_mode = mode
+        
+        # 发布模式更新
+        mode_msg = String()
+        mode_data = {
+            "mode": mode,
+            "auto_harvest": self.auto_harvest_active if mode == "auto" else False
+        }
+        mode_msg.data = json.dumps(mode_data)
+        self.mode_pub.publish(mode_msg)
+        
+        self.get_logger().info(f'AI指令：切换模式从 {old_mode} 到 {mode}')
+        
+        return {
+            "success": True,
+            "message": f"已成功切换到{mode}模式",
+            "old_mode": old_mode,
+            "new_mode": mode
+        }
+    
+    def func_toggle_auto_harvest(self, enabled):
+        """开启/关闭自动采摘"""
+        old_state = self.auto_harvest_active
+        self.auto_harvest_active = enabled
+        
+        # 如果是自动模式，更新模式状态
+        if self.current_mode == "auto":
+            mode_msg = String()
+            mode_data = {
+                "mode": "auto",
+                "auto_harvest": enabled
+            }
+            mode_msg.data = json.dumps(mode_data)
+            self.mode_pub.publish(mode_msg)
+        
+        self.get_logger().info(f'AI指令：自动采摘从 {old_state} 切换到 {enabled}')
+        
+        return {
+            "success": True,
+            "message": f"自动采摘已{'启用' if enabled else '禁用'}",
+            "old_state": old_state,
+            "new_state": enabled
+        }
+    
+    def func_start_harvest(self):
+        """开始采摘"""
+        harvest_cmd = HarvestCommand()
+        harvest_cmd.header.stamp = self.get_clock().now().to_msg()
+        harvest_cmd.start_harvest = True
+        self.harvest_cmd_pub.publish(harvest_cmd)
+        
+        self.get_logger().info('AI指令：开始采摘')
+        
+        return {
+            "success": True,
+            "message": "采摘指令已发送"
+        }
+    
+    def func_stop_harvest(self):
+        """停止采摘"""
+        harvest_cmd = HarvestCommand()
+        harvest_cmd.header.stamp = self.get_clock().now().to_msg()
+        harvest_cmd.stop_harvest = True
+        self.harvest_cmd_pub.publish(harvest_cmd)
+        
+        self.get_logger().info('AI指令：停止采摘')
+        
+        return {
+            "success": True,
+            "message": "停止采摘指令已发送"
+        }
+    
+    def func_control_robot_movement(self, action, speed=50, duration=None):
+        """控制机器人移动"""
+        if action not in ["forward", "backward", "left", "right", "stop"]:
+            return {"success": False, "error": "无效的移动指令"}
+        
+        # 构建Twist消息
+        twist = Twist()
+        speed_factor = speed / 100.0
+        
+        if action == "forward":
+            twist.linear.x = speed_factor * 0.5
+        elif action == "backward":
+            twist.linear.x = -speed_factor * 0.5
+        elif action == "left":
+            twist.angular.z = speed_factor * 1.0
+        elif action == "right":
+            twist.angular.z = -speed_factor * 1.0
+        elif action == "stop":
+            twist.linear.x = 0.0
+            twist.angular.z = 0.0
+        
+        # 发布移动命令
+        self.cmd_vel_pub.publish(twist)
+        
+        # 如果指定了持续时间，设置定时器停止
+        if duration and action != "stop":
+            def stop_movement():
+                stop_twist = Twist()
+                self.cmd_vel_pub.publish(stop_twist)
+                self.get_logger().info(f'AI指令：{duration}秒后自动停止移动')
+            
+            timer = threading.Timer(duration, stop_movement)
+            timer.daemon = True
+            timer.start()
+        
+        self.get_logger().info(f'AI指令：机器人{action}，速度{speed}%' + (f'，持续{duration}秒' if duration else ''))
+        
+        return {
+            "success": True,
+            "message": f"机器人开始{action}，速度{speed}%" + (f"，将持续{duration}秒" if duration else ""),
+            "action": action,
+            "speed": speed,
+            "duration": duration
+        }
+    
+    def func_get_robot_status(self):
+        """获取机器人状态"""
+        status = {
+            "current_mode": self.current_mode,
+            "auto_harvest_active": self.auto_harvest_active,
+            "battery_level": self.robot_status.get('battery_level', 0),
+            "current_speed": self.robot_status.get('current_speed', 0),
+            "position": {
+                "x": self.robot_status.get('position_x', 0),
+                "y": self.robot_status.get('position_y', 0),
+                "latitude": self.robot_status.get('latitude', 0),
+                "longitude": self.robot_status.get('longitude', 0)
+            },
+            "harvested_count": self.robot_status.get('harvested_count', 0),
+            "today_harvested": self.statistics_data.get('today_harvested', 0),
+            "working_area": self.statistics_data.get('working_area', 0),
+            "cpu_usage": self.robot_status.get('cpu_usage', 0),
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        return {
+            "success": True,
+            "message": "机器人状态获取成功",
+            "status": status
+        }
+    
+    def func_emergency_stop(self):
+        """紧急停止"""
+        # 停止移动
+        twist = Twist()
+        self.cmd_vel_pub.publish(twist)
+        
+        # 停止采摘
+        harvest_cmd = HarvestCommand()
+        harvest_cmd.header.stamp = self.get_clock().now().to_msg()
+        harvest_cmd.stop_harvest = True
+        harvest_cmd.emergency_stop = True
+        self.harvest_cmd_pub.publish(harvest_cmd)
+        
+        # 发布紧急停止命令
+        robot_cmd = RobotCommand()
+        robot_cmd.header.stamp = self.get_clock().now().to_msg()
+        robot_cmd.command = "emergencyStop"
+        robot_cmd.emergency_stop = True
+        self.robot_cmd_pub.publish(robot_cmd)
+        
+        self.get_logger().warn('AI指令：紧急停止执行')
+        
+        return {
+            "success": True,
+            "message": "紧急停止指令已执行"
+        }
+    
+    # ===================== WebSocket 和 AI 处理 =====================
     
     def connect_to_server(self):
         """连接到WebSocket服务器"""
@@ -428,7 +773,7 @@ class WebSocketBridgeNode(Node):
         ai_thread.start()
     
     def process_ai_request(self, user_message, client_id, timestamp, robot_id):
-        """在单独线程中处理AI请求"""
+        """在单独线程中处理AI请求（支持Function Calling）"""
         try:
             # 验证消息内容
             if not user_message:
@@ -447,7 +792,7 @@ class WebSocketBridgeNode(Node):
             # 构建包含机器人状态的上下文消息
             system_message = self.build_robot_context(robot_id)
             
-            # 调用AI API
+            # 调用AI API（支持Function Calling）
             completion = self.ai_client.chat.completions.create(
                 model=self.ai_model,
                 messages=[
@@ -462,22 +807,70 @@ class WebSocketBridgeNode(Node):
                 ],
                 max_tokens=self.ai_max_tokens,
                 temperature=0.7,
+                tools=self.get_available_functions(),
+                tool_choice="auto"  # 让AI自动决定是否调用函数
             )
             
-            # 提取AI回复
-            ai_response = completion.choices[0].message.content
+            # 处理AI回复
+            message = completion.choices[0].message
+            
+            # 检查是否需要调用函数
+            if message.tool_calls:
+                # 执行函数调用
+                function_results = []
+                for tool_call in message.tool_calls:
+                    function_name = tool_call.function.name
+                    function_args = json.loads(tool_call.function.arguments)
+                    
+                    self.get_logger().info(f'AI请求执行函数: {function_name}, 参数: {function_args}')
+                    
+                    # 执行函数
+                    result = self.execute_function(function_name, function_args)
+                    function_results.append({
+                        "function": function_name,
+                        "arguments": function_args,
+                        "result": result
+                    })
+                
+                # 构建包含函数执行结果的回复
+                function_summary = []
+                for func_result in function_results:
+                    if func_result["result"]["success"]:
+                        function_summary.append(f"✅ {func_result['function']}: {func_result['result']['message']}")
+                    else:
+                        function_summary.append(f"❌ {func_result['function']}: {func_result['result']['error']}")
+                
+                # 生成最终回复
+                ai_response = f"我已经为您执行了以下操作：\n\n" + "\n".join(function_summary)
+                
+                if message.content:
+                    ai_response += f"\n\n{message.content}"
+                
+                # 在回复中包含函数执行结果
+                response = {
+                    "type": "ai_chat_response",
+                    "success": True,
+                    "message": ai_response,
+                    "timestamp": timestamp,
+                    "client_id": client_id,
+                    "robot_id": robot_id,
+                    "function_calls": function_results  # 添加函数调用结果
+                }
+                
+            else:
+                # 普通文本回复
+                ai_response = message.content
+                
+                response = {
+                    "type": "ai_chat_response",
+                    "success": True,
+                    "message": ai_response,
+                    "timestamp": timestamp,
+                    "client_id": client_id,
+                    "robot_id": robot_id
+                }
             
             self.get_logger().info(f'AI回复生成成功 - 客户端: {client_id}, 回复长度: {len(ai_response)}字符')
-            
-            # 发送成功响应
-            response = {
-                "type": "ai_chat_response",
-                "success": True,
-                "message": ai_response,
-                "timestamp": timestamp,
-                "client_id": client_id,
-                "robot_id": robot_id
-            }
             
             if self.ws and self.connected:
                 self.ws.send(json.dumps(response))
@@ -493,15 +886,24 @@ class WebSocketBridgeNode(Node):
                 "error": str(e)
             }
             if self.ws and self.connected:
-                self.ws.send(json.dumps(response))
+                self.ws.send(json.dumps(error_response))
     
     def build_robot_context(self, robot_id):
         """构建包含机器人状态的上下文信息"""
-        context = """你是AgriSage智能助手，专门为农业采摘机器人提供服务。你需要：
-1. 基于当前机器人的实时状态数据回答用户问题
-2. 提供专业、准确的农业采摘相关建议
-3. 保持友好、专业的对话风格
-4. 如果用户询问具体数据，优先使用实时状态信息
+        context = """你是AgriSage智能助手，专门为农业采摘机器人提供服务。
+
+重要功能：
+- 你可以直接控制机器人的各种功能
+- 当用户要求切换模式、开始采摘、控制移动等操作时，你应该调用相应的函数来执行
+- 优先使用函数来执行用户的指令，而不是仅仅提供建议
+
+你具备以下控制能力：
+1. 切换机器人工作模式（手动/自动）
+2. 开启/关闭自动采摘功能
+3. 控制机器人移动（前进、后退、左转、右转、停止）
+4. 开始/停止采摘操作
+5. 获取机器人实时状态
+6. 紧急停止所有操作
 
 当前机器人状态信息：
 """
@@ -518,6 +920,9 @@ class WebSocketBridgeNode(Node):
 - 作业面积: {robot_data.get('working_area', 0.0):.2f}亩
 - 工作时长: {(time.time() - robot_data.get('today_start_time', time.time())) / 3600.0:.2f}小时
 - 当前时间: {time.strftime('%Y-%m-%d %H:%M:%S')}
+- 电池电量: {self.robot_status.get('battery_level', 0)}%
+- 当前速度: {self.robot_status.get('current_speed', 0):.2f}m/s
+- CPU使用率: {self.robot_status.get('cpu_usage', 0)}%
 """
             
             # 如果有位置信息
@@ -533,7 +938,13 @@ class WebSocketBridgeNode(Node):
             self.get_logger().error(f'构建机器人上下文时出错: {e}')
         
         context += """
-请基于以上信息回答用户问题，提供有用的建议和分析。
+
+使用指南：
+- 当用户询问状态时，主动调用get_robot_status函数获取最新信息
+- 当用户要求执行操作时，立即调用相应函数而不是仅提供建议
+- 执行操作后，向用户确认操作结果
+- 始终保持友好、专业的对话风格
+- 基于实时状态数据提供准确的信息和建议
 """
         
         return context
@@ -563,12 +974,15 @@ class WebSocketBridgeNode(Node):
             self.get_logger().error(f'处理内部AI请求出错: {e}')
     
     def process_internal_ai_request(self, user_message, robot_id):
-        """处理来自ROS2内部的AI请求"""
+        """处理来自ROS2内部的AI请求（支持Function Calling）"""
         try:
             # 构建上下文
             system_message = self.build_robot_context(robot_id)
             
-            # 调用AI API
+            # 获取可用函数
+            tools = self.get_available_functions()
+            
+            # 第一次调用AI API（支持Function Calling）
             completion = self.ai_client.chat.completions.create(
                 model=self.ai_model,
                 messages=[
@@ -583,19 +997,81 @@ class WebSocketBridgeNode(Node):
                 ],
                 max_tokens=self.ai_max_tokens,
                 temperature=0.7,
+                tools=tools,
+                tool_choice="auto"
             )
             
-            # 提取AI回复
-            ai_response = completion.choices[0].message.content
+            # 处理AI回复
+            response_message = completion.choices[0].message
             
-            # 发布AI回复到ROS2话题
+            # 检查是否需要调用函数
+            if response_message.tool_calls:
+                # 执行函数调用
+                function_results = []
+                messages_for_second_call = [
+                    {
+                        "role": "system",
+                        "content": system_message
+                    },
+                    {
+                        "role": "user",
+                        "content": user_message
+                    },
+                    response_message  # AI的原始响应
+                ]
+                
+                for tool_call in response_message.tool_calls:
+                    function_name = tool_call.function.name
+                    function_args = json.loads(tool_call.function.arguments)
+                    
+                    self.get_logger().info(f'内部AI请求执行函数: {function_name}, 参数: {function_args}')
+                    
+                    # 执行函数
+                    result = self.execute_function(function_name, function_args)
+                    function_results.append({
+                        "function": function_name,
+                        "arguments": function_args,
+                        "result": result
+                    })
+                    
+                    # 添加函数执行结果到消息历史
+                    messages_for_second_call.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(result)
+                    })
+                
+                # 第二次调用AI，让它基于函数执行结果生成最终回复
+                completion2 = self.ai_client.chat.completions.create(
+                    model=self.ai_model,
+                    messages=messages_for_second_call,
+                    max_tokens=self.ai_max_tokens,
+                    temperature=0.7
+                )
+                
+                # 获取AI的最终回复
+                ai_response = completion2.choices[0].message.content
+                
+                # 发布包含函数执行结果的AI回复
+                response_data = {
+                    "message": ai_response,
+                    "robot_id": robot_id,
+                    "timestamp": int(time.time() * 1000),
+                    "success": True,
+                    "function_calls": function_results
+                }
+                
+            else:
+                # 普通文本回复
+                ai_response = response_message.content
+                response_data = {
+                    "message": ai_response,
+                    "robot_id": robot_id,
+                    "timestamp": int(time.time() * 1000),
+                    "success": True
+                }
+            
             response_msg = String()
-            response_data = {
-                "message": ai_response,
-                "robot_id": robot_id,
-                "timestamp": int(time.time() * 1000),
-                "success": True
-            }
             response_msg.data = json.dumps(response_data)
             self.ai_response_pub.publish(response_msg)
             
@@ -603,6 +1079,7 @@ class WebSocketBridgeNode(Node):
             
         except Exception as e:
             self.get_logger().error(f'处理内部AI请求出错: {e}')
+            self.get_logger().error(f'详细错误: {traceback.format_exc()}')
             # 发布错误响应
             error_msg = String()
             error_data = {
@@ -614,6 +1091,8 @@ class WebSocketBridgeNode(Node):
             }
             error_msg.data = json.dumps(error_data)
             self.ai_response_pub.publish(error_msg)
+    
+    # ===================== 其他原有方法保持不变 =====================
     
     def check_daily_reset(self):
         """检查是否需要重置每日统计数据"""
@@ -722,6 +1201,18 @@ class WebSocketBridgeNode(Node):
     
     def status_callback(self, msg):
         """机器人状态回调 - 改进版"""
+        # 更新机器人状态数据（用于function calling）
+        self.robot_status = {
+            'battery_level': msg.battery_level,
+            'current_speed': msg.current_speed,
+            'position_x': msg.position_x,
+            'position_y': msg.position_y,
+            'latitude': msg.latitude,
+            'longitude': msg.longitude,
+            'harvested_count': msg.harvested_count,
+            'cpu_usage': msg.cpu_usage
+        }
+        
         if not self.connected or not self.ws:
             return
         
