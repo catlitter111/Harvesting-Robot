@@ -41,8 +41,8 @@ class WebSocketBridgeNode(Node):
         # AI相关参数
         self.declare_parameter('ai_enabled', True)
         self.declare_parameter('ai_base_url', 'https://ai-gateway.vei.volces.com/v1')
-        self.declare_parameter('ai_api_key', 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30')
-        self.declare_parameter('ai_model', 'doubao-1.5-thinking-pro-vision')
+        self.declare_parameter('ai_api_key', 'sk-1b880a05df7249d3927443d4872e2839oklzor2ja52wf1eu')
+        self.declare_parameter('ai_model', 'doubao-1.5-lite-32k')
         self.declare_parameter('ai_max_tokens', 300)
         
         # 获取参数

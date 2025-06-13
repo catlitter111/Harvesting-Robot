@@ -59,110 +59,8 @@ adaptive_video_manager = None  # 自适应视频管理器实例
 daily_statistics = {}  # 格式: {robot_id: {date: {data}}}
 monthly_records = {}  # 格式: {robot_id: {year-month: [记录列表]}}
 
-# AI聊天相关
-ai_knowledge_base = {
-    "greeting": ["您好！我是AgriSage智能助手，专门为农业采摘机器人提供服务。", "欢迎使用AgriSage智能助手！有什么可以帮您的吗？"],
-    "robot_status": ["机器人当前运行状态良好，各项指标正常。", "设备连接正常，所有系统运行稳定。"],
-    "harvest_info": ["今天的采摘进展顺利，机器人工作效率很高。", "采摘准确率保持在95%以上，表现优异。"],
-    "weather": ["今天天气适合农作物采摘，机器人可以正常工作。", "当前环境条件良好，有利于自动化采摘作业。"],
-    "help": ["我可以帮您查看机器人状态、采摘数据、位置信息等。您有什么具体问题吗？", "我能为您提供设备监控、数据分析、操作指导等服务。"],
-    "default": ["感谢您的提问。我正在学习中，如有不当之处请见谅。您可以问我关于机器人状态、采摘数据等问题。", "抱歉，我可能没有完全理解您的问题。您可以尝试询问机器人状态、工作进度等相关信息。"]
-}
-
-
-# AI响应生成函数
-async def generate_ai_response(user_message: str, robot_id: str = "robot_123") -> str:
-    """
-    生成AI智能回复（模拟实现）
-    """
-    try:
-        # 模拟AI处理时间（1-3秒）
-        await asyncio.sleep(random.uniform(1.0, 3.0))
-        
-        message_lower = user_message.lower()
-        
-        # 关键词匹配逻辑
-        if any(word in message_lower for word in ["你好", "hi", "hello", "您好"]):
-            responses = ai_knowledge_base["greeting"]
-        elif any(word in message_lower for word in ["状态", "运行", "工作", "设备", "机器人"]):
-            # 获取实际机器人数据
-            robot_data = get_robot_data_for_ai(robot_id)
-            if robot_data:
-                battery = robot_data.get("battery_level", 85)
-                harvested = robot_data.get("today_harvested", 0)
-                status = "工作中" if robot_data.get("working", False) else "待机中"
-                return f"机器人当前状态：{status}，电池电量：{battery}%，今日采摘：{harvested}个。设备运行正常，各项指标稳定。"
-            else:
-                responses = ai_knowledge_base["robot_status"]
-        elif any(word in message_lower for word in ["采摘", "收获", "产量", "效率", "数据"]):
-            # 获取采摘相关数据
-            robot_data = get_robot_data_for_ai(robot_id)
-            if robot_data:
-                today = robot_data.get("today_harvested", 0)
-                total = robot_data.get("total_harvested", 0)
-                accuracy = robot_data.get("harvest_accuracy", 95)
-                return f"采摘数据统计：今日已采摘{today}个，累计采摘{total}个，采摘准确率{accuracy}%。工作效率良好，质量稳定。"
-            else:
-                responses = ai_knowledge_base["harvest_info"]
-        elif any(word in message_lower for word in ["天气", "环境", "气候"]):
-            responses = ai_knowledge_base["weather"]
-        elif any(word in message_lower for word in ["帮助", "功能", "能做什么", "怎么用"]):
-            responses = ai_knowledge_base["help"]
-        elif any(word in message_lower for word in ["位置", "坐标", "地点", "在哪"]):
-            robot_data = get_robot_data_for_ai(robot_id)
-            if robot_data:
-                location = robot_data.get("position", {}).get("location_name", "未知位置")
-                lng = robot_data.get("longitude", 108.2415)
-                lat = robot_data.get("latitude", 34.9385)
-                return f"机器人当前位置：{location}（经度：{lng:.4f}，纬度：{lat:.4f}）。定位系统工作正常。"
-            else:
-                return "机器人位置信息：当前位置定位中，GPS系统正在校准。"
-        elif any(word in message_lower for word in ["电量", "电池", "续航"]):
-            robot_data = get_robot_data_for_ai(robot_id)
-            if robot_data:
-                battery = robot_data.get("battery_level", 85)
-                if battery > 80:
-                    status = "电量充足"
-                elif battery > 50:
-                    status = "电量正常"
-                else:
-                    status = "电量偏低，建议及时充电"
-                return f"机器人电池状态：{battery}%，{status}。预计可连续工作{int(battery/10)}小时。"
-            else:
-                return "机器人电池状态：85%，电量充足，可正常工作。"
-        else:
-            responses = ai_knowledge_base["default"]
-        
-        # 随机选择一个回复
-        response = random.choice(responses)
-        
-        # 添加个性化元素
-        if random.random() < 0.3:  # 30%概率添加额外信息
-            extra_info = [
-                "如需更详细信息，请查看统计页面。",
-                "有其他问题可以随时询问我。",
-                "建议定期检查设备状态确保正常运行。",
-                "您可以在控制中心查看实时视频。"
-            ]
-            response += " " + random.choice(extra_info)
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"生成AI回复时出错: {e}")
-        return "抱歉，我暂时无法处理您的问题，请稍后重试。"
-
-def get_robot_data_for_ai(robot_id: str) -> dict:
-    """
-    获取机器人数据用于AI回复
-    """
-    try:
-        if robot_id in robots and "data" in robots[robot_id]:
-            return robots[robot_id]["data"]
-        return None
-    except Exception as e:
-        logger.error(f"获取机器人数据出错: {e}")
-        return None
+# AI聊天相关 - 存储待处理的AI请求
+pending_ai_requests = {}  # 格式: {request_id: {client_id, timestamp, ...}}
 
 
 # 命令监听器
@@ -784,9 +682,9 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
                         })
 
                 elif message_type == "ai_chat_request":
-                    # 处理AI聊天请求
+                    # 处理AI聊天请求 - 转发给ROS2节点
                     user_message = message.get("message", "").strip()
-                    timestamp = message.get("timestamp", int(time.time() * 1000))  # 保存客户端的timestamp
+                    timestamp = message.get("timestamp", int(time.time() * 1000))
                     robot_id = message.get("robot_id", "robot_123")
 
                     logger.info(f"收到AI聊天请求 - 客户端: {client_id}, 消息: {user_message[:50]}...")
@@ -798,31 +696,61 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
                                 "type": "error",
                                 "message": "消息内容不能为空",
                                 "context": "ai_chat",
-                                "timestamp": timestamp  # 返回原始timestamp
+                                "timestamp": timestamp
                             })
                             continue
 
-                        # 生成AI响应（模拟实现）
-                        ai_response = await generate_ai_response(user_message, robot_id)
+                        # 生成唯一的请求ID
+                        request_id = f"{client_id}_{timestamp}_{random.randint(1000, 9999)}"
 
-                        # 发送AI回复 - 重要：必须返回客户端的原始timestamp
-                        await websocket.send_json({
-                            "type": "ai_chat_response",
-                            "message": ai_response,
-                            "timestamp": timestamp,  # 使用客户端发送的原始timestamp
-                            "status": "success",
-                            "robot_id": robot_id
-                        })
+                        # 存储待处理的请求
+                        async with lock:
+                            pending_ai_requests[request_id] = {
+                                "client_id": client_id,
+                                "timestamp": timestamp,
+                                "websocket": websocket,
+                                "robot_id": robot_id,
+                                "user_message": user_message
+                            }
 
-                        logger.info(f"AI回复已发送 - 客户端: {client_id}, 回复长度: {len(ai_response)}字符")
+                        # 转发AI请求到机器人节点
+                        if robot_id in robots and "websocket" in robots[robot_id]:
+                            ai_request_message = {
+                                "type": "ai_chat_request",
+                                "message": user_message,
+                                "client_id": client_id,
+                                "timestamp": timestamp,
+                                "robot_id": robot_id,
+                                "request_id": request_id
+                            }
+
+                            await robots[robot_id]["websocket"].send_json(ai_request_message)
+                            logger.info(f"AI请求已转发给机器人 {robot_id}")
+                        else:
+                            # 机器人不在线，发送错误响应
+                            async with lock:
+                                if request_id in pending_ai_requests:
+                                    del pending_ai_requests[request_id]
+
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": "机器人不在线，AI服务不可用",
+                                "context": "ai_chat",
+                                "timestamp": timestamp
+                            })
 
                     except Exception as e:
                         logger.error(f"处理AI聊天请求出错: {e}")
+                        # 清理待处理请求
+                        async with lock:
+                            if 'request_id' in locals() and request_id in pending_ai_requests:
+                                del pending_ai_requests[request_id]
+
                         await websocket.send_json({
                             "type": "error",
                             "message": "AI服务暂时不可用，请稍后重试",
                             "context": "ai_chat",
-                            "timestamp": timestamp  # 错误时也要返回原始timestamp
+                            "timestamp": timestamp
                         })
 
             except json.JSONDecodeError:
@@ -887,6 +815,15 @@ async def handle_client_disconnect(client_id):
             if robot_id in robot_to_clients and client_id in robot_to_clients[robot_id]:
                 robot_to_clients[robot_id].remove(client_id)
             del client_to_robot[client_id]
+
+        # 清理该客户端的待处理AI请求
+        requests_to_remove = []
+        for request_id, request_info in pending_ai_requests.items():
+            if request_info.get("client_id") == client_id:
+                requests_to_remove.append(request_id)
+
+        for request_id in requests_to_remove:
+            del pending_ai_requests[request_id]
 
     # 从自适应视频管理器中断开客户端
     adaptive_video_manager.disconnect_client(client_id)
@@ -1000,6 +937,10 @@ async def robot_websocket_endpoint(websocket: WebSocket, robot_id: str):
                                         except Exception as e:
                                             logger.error(f"通知客户端 {client_id} 质量更新失败: {e}")
 
+                elif message_type == "ai_chat_response":
+                    # 处理来自机器人节点的AI回复
+                    await handle_ai_response_from_robot(message)
+
             except json.JSONDecodeError:
                 logger.error(f"收到无效JSON: {data}")
             except Exception as e:
@@ -1009,6 +950,50 @@ async def robot_websocket_endpoint(websocket: WebSocket, robot_id: str):
         logger.info(f"机器人 {robot_id} 已断开连接")
         # 清理机器人连接
         await handle_robot_disconnect(robot_id)
+
+
+async def handle_ai_response_from_robot(message):
+    """处理来自机器人节点的AI回复"""
+    try:
+        client_id = message.get("client_id", "")
+        success = message.get("success", False)
+        ai_message = message.get("message", "")
+        timestamp = message.get("timestamp", int(time.time() * 1000))
+        robot_id = message.get("robot_id", "")
+        error = message.get("error", "")
+
+        logger.info(f"收到机器人AI回复 - 客户端: {client_id}, 成功: {success}")
+
+        # 查找对应的客户端WebSocket连接
+        async with lock:
+            if client_id in clients and "websocket" in clients[client_id]:
+                client_ws = clients[client_id]["websocket"]
+
+                # 发送AI回复给客户端
+                if success:
+                    response = {
+                        "type": "ai_chat_response",
+                        "message": ai_message,
+                        "timestamp": timestamp,
+                        "status": "success",
+                        "robot_id": robot_id
+                    }
+                else:
+                    response = {
+                        "type": "error",
+                        "message": ai_message or "AI服务暂时不可用",
+                        "context": "ai_chat",
+                        "timestamp": timestamp,
+                        "error": error
+                    }
+
+                await client_ws.send_json(response)
+                logger.info(f"AI回复已转发给客户端 {client_id}")
+            else:
+                logger.warning(f"找不到客户端 {client_id} 的WebSocket连接")
+
+    except Exception as e:
+        logger.error(f"处理机器人AI回复出错: {e}")
 
 
 # 新增：机器人断开连接处理函数
@@ -1399,7 +1384,7 @@ async def startup_event():
 
     # 启动连接监控
     asyncio.create_task(connection_monitor())
-    
+
     # 启动测试数据生成器（可选，如果需要在没有真实机器人时测试）
     # 取消下面一行的注释来启用测试数据生成
     # asyncio.create_task(test_data_generator_task())

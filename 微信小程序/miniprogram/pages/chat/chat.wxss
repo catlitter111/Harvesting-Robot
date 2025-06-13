@@ -1,206 +1,415 @@
-/* 聊天页面样式 */
+/* 聊天页面样式 - AI集成优化版 */
 .chat-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background-color: #f6f6f6;
-}
-
-/* 连接状态提示 */
-.connection-status {
-  background-color: #ff6b6b;
-  color: white;
-  text-align: center;
-  padding: 12rpx 0;
-  font-size: 28rpx;
-}
-
-/* 功能工具栏 */
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 24rpx;
-  background-color: white;
-  border-bottom: 1rpx solid #e8e8e8;
-}
-
-.toolbar-left {
-  flex: 1;
-}
-
-.chat-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #333;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-}
-
-/* 消息列表区域 */
-.message-list {
-  flex: 1;
-  padding: 20rpx;
-  box-sizing: border-box;
-}
-
-.message-item {
-  margin-bottom: 24rpx;
-  display: flex;
-}
-
-.message-item.user {
-  justify-content: flex-end;
-}
-
-.message-item.ai {
-  justify-content: flex-start;
-}
-
-/* 消息气泡样式 */
-.message-bubble {
-  max-width: 70%;
-  padding: 24rpx 32rpx;
-  border-radius: 40rpx;
-  position: relative;
-}
-
-/* 消息内容区域 */
-.message-content {
-  margin-bottom: 8rpx;
-}
-
-.user .message-bubble {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.ai .message-bubble {
-  background-color: white;
-  color: #333;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.1);
-}
-
-.message-text {
-  font-size: 32rpx;
-  line-height: 1.4;
-  word-wrap: break-word;
-}
-
-/* 消息信息 */
-.message-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12rpx;
-}
-
-.message-time {
-  font-size: 24rpx;
-  opacity: 0.7;
-}
-
-.message-status {
-  margin-left: 16rpx;
-}
-
-.status-icon {
-  width: 32rpx;
-  height: 32rpx;
-}
-
-.retry-btn {
-  color: #4CAF50;
-  font-size: 24rpx;
-  margin-left: 12rpx;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* 展开/收起按钮 */
-.expand-btn {
-  margin-top: 12rpx;
-  text-align: right;
-}
-
-.expand-text {
-  color: #4CAF50;
-  font-size: 24rpx;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.user .expand-text {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-/* 消息列表底部占位 */
-.message-list-bottom {
-  height: 20rpx;
-}
-
-/* 输入区域 */
-.input-area {
-  display: flex;
-  align-items: center;
-  padding: 20rpx;
-  background-color: white;
-  border-top: 2rpx solid #e5e5e5;
-  box-sizing: border-box;
-}
-
-.clear-button {
-  padding: 8rpx 16rpx;
-  background-color: #f5f5f5;
-  border: 1rpx solid #ddd;
-  border-radius: 24rpx;
-  font-size: 24rpx;
-  color: #666;
-}
-
-.clear-text {
-  color: #666;
-  font-size: 24rpx;
-}
-
-.message-input {
-  flex: 1;
-  height: 80rpx;
-  padding: 0 32rpx;
-  border: 2rpx solid #e5e5e5;
-  border-radius: 40rpx;
-  font-size: 32rpx;
-  background-color: #f8f8f8;
-}
-
-.send-button {
-  width: 120rpx;
-  height: 80rpx;
-  margin-left: 20rpx;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 40rpx;
-  font-size: 28rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.send-button[disabled] {
-  background-color: #ccc;
-}
-
-.loading-icon {
-  width: 40rpx;
-  height: 40rpx;
-  animation: rotate 1s linear infinite;
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-} 
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #f6f6f6;
+  }
+  
+  /* 连接状态提示 */
+  .connection-status {
+    background-color: #ff6b6b;
+    color: white;
+    text-align: center;
+    padding: 12rpx 0;
+    font-size: 28rpx;
+  }
+  
+  /* AI服务状态栏 */
+  .ai-status-bar {
+    background-color: #ffa726;
+    color: white;
+    text-align: center;
+    padding: 8rpx 0;
+    font-size: 26rpx;
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+  
+  /* 功能工具栏 */
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16rpx 24rpx;
+    background-color: white;
+    border-bottom: 1rpx solid #e8e8e8;
+  }
+  
+  .toolbar-left {
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+  
+  .chat-title {
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #333;
+    margin-right: 16rpx;
+  }
+  
+  /* AI状态指示器 */
+  .ai-status-indicator {
+    display: flex;
+    align-items: center;
+  }
+  
+  .status-dot {
+    width: 16rpx;
+    height: 16rpx;
+    border-radius: 50%;
+    margin-right: 8rpx;
+  }
+  
+  .status-dot.available {
+    background-color: #4CAF50;
+    animation: breathing 2s infinite;
+  }
+  
+  .status-dot.unavailable {
+    background-color: #ff6b6b;
+  }
+  
+  .status-dot.unknown {
+    background-color: #ffa726;
+    animation: blinking 1s infinite;
+  }
+  
+  @keyframes breathing {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
+  
+  @keyframes blinking {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+  
+  .status-text {
+    font-size: 22rpx;
+    color: #666;
+  }
+  
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+  }
+  
+  /* 消息列表区域 */
+  .message-list {
+    flex: 1;
+    padding: 20rpx;
+    box-sizing: border-box;
+  }
+  
+  .message-item {
+    margin-bottom: 24rpx;
+    display: flex;
+  }
+  
+  .message-item.user {
+    justify-content: flex-end;
+  }
+  
+  .message-item.ai {
+    justify-content: flex-start;
+  }
+  
+  /* 消息气泡样式 */
+  .message-bubble {
+    max-width: 70%;
+    padding: 24rpx 32rpx;
+    border-radius: 40rpx;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  
+  /* AI思考状态样式 */
+  .message-bubble.thinking {
+    background-color: #e3f2fd;
+    border: 2rpx dashed #2196F3;
+    animation: thinking-pulse 2s infinite;
+  }
+  
+  @keyframes thinking-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+  }
+  
+  /* 思考动画 */
+  .thinking-animation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12rpx;
+  }
+  
+  .thinking-animation .dot {
+    width: 12rpx;
+    height: 12rpx;
+    border-radius: 50%;
+    background-color: #2196F3;
+    margin: 0 4rpx;
+    animation: thinking-dots 1.4s infinite ease-in-out both;
+  }
+  
+  .thinking-animation .dot:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+  
+  .thinking-animation .dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+  
+  @keyframes thinking-dots {
+    0%, 80%, 100% {
+      transform: scale(0);
+    }
+    40% {
+      transform: scale(1);
+    }
+  }
+  
+  /* 消息内容区域 */
+  .message-content {
+    margin-bottom: 8rpx;
+  }
+  
+  .user .message-bubble {
+    background-color: #4CAF50;
+    color: white;
+    box-shadow: 0 4rpx 12rpx rgba(76, 175, 80, 0.3);
+  }
+  
+  .ai .message-bubble {
+    background-color: white;
+    color: #333;
+    box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.1);
+  }
+  
+  .message-text {
+    font-size: 32rpx;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+  
+  /* 消息信息 */
+  .message-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12rpx;
+  }
+  
+  .message-time {
+    font-size: 24rpx;
+    opacity: 0.7;
+  }
+  
+  .message-status {
+    margin-left: 16rpx;
+    display: flex;
+    align-items: center;
+  }
+  
+  .status-icon {
+    width: 32rpx;
+    height: 32rpx;
+  }
+  
+  .retry-btn {
+    color: #4CAF50;
+    font-size: 24rpx;
+    margin-left: 12rpx;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4rpx 8rpx;
+    border-radius: 8rpx;
+    background-color: rgba(76, 175, 80, 0.1);
+  }
+  
+  /* 展开/收起按钮 */
+  .expand-btn {
+    margin-top: 12rpx;
+    text-align: right;
+  }
+  
+  .expand-text {
+    color: #4CAF50;
+    font-size: 24rpx;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4rpx 8rpx;
+    border-radius: 8rpx;
+    background-color: rgba(76, 175, 80, 0.1);
+  }
+  
+  .user .expand-text {
+    color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* 消息列表底部占位 */
+  .message-list-bottom {
+    height: 20rpx;
+  }
+  
+  /* AI思考提示 */
+  .ai-thinking-tip {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    text-align: center;
+    padding: 8rpx 16rpx;
+    margin-bottom: 8rpx;
+    border-radius: 20rpx;
+    font-size: 24rpx;
+    animation: fade-in-out 2s infinite;
+  }
+  
+  @keyframes fade-in-out {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+  
+  /* 输入区域 */
+  .input-area {
+    display: flex;
+    flex-direction: column;
+    padding: 20rpx;
+    background-color: white;
+    border-top: 2rpx solid #e5e5e5;
+    box-sizing: border-box;
+  }
+  
+  .input-area > view:last-child {
+    display: flex;
+    align-items: center;
+  }
+  
+  .clear-button {
+    padding: 8rpx 16rpx;
+    background-color: #f5f5f5;
+    border: 1rpx solid #ddd;
+    border-radius: 24rpx;
+    font-size: 24rpx;
+    color: #666;
+    transition: all 0.3s ease;
+  }
+  
+  .clear-button:active {
+    background-color: #eeeeee;
+  }
+  
+  .clear-text {
+    color: #666;
+    font-size: 24rpx;
+  }
+  
+  .message-input {
+    flex: 1;
+    height: 80rpx;
+    padding: 0 32rpx;
+    border: 2rpx solid #e5e5e5;
+    border-radius: 40rpx;
+    font-size: 32rpx;
+    background-color: #f8f8f8;
+    transition: all 0.3s ease;
+  }
+  
+  .message-input:focus {
+    border-color: #4CAF50;
+    background-color: white;
+  }
+  
+  .message-input[disabled] {
+    background-color: #f0f0f0;
+    color: #999;
+  }
+  
+  .send-button {
+    width: 120rpx;
+    height: 80rpx;
+    margin-left: 20rpx;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 40rpx;
+    font-size: 28rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4rpx 12rpx rgba(76, 175, 80, 0.3);
+  }
+  
+  .send-button:active {
+    transform: scale(0.95);
+  }
+  
+  .send-button[disabled] {
+    background-color: #ccc;
+    box-shadow: none;
+    transform: none;
+  }
+  
+  .loading-icon {
+    width: 40rpx;
+    height: 40rpx;
+    animation: rotate 1s linear infinite;
+  }
+  
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 750rpx) {
+    .message-bubble {
+      max-width: 85%;
+    }
+    
+    .toolbar {
+      padding: 12rpx 16rpx;
+    }
+    
+    .chat-title {
+      font-size: 28rpx;
+    }
+  }
+  
+  /* 暗色模式支持 */
+  @media (prefers-color-scheme: dark) {
+    .chat-container {
+      background-color: #1a1a1a;
+    }
+    
+    .toolbar {
+      background-color: #2d2d2d;
+      border-bottom-color: #404040;
+    }
+    
+    .chat-title {
+      color: #ffffff;
+    }
+    
+    .ai .message-bubble {
+      background-color: #2d2d2d;
+      color: #ffffff;
+    }
+    
+    .message-input {
+      background-color: #2d2d2d;
+      color: #ffffff;
+      border-color: #404040;
+    }
+  }

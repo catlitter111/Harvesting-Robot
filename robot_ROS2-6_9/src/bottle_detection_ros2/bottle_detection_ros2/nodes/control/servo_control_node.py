@@ -7,7 +7,7 @@
 
 import rclpy
 from rclpy.node import Node
-from rclpy.callback_groups import RealtimeCallbackGroup
+from rclpy.callback_groups import ReentrantCallbackGroup  # 修改：使用ReentrantCallbackGroup替代RealtimeCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import Float32, Int32, Bool, String
 from geometry_msgs.msg import Point
@@ -99,8 +99,8 @@ class ServoControlNode(Node):
     def __init__(self):
         super().__init__('servo_control_node')
         
-        # 创建实时回调组
-        self.realtime_callback_group = RealtimeCallbackGroup()
+        # 创建可重入回调组（修改：替代实时回调组）
+        self.realtime_callback_group = ReentrantCallbackGroup()
         
         # 声明参数
         self.declare_parameter('serial_port', '/dev/ttyS9')
@@ -164,7 +164,7 @@ class ServoControlNode(Node):
         self.tracking_enabled = False
         self.show_debug = True
         
-        # 创建订阅者（使用高性能QoS和实时回调组）
+        # 创建订阅者（使用高性能QoS和可重入回调组）
         self.servo_cmd_sub = self.create_subscription(
             ServoCommand,
             'servo/command',
@@ -430,88 +430,6 @@ class ServoControlNode(Node):
             # 没有检测到色块时，初始化误差变量为0（用于调试显示）
             pixel_error_x = pixel_error_y = 0
             pwm_error_x = pwm_error_y = 0
-
-
-
-        # if center_x is None or center_y is None:
-        #     return
-        
-        # # 计算图像中心
-        # frame_center_x = frame_width // 2 + 80
-        # frame_center_y = frame_height // 2
-        
-        # # 计算像素误差
-        # pixel_error_x = center_x - frame_center_x
-        # pixel_error_y = center_y - frame_center_y
-        
-        # # 将像素误差转换为PWM误差
-        # pwm_error_x = pixel_error_x * self.pixel_to_pwm_ratio
-        # pwm_error_y = pixel_error_y * self.pixel_to_pwm_ratio
-        
-        # # 死区检测
-        # if abs(pixel_error_x) < self.dead_zone_x:
-        #     pixel_error_x = 0
-        #     pwm_error_x = 0
-        # if abs(pixel_error_y) < self.dead_zone_y:
-        #     pixel_error_y = 0
-        #     pwm_error_y = 0
-        
-        # # PID控制
-        # if pixel_error_x != 0 or pixel_error_y != 0:
-        #     horizontal_output = self.horizontal_pid.update(pwm_error_x)
-        #     vertical_output = self.vertical_pid.update(pwm_error_y)
-            
-        #     new_h_pos = None
-        #     new_v_pos = None
-            
-        #     # 水平舵机控制
-        #     if abs(horizontal_output) > self.horizontal_movement_threshold:
-        #         new_h_pos = self.current_horizontal_pos - horizontal_output
-                
-        #         # 平滑滤波
-        #         new_h_pos = (self.smooth_factor * self.current_horizontal_pos + 
-        #                     (1 - self.smooth_factor) * new_h_pos)
-                
-        #         # 限制在水平舵机范围内
-        #         new_h_pos = max(self.horizontal_servo_range[0], 
-        #                        min(self.horizontal_servo_range[1], int(new_h_pos)))
-            
-        #     # 垂直舵机控制
-        #     if abs(vertical_output) > self.vertical_movement_threshold:
-        #         new_v_pos = self.current_vertical_pos - vertical_output
-                
-        #         # 平滑滤波
-        #         new_v_pos = (self.smooth_factor * self.current_vertical_pos + 
-        #                     (1 - self.smooth_factor) * new_v_pos)
-                
-        #         # 限制在垂直舵机范围内
-        #         new_v_pos = max(self.vertical_servo_range[0], 
-        #                        min(self.vertical_servo_range[1], int(new_v_pos)))
-            
-        #     # 发送命令
-        #     if new_h_pos is not None and new_v_pos is not None:
-        #         # 只有当两个位置都需要更新且变化足够大时才发送组合命令
-        #         if abs(new_h_pos - self.current_horizontal_pos) > 3 and abs(new_v_pos - self.current_vertical_pos) > 3:
-        #             command = f"#{0:03d}P{new_h_pos:04d}T{abs(new_h_pos - self.current_horizontal_pos):04d}!#{1:03d}P{new_v_pos:04d}T{abs(new_v_pos - self.current_vertical_pos):04d}!"
-        #             self.send_command(command)
-        #             self.current_horizontal_pos = new_h_pos
-        #             self.current_vertical_pos = new_v_pos
-        #             self.current_positions[0] = new_h_pos
-        #             self.current_positions[1] = new_v_pos
-        #     elif new_h_pos is not None:
-        #         # 只更新水平位置
-        #         if abs(new_h_pos - self.current_horizontal_pos) > 3:
-        #             command = f"#{0:03d}P{new_h_pos:04d}T{abs(new_h_pos - self.current_horizontal_pos):04d}!"
-        #             self.send_command(command)
-        #             self.current_horizontal_pos = new_h_pos
-        #             self.current_positions[0] = new_h_pos
-        #     elif new_v_pos is not None:
-        #         # 只更新垂直位置
-        #         if abs(new_v_pos - self.current_vertical_pos) > 3:
-        #             command = f"#{1:03d}P{new_v_pos:04d}T{abs(new_v_pos - self.current_vertical_pos):04d}!"
-        #             self.send_command(command)
-        #             self.current_vertical_pos = new_v_pos
-        #             self.current_positions[1] = new_v_pos
     
     def servo_command_callback(self, msg):
         """舵机命令回调"""

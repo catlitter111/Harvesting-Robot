@@ -1,4 +1,4 @@
-// 聊天页面
+// 聊天页面 - AI集成优化版
 const util = require('../../utils/util.js');
 
 // 全局消息ID计数器，确保ID唯一性
@@ -20,7 +20,7 @@ Page({
       {
         id: generateUniqueMessageId('welcome'),
         type: 'ai',
-        text: '您好！我是AgriSage智能助手，很高兴为您服务。有什么问题可以随时问我！',
+        text: '您好！我是AgriSage智能助手，专门为农业采摘机器人提供服务。有什么问题可以随时问我！',
         time: '10:30',
         status: 'success',
         expanded: false
@@ -28,6 +28,7 @@ Page({
     ],
     inputText: '',
     sending: false,
+    aiThinking: false, // 新增：AI思考状态
     scrollTop: 0,
     connected: false,
     scrollIntoView: '',
@@ -35,13 +36,16 @@ Page({
     lastSendTime: 0, // 上次发送消息时间（防止频繁发送）
     sendingCount: 0, // 连续发送计数
     networkRetryCount: 0, // 网络重试次数
-    maxRetryCount: 3 // 最大重试次数
+    maxRetryCount: 3, // 最大重试次数
+    aiResponseTimeout: 45000, // AI响应超时时间（45秒，比普通消息长）
+    aiServiceStatus: 'unknown' // AI服务状态：available/unavailable/unknown
   },
 
   // 页面实例属性（不存储在data中）
   pendingMessages: null, // 待响应消息映射 {timestamp: messageId}
   messageTimeouts: null, // 消息超时计时器
   connectionCheckInterval: null, // 连接检查定时器
+  aiThinkingTimer: null, // AI思考提示定时器
 
   onLoad: function(options) {
     console.log('Chat页面加载');
@@ -55,7 +59,8 @@ Page({
 
   onHide: function() {
     console.log('Chat页面隐藏');
-    // 页面隐藏时保存状态（可选）
+    // 清理AI思考定时器
+    this.clearAIThinkingTimer();
   },
 
   onUnload: function() {
@@ -63,6 +68,9 @@ Page({
     
     // 清理所有待响应消息和计时器
     this.clearAllPendingMessages();
+    
+    // 清理AI相关定时器
+    this.clearAIThinkingTimer();
     
     // 停止网络监控
     this.stopNetworkMonitoring();
@@ -88,13 +96,16 @@ Page({
     // 检查WebSocket连接状态
     this.checkConnection();
     
+    // 检查AI服务状态
+    this.checkAIServiceStatus();
+    
     // 启动网络状态监控
     this.startNetworkMonitoring();
     
     // 初始化滚动位置
     setTimeout(() => {
       this.scrollToBottom();
-    }, 300); // 延迟一下确保数据渲染完成
+    }, 300);
     
     console.log('Chat页面初始化完成', hasHistory ? '(含历史消息)' : '(仅默认消息)');
   },
@@ -108,12 +119,32 @@ Page({
     // 检查连接状态
     this.checkConnection();
     
+    // 重新检查AI服务状态
+    this.checkAIServiceStatus();
+    
     // 滚动到底部显示最新消息
     this.scrollToBottom();
     
     // 如果有待发送的消息，恢复发送状态
     if (this.data.sending) {
       console.log('页面恢复时检测到发送中状态');
+    }
+  },
+
+  // 检查AI服务状态
+  checkAIServiceStatus: function() {
+    // 发送AI服务状态检查请求
+    const app = getApp();
+    if (app.globalData.connected) {
+      // 这里可以添加AI服务健康检查逻辑
+      // 暂时假设AI服务可用
+      this.setData({
+        aiServiceStatus: 'available'
+      });
+    } else {
+      this.setData({
+        aiServiceStatus: 'unavailable'
+      });
     }
   },
 
@@ -128,14 +159,17 @@ Page({
     
     if (!connected) {
       console.warn('WebSocket连接已断开');
+      this.setData({
+        aiServiceStatus: 'unavailable'
+      });
     }
   },
 
-  // 输入验证
+  // 输入验证（AI优化版）
   validateInput: function(inputText) {
     // 空消息检查
     if (!inputText) {
-      return { valid: false, message: '请输入消息内容' };
+      return { valid: false, message: '请输入您的问题' };
     }
 
     // 正在发送检查
@@ -143,29 +177,31 @@ Page({
       return { valid: false, message: '消息发送中，请稍候' };
     }
 
-    // 长度限制检查
-    if (inputText.length > 500) {
-      return { valid: false, message: '消息内容过长，请控制在500字以内' };
+    // AI思考中检查
+    if (this.data.aiThinking) {
+      return { valid: false, message: 'AI正在思考中，请稍候' };
+    }
+
+    // 长度限制检查（AI消息可以稍微长一些）
+    if (inputText.length > 800) {
+      return { valid: false, message: '问题内容过长，请控制在800字以内' };
     }
 
     // 连续空格或换行检查
     if (/^\s+$/.test(inputText)) {
-      return { valid: false, message: '消息内容不能只包含空格' };
+      return { valid: false, message: '问题内容不能只包含空格' };
     }
 
     // 特殊字符过滤
     const filteredText = this.filterSpecialChars(inputText);
     if (filteredText !== inputText) {
       this.setData({ inputText: filteredText });
-      return { valid: false, message: '消息包含特殊字符已自动过滤，请重新发送' };
+      return { valid: false, message: '问题包含特殊字符已自动过滤，请重新发送' };
     }
 
-    // 敏感词检查（简单实现）
-    const sensitiveWords = ['测试敏感词', '危险词汇']; // 实际项目中应该从服务器获取
-    for (let word of sensitiveWords) {
-      if (inputText.includes(word)) {
-        return { valid: false, message: '消息包含敏感词汇，请修改后发送' };
-      }
+    // AI服务状态检查
+    if (this.data.aiServiceStatus === 'unavailable') {
+      return { valid: false, message: 'AI服务暂时不可用，请稍后重试' };
     }
 
     return { valid: true };
@@ -181,10 +217,13 @@ Page({
   checkNetworkConnection: function() {
     const app = getApp();
     if (!app.globalData || !app.globalData.connected) {
-      this.setData({ networkRetryCount: 0 }); // 重置重试计数
+      this.setData({ 
+        networkRetryCount: 0,
+        aiServiceStatus: 'unavailable'
+      });
       wx.showModal({
-        title: '网络连接异常',
-        content: '网络连接已断开，请检查网络后重试',
+        title: 'AI服务连接异常',
+        content: '网络连接已断开，AI服务暂时不可用，请检查网络后重试',
         showCancel: true,
         cancelText: '取消',
         confirmText: '重试连接',
@@ -199,15 +238,15 @@ Page({
     return true;
   },
 
-  // 检查发送频率
+  // 检查发送频率（AI优化版）
   checkSendFrequency: function() {
     const now = Date.now();
     const timeDiff = now - this.data.lastSendTime;
     
-    // 防止过于频繁发送（2秒内限制）
-    if (timeDiff < 2000) {
+    // AI消息间隔稍微长一些，避免频繁请求
+    if (timeDiff < 3000) {
       wx.showToast({
-        title: '发送过于频繁，请稍后再试',
+        title: 'AI需要时间思考，请稍后再问',
         icon: 'none',
         duration: 2000
       });
@@ -215,9 +254,9 @@ Page({
     }
 
     // 连续发送计数检查
-    if (this.data.sendingCount >= 5) {
+    if (this.data.sendingCount >= 3) {
       wx.showToast({
-        title: '发送次数过多，请稍作休息',
+        title: 'AI对话过于频繁，请稍作休息',
         icon: 'none',
         duration: 3000
       });
@@ -230,17 +269,17 @@ Page({
       sendingCount: this.data.sendingCount + 1
     });
 
-    // 10秒后重置发送计数
+    // 15秒后重置发送计数
     setTimeout(() => {
       this.setData({
         sendingCount: Math.max(0, this.data.sendingCount - 1)
       });
-    }, 10000);
+    }, 15000);
 
     return true;
   },
 
-  // 发送消息
+  // 发送消息（AI优化版）
   sendMessage: function() {
     const inputText = this.data.inputText.trim();
     
@@ -276,46 +315,147 @@ Page({
       time: this.formatTime(new Date()),
       status: 'sending',
       expanded: false,
-      timestamp: timestamp  // 添加timestamp到消息对象
+      timestamp: timestamp
     };
 
     // 添加消息到列表
     this.addMessage(userMessage);
     this.setData({
       inputText: '',
-      sending: true
+      sending: true,
+      aiThinking: true // 设置AI思考状态
     });
 
-    // 记录待响应消息 - 使用字符串key确保一致性
+    // 显示AI思考提示
+    this.showAIThinkingIndicator();
+
+    // 记录待响应消息
     const timestampKey = timestamp.toString();
     this.pendingMessages.set(timestampKey, userMessage.id);
     
-    console.log('发送消息 - ID:', userMessage.id, 'timestamp:', timestampKey, 'pendingMessages size:', this.pendingMessages.size);
+    console.log('发送AI问题 - ID:', userMessage.id, 'timestamp:', timestampKey);
     
-    // 设置超时处理（30秒）
+    // 设置AI专用超时处理（45秒）
     const timeoutId = setTimeout(() => {
-      this.handleMessageTimeout(userMessage.id, timestampKey);
-    }, 30000);
+      this.handleAITimeout(userMessage.id, timestampKey);
+    }, this.data.aiResponseTimeout);
     this.messageTimeouts.set(timestampKey, timeoutId);
 
     this.scrollToBottom();
 
-    // 发送WebSocket消息
+    // 发送WebSocket消息到AI服务
     try {
       const app = getApp();
       app.sendSocketMessage({
         type: 'ai_chat_request',
         message: inputText,
-        timestamp: timestamp,  // 发送整数时间戳
+        timestamp: timestamp,
         robot_id: app.globalData.robotId || 'robot_123'
       });
 
-      console.log('AI聊天消息已发送:', inputText, 'timestamp:', timestamp);
+      console.log('AI聊天问题已发送:', inputText.substring(0, 50), 'timestamp:', timestamp);
 
     } catch (error) {
-      console.error('发送消息失败:', error);
+      console.error('发送AI问题失败:', error);
       this.handleSendError(userMessage.id, error, inputText);
     }
+  },
+
+  // 显示AI思考指示器
+  showAIThinkingIndicator: function() {
+    // 添加AI思考消息
+    const thinkingMessage = {
+      id: generateUniqueMessageId('ai_thinking'),
+      type: 'ai',
+      text: 'AI正在思考中，请稍候...',
+      time: this.formatTime(new Date()),
+      status: 'thinking',
+      expanded: false,
+      isThinking: true // 标记为思考消息
+    };
+
+    this.addMessage(thinkingMessage);
+    this.scrollToBottom();
+
+    // 设置思考动画定时器
+    this.aiThinkingTimer = setTimeout(() => {
+      // 更新思考消息文本
+      this.updateThinkingMessage('AI正在分析您的问题...');
+      
+      setTimeout(() => {
+        this.updateThinkingMessage('AI正在生成回复...');
+      }, 8000);
+    }, 5000);
+  },
+
+  // 更新思考消息
+  updateThinkingMessage: function(newText) {
+    const messages = this.data.messages.map(msg => {
+      if (msg.isThinking && msg.status === 'thinking') {
+        return { ...msg, text: newText };
+      }
+      return msg;
+    });
+    this.setData({ messages });
+  },
+
+  // 移除思考消息
+  removeThinkingMessage: function() {
+    const messages = this.data.messages.filter(msg => !msg.isThinking);
+    this.setData({ 
+      messages,
+      aiThinking: false
+    });
+    this.clearAIThinkingTimer();
+  },
+
+  // 清理AI思考定时器
+  clearAIThinkingTimer: function() {
+    if (this.aiThinkingTimer) {
+      clearTimeout(this.aiThinkingTimer);
+      this.aiThinkingTimer = null;
+    }
+  },
+
+  // 处理AI超时
+  handleAITimeout: function(messageId, timestamp) {
+    console.warn('AI响应超时:', messageId, timestamp);
+    
+    // 移除思考消息
+    this.removeThinkingMessage();
+    
+    // 更新消息状态为失败
+    this.updateMessageStatus(messageId, 'error');
+    
+    // 清理映射
+    this.pendingMessages.delete(timestamp);
+    this.messageTimeouts.delete(timestamp);
+    
+    // 更新发送状态
+    this.setData({
+      sending: false,
+      aiServiceStatus: 'unavailable'
+    });
+    
+    // 显示AI专用超时提示
+    wx.showModal({
+      title: 'AI响应超时',
+      content: 'AI服务响应时间过长，可能是网络问题或服务繁忙，是否重试？',
+      confirmText: '重试',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          // 找到失败的消息并重试
+          const failedMessage = this.data.messages.find(msg => msg.id === messageId);
+          if (failedMessage) {
+            this.setData({ inputText: failedMessage.text });
+            setTimeout(() => {
+              this.sendMessage();
+            }, 1000);
+          }
+        }
+      }
+    });
   },
 
   // 更新消息状态
@@ -367,18 +507,6 @@ Page({
     }
   },
 
-  // 处理长消息显示
-  getDisplayText: function(message) {
-    if (!message.text) return '';
-    
-    const maxLength = 200;
-    if (message.text.length <= maxLength) {
-      return message.text;
-    }
-    
-    return message.expanded ? message.text : message.text.substring(0, maxLength) + '...';
-  },
-
   // 切换消息展开状态
   toggleMessage: function(e) {
     const messageId = e.currentTarget.dataset.id;
@@ -390,11 +518,6 @@ Page({
     });
     
     this.setData({ messages });
-  },
-
-  // 检查是否需要展开按钮
-  needExpandButton: function(text) {
-    return text && text.length > 200;
   },
 
   // 添加消息到列表（带性能优化）
@@ -416,15 +539,18 @@ Page({
   // 保存消息历史到本地存储
   saveMessageHistory: function(messages) {
     try {
-      // 只保存最近20条消息到本地存储，避免存储过大
-      const saveMessages = messages.slice(-20).map(msg => ({
-        id: msg.id,
-        type: msg.type,
-        text: msg.text,
-        time: msg.time,
-        status: msg.status === 'sending' ? 'failed' : msg.status, // 发送中状态保存为失败
-        expanded: false // 重置展开状态
-      }));
+      // 只保存最近20条消息到本地存储，避免存储过大，过滤掉思考消息
+      const saveMessages = messages
+        .filter(msg => !msg.isThinking) // 不保存思考消息
+        .slice(-20)
+        .map(msg => ({
+          id: msg.id,
+          type: msg.type,
+          text: msg.text,
+          time: msg.time,
+          status: msg.status === 'sending' ? 'failed' : msg.status,
+          expanded: false
+        }));
       
       wx.setStorageSync('chat_messages', saveMessages);
     } catch (e) {
@@ -443,6 +569,12 @@ Page({
           id: generateUniqueMessageId(msg.type || 'unknown')
         }));
         
+        // 检查是否有AI消息，如果有则更新AI服务状态为可用
+        const hasAIMessages = processedMessages.some(msg => msg.type === 'ai' && !msg.isThinking);
+        if (hasAIMessages) {
+          this.setData({ aiServiceStatus: 'available' });
+        }
+        
         // 直接使用历史消息，不保留默认欢迎消息
         this.setData({ messages: processedMessages });
         console.log('已加载聊天历史', savedMessages.length, '条消息');
@@ -455,14 +587,36 @@ Page({
   },
 
   // 清空聊天记录
-  clearMessages(){wx.showModal({title:'确认清空',content:'确定要清空所有聊天记录吗？',success:r=>r.confirm&&(this.setData({messages:[{id:generateUniqueMessageId('welcome'),type:'ai',text:'您好！我是AgriSage智能助手，很高兴为您服务。有什么问题可以随时问我！',time:this.formatTime(new Date()),status:'success',expanded:!1}]}),wx.removeStorageSync('chat_messages'),wx.showToast({title:'已清空聊天记录',icon:'success'}))})},
-
-  // 计算消息统计信息
-  getMessageStats: function() {
-    const messages = this.data.messages;
-    const userMessages = messages.filter(msg => msg.type === 'user').length;
-    const aiMessages = messages.filter(msg => msg.type === 'ai').length;
-    return { total: messages.length, user: userMessages, ai: aiMessages };
+  clearMessages: function() {
+    wx.showModal({
+      title: '确认清空',
+      content: '确定要清空所有AI聊天记录吗？',
+      success: (res) => {
+        if (res.confirm) {
+          // 清理思考状态
+          this.removeThinkingMessage();
+          
+          this.setData({
+            messages: [{
+              id: generateUniqueMessageId('welcome'),
+              type: 'ai',
+              text: '您好！我是AgriSage智能助手，专门为农业采摘机器人提供服务。有什么问题可以随时问我！',
+              time: this.formatTime(new Date()),
+              status: 'success',
+              expanded: false
+            }],
+            sending: false,
+            aiThinking: false
+          });
+          
+          wx.removeStorageSync('chat_messages');
+          wx.showToast({
+            title: '已清空聊天记录',
+            icon: 'success'
+          });
+        }
+      }
+    });
   },
 
   // 处理WebSocket消息
@@ -476,37 +630,45 @@ Page({
     }
   },
 
-  // 处理AI回复
+  // 处理AI回复（优化版）
   handleAIResponse: function(data) {
     console.log('收到AI回复:', data);
+    
+    // 移除思考消息
+    this.removeThinkingMessage();
     
     // 确保timestamp存在
     if (!data.timestamp) {
       console.error('AI响应缺少timestamp');
-      // 标记最后一个发送中的消息为成功
       this.markLastSendingMessageSuccess();
     } else {
       // 首先标记用户消息为发送成功
       this.markUserMessageSuccess(data.timestamp);
     }
     
+    // 检查AI回复内容
+    const aiResponseText = data.message || 'AI暂时无法回答您的问题，请稍后重试。';
+    
     // 创建AI回复消息
     const aiMessage = {
       id: generateUniqueMessageId('ai'),
       type: 'ai',
-      text: data.message || '抱歉，我没有理解您的问题。',
+      text: aiResponseText,
       time: this.formatTime(new Date()),
       status: 'success',
       expanded: false,
-      serverTimestamp: data.timestamp // 记录服务器时间戳
+      serverTimestamp: data.timestamp,
+      responseTime: Date.now() - (data.timestamp || Date.now()) // 计算响应时间
     };
 
     // 添加AI回复到消息列表
     this.addMessage(aiMessage);
     
-    // 更新发送状态
+    // 更新状态
     this.setData({
-      sending: false
+      sending: false,
+      aiThinking: false,
+      aiServiceStatus: 'available' // 成功响应说明AI服务可用
     });
 
     // 滚动到底部显示新消息
@@ -514,15 +676,16 @@ Page({
       this.scrollToBottom();
     }, 100);
     
-    // 显示成功提示（可选）
-    if (this.data.connected) {
-      console.log('AI回复添加成功，消息长度:', aiMessage.text.length);
-    }
+    // 记录统计信息
+    console.log('AI回复添加成功，消息长度:', aiMessage.text.length, '响应时间:', aiMessage.responseTime, 'ms');
   },
 
-  // 处理AI错误
+  // 处理AI错误（优化版）
   handleAIError: function(data) {
     console.error('AI聊天错误:', data);
+    
+    // 移除思考消息
+    this.removeThinkingMessage();
     
     // 标记用户消息为失败
     if (data.timestamp) {
@@ -533,92 +696,101 @@ Page({
     
     // 更新发送状态
     this.setData({
-      sending: false
+      sending: false,
+      aiThinking: false,
+      aiServiceStatus: 'unavailable'
     });
 
     // 根据错误类型显示不同提示
-    this.showErrorMessage(data);
+    this.showAIErrorMessage(data);
   },
 
-  // 显示错误消息
-  showErrorMessage: function(errorData) {
+  // 显示AI错误消息（优化版）
+  showAIErrorMessage: function(errorData) {
     let title = 'AI服务暂时不可用';
+    let content = '请稍后重试或联系技术支持';
     let duration = 3000;
     
     // 根据错误类型定制消息
     if (errorData.message) {
       if (errorData.message.includes('网络')) {
-        title = '网络连接异常，请检查网络';
+        title = 'AI服务网络异常';
+        content = '网络连接不稳定，请检查网络设置';
         duration = 4000;
       } else if (errorData.message.includes('超时')) {
-        title = 'AI响应超时，请重试';
+        title = 'AI响应超时';
+        content = 'AI服务响应时间过长，请重试';
         duration = 3000;
       } else if (errorData.message.includes('服务')) {
-        title = '服务暂时不可用，请稍后重试';
+        title = 'AI服务暂时不可用';
+        content = '服务器忙碌或维护中，请稍后重试';
         duration = 4000;
+      } else if (errorData.message.includes('API')) {
+        title = 'AI服务配置错误';
+        content = 'AI服务配置有误，请联系管理员';
+        duration = 5000;
       } else {
-        title = errorData.message;
+        title = 'AI服务异常';
+        content = errorData.message;
       }
     }
 
-    wx.showToast({
+    // 使用模态框显示详细错误信息
+    wx.showModal({
       title: title,
-      icon: 'none',
-      duration: duration
+      content: content,
+      showCancel: true,
+      confirmText: '重试',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          // 重试逻辑
+          this.retryLastMessage();
+        }
+      }
     });
+  },
+
+  // 重试最后一条失败的消息
+  retryLastMessage: function() {
+    const messages = this.data.messages;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type === 'user' && messages[i].status === 'error') {
+        this.setData({ inputText: messages[i].text });
+        setTimeout(() => {
+          this.sendMessage();
+        }, 500);
+        break;
+      }
+    }
   },
 
   // 处理发送错误
   handleSendError: function(messageId, error, originalText) {
-    console.error('发送消息失败:', error);
+    console.error('发送AI问题失败:', error);
+    
+    // 移除思考消息
+    this.removeThinkingMessage();
     
     this.updateMessageStatus(messageId, 'error');
     this.setData({
-      sending: false
+      sending: false,
+      aiThinking: false,
+      aiServiceStatus: 'unavailable'
     });
 
-    // 根据错误类型判断是否自动重试
-    if (this.shouldAutoRetry(error)) {
-      this.autoRetryMessage(messageId, originalText);
-    } else {
-      wx.showToast({
-        title: '发送失败，点击消息可重试',
-        icon: 'none',
-        duration: 3000
-      });
-    }
-  },
-
-  // 判断是否应该自动重试
-  shouldAutoRetry: function(error) {
-    // 网络相关错误且重试次数未达上限
-    return this.data.networkRetryCount < this.data.maxRetryCount && 
-           (error.message && error.message.includes('network'));
-  },
-
-  // 自动重试发送消息
-  autoRetryMessage: function(messageId, originalText) {
-    const retryCount = this.data.networkRetryCount + 1;
-    this.setData({ networkRetryCount: retryCount });
-    
+    // 显示发送失败提示
     wx.showToast({
-      title: `自动重试中(${retryCount}/${this.data.maxRetryCount})...`,
-      icon: 'loading',
-      duration: 2000
+      title: 'AI问题发送失败，点击消息可重试',
+      icon: 'none',
+      duration: 3000
     });
-
-    setTimeout(() => {
-      if (retryCount <= this.data.maxRetryCount) {
-        this.setData({ inputText: originalText });
-        this.sendMessage();
-      }
-    }, 2000);
   },
 
   // 重试连接
   retryConnection: function() {
     wx.showLoading({
-      title: '重新连接中...',
+      title: '重新连接AI服务...',
       mask: true
     });
 
@@ -628,11 +800,12 @@ Page({
       app.connectWebSocket().then(() => {
         wx.hideLoading();
         wx.showToast({
-          title: '连接成功',
+          title: 'AI服务连接成功',
           icon: 'success',
           duration: 2000
         });
         this.checkConnection();
+        this.checkAIServiceStatus();
       }).catch((error) => {
         wx.hideLoading();
         wx.showToast({
@@ -648,10 +821,11 @@ Page({
         this.checkConnection();
         if (this.data.connected) {
           wx.showToast({
-            title: '连接恢复',
+            title: 'AI服务连接恢复',
             icon: 'success',
             duration: 2000
           });
+          this.setData({ aiServiceStatus: 'available' });
         } else {
           wx.showToast({
             title: '连接失败，请重启应用',
@@ -665,44 +839,36 @@ Page({
 
   // 标记用户消息为成功
   markUserMessageSuccess: function(serverTimestamp) {
-    // 转换为字符串以确保一致性
     const timestampKey = serverTimestamp.toString();
     
-    console.log('标记消息成功 - timestamp:', timestampKey, 'pendingMessages keys:', Array.from(this.pendingMessages.keys()));
+    console.log('标记AI问题发送成功 - timestamp:', timestampKey);
     
     // 清除超时计时器
     this.clearMessageTimeout(timestampKey);
     
-    // 根据timestamp精确匹配消息
     const messageId = this.pendingMessages.get(timestampKey);
     if (messageId) {
-      console.log('找到匹配的消息ID:', messageId);
       this.updateMessageStatus(messageId, 'success');
       this.pendingMessages.delete(timestampKey);
     } else {
-      console.warn('未找到匹配的待响应消息, timestamp:', timestampKey);
-      // 备用方案：查找最后一个发送中的消息
+      console.warn('未找到匹配的待响应AI消息, timestamp:', timestampKey);
       this.markLastSendingMessageSuccess();
     }
   },
 
   // 标记用户消息为失败
   markUserMessageFailed: function(serverTimestamp) {
-    // 转换为字符串以确保一致性
     const timestampKey = serverTimestamp.toString();
     
-    console.log('标记消息失败 - timestamp:', timestampKey);
+    console.log('标记AI问题发送失败 - timestamp:', timestampKey);
     
-    // 清除超时计时器
     this.clearMessageTimeout(timestampKey);
     
-    // 根据timestamp精确匹配消息
     const messageId = this.pendingMessages.get(timestampKey);
     if (messageId) {
       this.updateMessageStatus(messageId, 'error');
       this.pendingMessages.delete(timestampKey);
     } else {
-      // 备用方案：查找最后一个发送中的消息
       this.markLastSendingMessageFailed();
     }
   },
@@ -729,30 +895,6 @@ Page({
     }
   },
 
-  // 处理消息超时
-  handleMessageTimeout: function(messageId, timestamp) {
-    console.warn('消息发送超时:', messageId, timestamp);
-    
-    // 更新消息状态为失败
-    this.updateMessageStatus(messageId, 'error');
-    
-    // 清理映射
-    this.pendingMessages.delete(timestamp);
-    this.messageTimeouts.delete(timestamp);
-    
-    // 更新发送状态
-    this.setData({
-      sending: false
-    });
-    
-    // 显示超时提示
-    wx.showToast({
-      title: '发送超时，请检查网络连接',
-      icon: 'none',
-      duration: 3000
-    });
-  },
-
   // 清除消息超时计时器
   clearMessageTimeout: function(timestamp) {
     const timestampKey = timestamp.toString();
@@ -765,14 +907,10 @@ Page({
 
   // 清理所有待响应消息和计时器
   clearAllPendingMessages: function() {
-    // 确保Map实例存在
     if (this.messageTimeouts) {
-      // 清除所有超时计时器
       this.messageTimeouts.forEach(timeoutId => {
         clearTimeout(timeoutId);
       });
-      
-      // 清空映射
       this.messageTimeouts.clear();
     }
     
@@ -780,28 +918,28 @@ Page({
       this.pendingMessages.clear();
     }
     
-    console.log('已清理所有待响应消息');
+    console.log('已清理所有待响应AI消息');
   },
 
   // 网络状态监控
   startNetworkMonitoring: function() {
-    // 监听网络状态变化
     wx.onNetworkStatusChange((res) => {
       console.log('网络状态变化:', res);
       if (!res.isConnected) {
-        this.setData({ connected: false });
+        this.setData({ 
+          connected: false,
+          aiServiceStatus: 'unavailable'
+        });
         wx.showToast({
-          title: '网络连接已断开',
+          title: 'AI服务网络连接已断开',
           icon: 'none',
           duration: 3000
         });
       } else if (res.isConnected && !this.data.connected) {
-        // 网络恢复，尝试重连WebSocket
         this.retryConnection();
       }
     });
 
-    // 定期检查连接状态（每30秒）
     this.connectionCheckInterval = setInterval(() => {
       this.checkConnection();
     }, 30000);
@@ -813,10 +951,9 @@ Page({
       clearInterval(this.connectionCheckInterval);
       this.connectionCheckInterval = null;
     }
-    // 注意：wx.offNetworkStatusChange需要传入具体的回调函数，这里简化处理
   },
 
-  // 输入内容实时验证
+  // 输入内容实时验证（AI优化）
   onInputChange: function(e) {
     let inputText = e.detail.value;
     
@@ -824,7 +961,6 @@ Page({
     const filteredText = this.filterSpecialChars(inputText);
     if (filteredText !== inputText) {
       inputText = filteredText;
-      // 更新输入框内容
       this.setData({ inputText: filteredText });
     }
     
@@ -832,28 +968,28 @@ Page({
       inputText: inputText
     });
 
-    // 实时长度提示
-    if (inputText.length > 450) {
-      const remaining = 500 - inputText.length;
+    // 实时长度提示（AI版本）
+    if (inputText.length > 700) {
+      const remaining = 800 - inputText.length;
       if (remaining <= 0) {
         wx.showToast({
-          title: '已达到字数限制',
+          title: '问题内容已达到字数限制',
           icon: 'none',
           duration: 1000
         });
       } else {
-        console.log(`还可输入${remaining}个字符`);
+        console.log(`AI问题还可输入${remaining}个字符`);
       }
     }
   },
 
-  // 重发消息
+  // 重发消息（AI优化版）
   retryMessage: function(e) {
     const messageId = e.currentTarget.dataset.id;
     const message = this.data.messages.find(msg => msg.id == messageId);
     
     if (message && message.status === 'error') {
-      console.log('重发消息:', message.text);
+      console.log('重发AI问题:', message.text);
       
       // 重置重试计数
       this.setData({ networkRetryCount: 0 });
