@@ -32,7 +32,7 @@ def generate_launch_description():
     # 模型参数
     model_path_arg = DeclareLaunchArgument(
         'model_path',
-        default_value="/home/elf/Desktop/robot_ROS2/src/bottle_detection_ros2/data/yolo11n.rknn",
+        default_value="/home/elf/Downloads/Harvesting-Robot/robot_ROS2-6_9/src/bottle_detection_ros2/data/yolo11n.rknn",
         description='RKNN模型文件路径'
     )
     
