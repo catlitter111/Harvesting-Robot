@@ -4,6 +4,7 @@
 WebSocket桥接节点
 负责连接WebSocket服务器，接收控制命令并转发到ROS2系统
 同时将视频流和状态信息发送到服务器
+现在集成了真实的AI对话功能
 """
 
 import rclpy
@@ -22,6 +23,9 @@ import queue
 import os
 import traceback
 
+# 导入OpenAI相关
+from openai import OpenAI
+
 class WebSocketBridgeNode(Node):
     """WebSocket桥接节点类"""
     
@@ -34,11 +38,38 @@ class WebSocketBridgeNode(Node):
         self.declare_parameter('reconnect_interval', 3.0)
         self.declare_parameter('robot_id', 'robot_123')
         
+        # AI相关参数
+        self.declare_parameter('ai_enabled', True)
+        self.declare_parameter('ai_base_url', 'https://ai-gateway.vei.volces.com/v1')
+        self.declare_parameter('ai_api_key', 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30')
+        self.declare_parameter('ai_model', 'doubao-1.5-thinking-pro-vision')
+        self.declare_parameter('ai_max_tokens', 300)
+        
         # 获取参数
         self.server_url = self.get_parameter('server_url').value
         self.max_reconnect_attempts = self.get_parameter('reconnect_attempts').value
         self.reconnect_interval = self.get_parameter('reconnect_interval').value
         self.robot_id = self.get_parameter('robot_id').value
+        
+        # AI参数
+        self.ai_enabled = self.get_parameter('ai_enabled').value
+        self.ai_base_url = self.get_parameter('ai_base_url').value
+        self.ai_api_key = self.get_parameter('ai_api_key').value
+        self.ai_model = self.get_parameter('ai_model').value
+        self.ai_max_tokens = self.get_parameter('ai_max_tokens').value
+        
+        # 初始化OpenAI客户端
+        self.ai_client = None
+        if self.ai_enabled:
+            try:
+                self.ai_client = OpenAI(
+                    base_url=self.ai_base_url,
+                    api_key=self.ai_api_key,
+                )
+                self.get_logger().info('AI客户端初始化成功')
+            except Exception as e:
+                self.get_logger().error(f'AI客户端初始化失败: {e}')
+                self.ai_enabled = False
         
         # WebSocket相关
         self.ws = None
@@ -76,6 +107,14 @@ class WebSocketBridgeNode(Node):
             10
         )
         
+        # 新增：订阅AI聊天请求
+        self.ai_request_sub = self.create_subscription(
+            String,
+            'ai/chat_request',
+            self.ai_request_callback,
+            10
+        )
+        
         # 创建发布者 - 发布控制命令
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.robot_cmd_pub = self.create_publisher(RobotCommand, 'robot/command', 10)
@@ -87,6 +126,9 @@ class WebSocketBridgeNode(Node):
         
         # 位置更新
         self.position_pub = self.create_publisher(PoseStamped, 'robot/set_position', 10)
+        
+        # 新增：AI聊天响应发布者
+        self.ai_response_pub = self.create_publisher(String, 'ai/chat_response', 10)
         
         # 消息队列
         self.image_queue = queue.Queue(maxsize=10)
@@ -190,6 +232,9 @@ class WebSocketBridgeNode(Node):
                 self.handle_mode_control(data)
             elif message_type == "request_video_stream":
                 self.get_logger().info("收到视频流请求")
+            elif message_type == "ai_chat_request":
+                # 新增：处理AI聊天请求
+                self.handle_ai_chat_request(data)
             elif message_type == "heartbeat_ack":
                 # 心跳响应
                 pass
@@ -349,6 +394,226 @@ class WebSocketBridgeNode(Node):
         self.mode_pub.publish(mode_msg)
         
         self.get_logger().info(f'切换到{new_mode}模式，自动采摘: {auto_harvest}')
+    
+    def handle_ai_chat_request(self, data):
+        """处理AI聊天请求"""
+        if not self.ai_enabled or not self.ai_client:
+            self.get_logger().error('AI功能未启用或客户端未初始化')
+            # 发送错误响应
+            error_response = {
+                "type": "ai_chat_response",
+                "success": False,
+                "message": "AI服务不可用",
+                "timestamp": data.get("timestamp", int(time.time() * 1000)),
+                "client_id": data.get("client_id", ""),
+                "error": "AI功能未启用"
+            }
+            if self.ws and self.connected:
+                self.ws.send(json.dumps(error_response))
+            return
+        
+        user_message = data.get("message", "").strip()
+        client_id = data.get("client_id", "")
+        timestamp = data.get("timestamp", int(time.time() * 1000))
+        robot_id = data.get("robot_id", self.robot_id)
+        
+        self.get_logger().info(f'收到AI聊天请求 - 客户端: {client_id}, 消息: {user_message[:50]}...')
+        
+        # 在新线程中处理AI请求，避免阻塞
+        ai_thread = threading.Thread(
+            target=self.process_ai_request,
+            args=(user_message, client_id, timestamp, robot_id)
+        )
+        ai_thread.daemon = True
+        ai_thread.start()
+    
+    def process_ai_request(self, user_message, client_id, timestamp, robot_id):
+        """在单独线程中处理AI请求"""
+        try:
+            # 验证消息内容
+            if not user_message:
+                error_response = {
+                    "type": "ai_chat_response",
+                    "success": False,
+                    "message": "消息内容不能为空",
+                    "timestamp": timestamp,
+                    "client_id": client_id,
+                    "error": "empty_message"
+                }
+                if self.ws and self.connected:
+                    self.ws.send(json.dumps(error_response))
+                return
+            
+            # 构建包含机器人状态的上下文消息
+            system_message = self.build_robot_context(robot_id)
+            
+            # 调用AI API
+            completion = self.ai_client.chat.completions.create(
+                model=self.ai_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_message
+                    },
+                    {
+                        "role": "user",
+                        "content": user_message
+                    }
+                ],
+                max_tokens=self.ai_max_tokens,
+                temperature=0.7,
+            )
+            
+            # 提取AI回复
+            ai_response = completion.choices[0].message.content
+            
+            self.get_logger().info(f'AI回复生成成功 - 客户端: {client_id}, 回复长度: {len(ai_response)}字符')
+            
+            # 发送成功响应
+            response = {
+                "type": "ai_chat_response",
+                "success": True,
+                "message": ai_response,
+                "timestamp": timestamp,
+                "client_id": client_id,
+                "robot_id": robot_id
+            }
+            
+            if self.ws and self.connected:
+                self.ws.send(json.dumps(response))
+            
+        except Exception as e:
+            self.get_logger().error(f'处理AI请求出错: {e}')
+            error_response = {
+                "type": "ai_chat_response",
+                "success": False,
+                "message": "AI服务暂时不可用，请稍后重试",
+                "timestamp": timestamp,
+                "client_id": client_id,
+                "error": str(e)
+            }
+            if self.ws and self.connected:
+                self.ws.send(json.dumps(response))
+    
+    def build_robot_context(self, robot_id):
+        """构建包含机器人状态的上下文信息"""
+        context = """你是AgriSage智能助手，专门为农业采摘机器人提供服务。你需要：
+1. 基于当前机器人的实时状态数据回答用户问题
+2. 提供专业、准确的农业采摘相关建议
+3. 保持友好、专业的对话风格
+4. 如果用户询问具体数据，优先使用实时状态信息
+
+当前机器人状态信息：
+"""
+        
+        # 添加实时机器人状态
+        try:
+            robot_data = self.statistics_data
+            context += f"""
+- 机器人ID: {robot_id}
+- 工作模式: {self.current_mode}
+- 自动采摘: {'启用' if self.auto_harvest_active else '禁用'}
+- 今日采摘: {robot_data.get('today_harvested', 0)}个
+- 总计采摘: {robot_data.get('total_harvested', 0)}个
+- 作业面积: {robot_data.get('working_area', 0.0):.2f}亩
+- 工作时长: {(time.time() - robot_data.get('today_start_time', time.time())) / 3600.0:.2f}小时
+- 当前时间: {time.strftime('%Y-%m-%d %H:%M:%S')}
+"""
+            
+            # 如果有位置信息
+            if robot_data.get('last_position'):
+                context += f"- 当前位置: 经度{robot_data['last_position'][0]:.6f}, 纬度{robot_data['last_position'][1]:.6f}\n"
+            
+            # 如果有采摘点历史
+            if robot_data.get('harvest_points'):
+                recent_harvest = len(robot_data['harvest_points'])
+                context += f"- 最近采摘点数量: {recent_harvest}个\n"
+            
+        except Exception as e:
+            self.get_logger().error(f'构建机器人上下文时出错: {e}')
+        
+        context += """
+请基于以上信息回答用户问题，提供有用的建议和分析。
+"""
+        
+        return context
+    
+    def ai_request_callback(self, msg):
+        """AI请求回调函数 - 用于从其他ROS2节点接收AI请求"""
+        try:
+            data = json.loads(msg.data)
+            user_message = data.get("message", "")
+            robot_id = data.get("robot_id", self.robot_id)
+            
+            if not self.ai_enabled or not self.ai_client:
+                self.get_logger().error('AI功能未启用')
+                return
+            
+            self.get_logger().info(f'从ROS2节点收到AI请求: {user_message[:50]}...')
+            
+            # 在新线程中处理AI请求
+            ai_thread = threading.Thread(
+                target=self.process_internal_ai_request,
+                args=(user_message, robot_id)
+            )
+            ai_thread.daemon = True
+            ai_thread.start()
+            
+        except Exception as e:
+            self.get_logger().error(f'处理内部AI请求出错: {e}')
+    
+    def process_internal_ai_request(self, user_message, robot_id):
+        """处理来自ROS2内部的AI请求"""
+        try:
+            # 构建上下文
+            system_message = self.build_robot_context(robot_id)
+            
+            # 调用AI API
+            completion = self.ai_client.chat.completions.create(
+                model=self.ai_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_message
+                    },
+                    {
+                        "role": "user",
+                        "content": user_message
+                    }
+                ],
+                max_tokens=self.ai_max_tokens,
+                temperature=0.7,
+            )
+            
+            # 提取AI回复
+            ai_response = completion.choices[0].message.content
+            
+            # 发布AI回复到ROS2话题
+            response_msg = String()
+            response_data = {
+                "message": ai_response,
+                "robot_id": robot_id,
+                "timestamp": int(time.time() * 1000),
+                "success": True
+            }
+            response_msg.data = json.dumps(response_data)
+            self.ai_response_pub.publish(response_msg)
+            
+            self.get_logger().info(f'AI回复已发布到ROS2话题: {ai_response[:50]}...')
+            
+        except Exception as e:
+            self.get_logger().error(f'处理内部AI请求出错: {e}')
+            # 发布错误响应
+            error_msg = String()
+            error_data = {
+                "message": "AI服务暂时不可用",
+                "robot_id": robot_id,
+                "timestamp": int(time.time() * 1000),
+                "success": False,
+                "error": str(e)
+            }
+            error_msg.data = json.dumps(error_data)
+            self.ai_response_pub.publish(error_msg)
     
     def check_daily_reset(self):
         """检查是否需要重置每日统计数据"""
