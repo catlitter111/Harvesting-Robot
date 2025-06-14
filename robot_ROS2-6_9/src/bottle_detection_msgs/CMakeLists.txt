@@ -30,6 +30,7 @@ set(msg_files
   "msg/HarvestCommand.msg"
   "msg/ServoCommand.msg"
   "msg/ServoStatus.msg"
+  "msg/HarvestImage.msg"
 )
 
 # generate the messages

@@ -2,6 +2,7 @@
     "pages": [
       "pages/control/control",
       "pages/statistics/statistics",
+      "pages/detection/detection",
       "pages/chat/chat",
       "pages/settings/settings",
       "pages/logs/logs"
@@ -28,10 +29,16 @@
           "selectedIconPath": "images/control-active.png"
         },
         {
-          "pagePath": "pages/statistics/statistics",
+          "pagePath": "pages/statistics/statistics", 
           "text": "数据统计",
           "iconPath": "images/statistics.png",
           "selectedIconPath": "images/statistics-active.png"
+        },
+        {
+          "pagePath": "pages/detection/detection",
+          "text": "智能识别", 
+          "iconPath": "images/detection.png",
+          "selectedIconPath": "images/detection-active.png"
         },
         {
           "pagePath": "pages/chat/chat",
@@ -50,6 +57,12 @@
     "permission": {
       "scope.userLocation": {
         "desc": "需要获取您的地理位置以显示机器人作业区域和实时位置"
+      },
+      "scope.camera": {
+        "desc": "需要使用相机拍摄水果图片进行AI智能识别"
+      },
+      "scope.writePhotosAlbum": {
+        "desc": "需要访问相册选择水果图片或保存检测结果"
       }
     },
     "style": "v2",

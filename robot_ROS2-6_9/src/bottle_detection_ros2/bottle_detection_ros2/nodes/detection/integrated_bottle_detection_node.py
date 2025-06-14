@@ -17,7 +17,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Image, CompressedImage
 from geometry_msgs.msg import PointStamped, Point
 from std_msgs.msg import String, Float32, Int32, Header
-from bottle_detection_msgs.msg import BottleDetection, ServoCommand
+from bottle_detection_msgs.msg import BottleDetection, ServoCommand, HarvestImage
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -28,6 +28,7 @@ from queue import Queue, Empty
 from bottle_detection_ros2.core.vision.stereo_camera import StereoCamera
 from bottle_detection_ros2.core.processing.bottle_rknn_pool import BottleRKNNPoolExecutor
 from bottle_detection_ros2.core.vision.bottle_detector_async import detect_bottle_async, draw_detections
+from bottle_detection_ros2.core.vision.harvest_image_cropper import HarvestImageCropper
 from bottle_detection_ros2.utils.utils import MedianFilter
 
 # 设置详细日志
@@ -126,6 +127,14 @@ class IntegratedBottleDetectionNode(Node):
             self.get_logger().error(f'异步检测器初始化失败: {e}')
             raise RuntimeError('异步检测器初始化失败')
         
+        # 初始化采摘图像截取器
+        self.harvest_image_cropper = HarvestImageCropper(
+            crop_margin_ratio=0.3,
+            min_crop_size=150,
+            max_crop_size=400,
+            jpeg_quality=85
+        )
+        
         # QoS配置
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -166,6 +175,13 @@ class IntegratedBottleDetectionNode(Node):
         
         # 距离滤波器
         self.distance_filter = MedianFilter(window_size=5)
+        
+        # 采摘图像截取相关状态
+        self.latest_frame_left = None
+        self.latest_frame_right = None
+        self.latest_detections = []
+        self.latest_timestamp = None
+        self.robot_id = "robot_123"  # 可以从参数获取
         
         # 视频质量控制
         self.quality_presets = {
@@ -284,10 +300,19 @@ class IntegratedBottleDetectionNode(Node):
         self.bottle_detection_pub = self.create_publisher(
             BottleDetection, 'bottle_detection/detection', 10)
         
+        # 采摘图像发布者
+        self.harvest_image_pub = self.create_publisher(
+            HarvestImage, 'harvest/captured_image', 10)
+        
         # 舵机跟踪目标发布者（高频率低延迟）
-        from bottle_detection_ros2.core.qos_profiles import HIGH_FREQUENCY_QOS
-        self.tracking_target_pub = self.create_publisher(
-            Point, 'servo/tracking_target', HIGH_FREQUENCY_QOS)
+        try:
+            from bottle_detection_ros2.core.qos_profiles import HIGH_FREQUENCY_QOS
+            self.tracking_target_pub = self.create_publisher(
+                Point, 'servo/tracking_target', HIGH_FREQUENCY_QOS)
+        except ImportError:
+            # 如果没有自定义QoS配置，使用默认
+            self.tracking_target_pub = self.create_publisher(
+                Point, 'servo/tracking_target', qos_profile)
     
     @trace_errors
     def _create_subscribers(self):
@@ -306,6 +331,14 @@ class IntegratedBottleDetectionNode(Node):
             String,
             'video/quality_preset',
             self.quality_callback,
+            10
+        )
+        
+        # 采摘图像截取请求订阅
+        self.harvest_request_sub = self.create_subscription(
+            String,
+            'harvest/capture_request',
+            self.harvest_capture_callback,
             10
         )
     
@@ -394,6 +427,12 @@ class IntegratedBottleDetectionNode(Node):
                         # 处理检测结果
                         self._process_detection_result(
                             cached_left, cached_right, bottle_detections, cached_timestamp)
+                        
+                        # 保存最新的帧数据和检测结果（用于采摘截取）
+                        self.latest_frame_left = cached_left.copy()
+                        self.latest_frame_right = cached_right.copy()
+                        self.latest_detections = bottle_detections
+                        self.latest_timestamp = cached_timestamp
                 
                 # 更新FPS
                 self._update_fps()
@@ -1006,6 +1045,115 @@ class IntegratedBottleDetectionNode(Node):
             self.get_logger().info(f'视频质量设置为: {quality}')
         else:
             self.get_logger().warn(f'未知的质量预设: {quality}')
+    
+    @trace_errors
+    def harvest_capture_callback(self, msg):
+        """处理采摘图像截取请求"""
+        try:
+            request_data = json.loads(msg.data)
+            logger.info(f"收到采摘图像截取请求: {request_data}")
+            
+            # 检查是否有最新的帧数据
+            if (self.latest_frame_left is None or 
+                self.latest_detections is None or 
+                len(self.latest_detections) == 0):
+                logger.warning("没有可用的检测数据进行图像截取")
+                return
+            
+            # 获取请求参数
+            harvest_session_id = request_data.get('harvest_session_id', '')
+            target_item_index = request_data.get('target_item_index', 0)  # 目标物品索引
+            harvest_status = request_data.get('harvest_status', 'confirming')
+            
+            # 选择要截取的检测目标
+            target_detection = None
+            if target_item_index < len(self.latest_detections):
+                target_detection = self.latest_detections[target_item_index]
+            elif len(self.latest_detections) > 0:
+                # 如果索引无效，选择最近的目标
+                target_detection = self.latest_detections[0]
+            
+            if target_detection is None:
+                logger.warning("找不到有效的检测目标")
+                return
+            
+            # 解析检测结果
+            x1, y1, x2, y2, confidence, class_id = target_detection
+            detection_box = (int(x1), int(y1), int(x2), int(y2))
+            
+            # 确定物品类型
+            item_type = "apple"  # 默认类型，可以根据class_id映射
+            if hasattr(self, 'class_names') and class_id < len(self.class_names):
+                item_type = self.class_names[int(class_id)]
+            
+            # 计算物品距离（如果有双目数据）
+            distance = 0.0
+            if self.latest_frame_right is not None:
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                try:
+                    distance = self.stereo_camera.calculate_distance(
+                        self.latest_frame_left, self.latest_frame_right, 
+                        int(center_x), int(center_y)
+                    )
+                except Exception as e:
+                    logger.warning(f"计算距离失败: {e}")
+                    distance = 1.0  # 默认距离
+            
+            # 截取图像
+            crop_result = self.harvest_image_cropper.crop_harvest_image(
+                full_image=self.latest_frame_left,
+                detection_box=detection_box,
+                item_type=item_type,
+                confidence=float(confidence),
+                distance=float(distance)
+            )
+            
+            if crop_result is None:
+                logger.error("图像截取失败")
+                return
+            
+            # 创建HarvestImage消息
+            harvest_msg = HarvestImage()
+            harvest_msg.header = Header()
+            harvest_msg.header.stamp = self.latest_timestamp
+            harvest_msg.header.frame_id = "camera_left"
+            
+            # 填充消息字段
+            harvest_msg.harvest_session_id = harvest_session_id or crop_result['harvest_session_id']
+            harvest_msg.item_type = item_type
+            harvest_msg.confidence = float(confidence)
+            harvest_msg.position = crop_result['item_info']['center_position']
+            harvest_msg.distance = float(distance)
+            
+            # 图像数据
+            harvest_msg.cropped_image = crop_result['cropped_image']
+            harvest_msg.full_image = crop_result['full_image']
+            
+            # 截取区域信息
+            crop_region = crop_result['crop_region']
+            harvest_msg.crop_x = crop_region['x']
+            harvest_msg.crop_y = crop_region['y'] 
+            harvest_msg.crop_width = crop_region['width']
+            harvest_msg.crop_height = crop_region['height']
+            
+            # 状态信息
+            harvest_msg.harvest_status = harvest_status
+            harvest_msg.timestamp = crop_result['timestamp']
+            harvest_msg.robot_id = self.robot_id
+            harvest_msg.location_info = f"Position: ({center_x}, {center_y})"
+            
+            # 发布消息
+            self.harvest_image_pub.publish(harvest_msg)
+            
+            logger.info(f"成功发布采摘图像 - 会话ID: {harvest_msg.harvest_session_id}, "
+                       f"物品: {item_type}, 置信度: {confidence:.2f}, 距离: {distance:.2f}m")
+            
+        except json.JSONDecodeError:
+            logger.error("采摘截取请求JSON解析失败")
+        except Exception as e:
+            logger.error(f"处理采摘图像截取请求时出错: {e}")
+            logger.error(traceback.format_exc())
     
     @trace_errors
     def destroy_node(self):

@@ -126,6 +126,9 @@ class AutoHarvestController(Node):
         self.servo_cmd_pub = self.create_publisher(ServoCommand, 'servo/command', 10)
         self.tracking_pub = self.create_publisher(Point, 'servo/tracking_target', 10)
         
+        # 采摘图像截取请求发布者
+        self.harvest_capture_pub = self.create_publisher(String, 'harvest/capture_request', 10)
+        
         # 状态变量
         self.current_mode = MODE_MANUAL
         self.auto_harvest_active = False
@@ -138,6 +141,11 @@ class AutoHarvestController(Node):
         self.harvest_in_progress = False
         self.last_detection_time = time.time()
         self.searching = False
+        
+        # 采摘图像截取相关
+        self.harvest_session_id = None
+        self.target_item_index = 0
+        self.harvest_image_captured = False
         
         # 当前运动状态
         self.current_direction = 0x04  # DIR_STOP
@@ -202,13 +210,46 @@ class AutoHarvestController(Node):
         try:
             data = json.loads(msg.data)
             state = data.get("state", "")
+            status = data.get("status", "")
             
+            self.get_logger().info(f"收到采摘状态更新: state={state}, status={status}")
+            
+            # 处理原有的状态逻辑
             if state == "completed":
                 self.harvest_in_progress = False
                 self.get_logger().info('采摘完成，继续搜索下一个目标')
+                # 重置图像截取状态
+                self.harvest_image_captured = False
+                self.harvest_session_id = None
             elif state == "started":
                 self.harvest_in_progress = True
+            
+            # 处理新的状态以触发图像截取
+            if status == "gripping" and not self.harvest_image_captured:
+                # 正在夹取，截取确认图像
+                self.request_harvest_image_capture('gripping')
                 
+            elif status == "confirming":
+                # 确认夹取成功，截取最终图像
+                self.request_harvest_image_capture('confirming')
+                self.harvest_image_captured = True
+                
+            elif status == "completed":
+                # 采摘完成，重置状态
+                self.harvest_in_progress = False
+                self.harvest_image_captured = False
+                self.harvest_session_id = None
+                self.get_logger().info("采摘完成，状态已重置")
+                
+            elif status == "failed":
+                # 采摘失败，重置状态
+                self.harvest_in_progress = False
+                self.harvest_image_captured = False
+                self.harvest_session_id = None
+                self.get_logger().info("采摘失败，状态已重置")
+                
+        except json.JSONDecodeError:
+            self.get_logger().error("解析采摘状态JSON失败")
         except Exception as e:
             self.get_logger().error(f'解析采摘状态错误: {e}')
     
@@ -372,11 +413,20 @@ class AutoHarvestController(Node):
         if abs(offset_x) < CENTER_DEADZONE:
             if not self.harvest_in_progress:
                 self.get_logger().info('开始采摘')
+                
+                # 生成采摘会话ID
+                import uuid
+                self.harvest_session_id = str(uuid.uuid4())[:8]
+                
+                # 发送采摘命令
                 harvest_cmd = HarvestCommand()
                 harvest_cmd.header.stamp = self.get_clock().now().to_msg()
                 harvest_cmd.start_harvest = True
                 self.harvest_cmd_pub.publish(harvest_cmd)
                 self.harvest_in_progress = True
+                
+                # 请求截取采摘图像
+                self.request_harvest_image_capture('approaching')
         else:
             # 使用舵机微调对准
             tracking_msg = Point()
@@ -399,6 +449,27 @@ class AutoHarvestController(Node):
         twist.linear.x = 0.0
         twist.angular.z = 0.0
         self.cmd_vel_pub.publish(twist)
+    
+    def request_harvest_image_capture(self, harvest_status):
+        """请求截取采摘图像"""
+        try:
+            request_data = {
+                'harvest_session_id': self.harvest_session_id or '',
+                'target_item_index': self.target_item_index,
+                'harvest_status': harvest_status,
+                'timestamp': int(time.time() * 1000),
+                'robot_id': 'robot_123'  # 可以从参数获取
+            }
+            
+            request_msg = String()
+            request_msg.data = json.dumps(request_data)
+            self.harvest_capture_pub.publish(request_msg)
+            
+            self.get_logger().info(f"已发送图像截取请求 - 状态: {harvest_status}, "
+                                 f"会话ID: {self.harvest_session_id}")
+                                 
+        except Exception as e:
+            self.get_logger().error(f"发送图像截取请求失败: {e}")
     
     def destroy_node(self):
         """清理资源"""

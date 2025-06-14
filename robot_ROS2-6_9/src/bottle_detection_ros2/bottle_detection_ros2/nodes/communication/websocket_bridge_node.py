@@ -13,7 +13,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import String, Float32, Int32, Bool, Header
-from bottle_detection_msgs.msg import RobotCommand, HarvestCommand, RobotStatus
+from bottle_detection_msgs.msg import RobotCommand, HarvestCommand, RobotStatus, HarvestImage
 import websocket
 import json
 import threading
@@ -112,6 +112,14 @@ class WebSocketBridgeNode(Node):
             String,
             'ai/chat_request',
             self.ai_request_callback,
+            10
+        )
+        
+        # 订阅采摘图像
+        self.harvest_image_sub = self.create_subscription(
+            HarvestImage,
+            'harvest/captured_image',
+            self.harvest_image_callback,
             10
         )
         
@@ -1620,6 +1628,60 @@ class WebSocketBridgeNode(Node):
             
         except Exception as e:
             self.get_logger().error(f'发送检测信息失败: {e}')
+    
+    def harvest_image_callback(self, msg):
+        """采摘图像回调 - 转发采摘图像到服务端"""
+        if not self.connected or not self.ws:
+            self.get_logger().warn("WebSocket未连接，无法发送采摘图像")
+            return
+        
+        try:
+            # 将CompressedImage转换为base64字符串
+            cropped_image_b64 = base64.b64encode(msg.cropped_image.data).decode('utf-8')
+            full_image_b64 = base64.b64encode(msg.full_image.data).decode('utf-8')
+            
+            # 构建发送到服务端的消息
+            harvest_image_data = {
+                'type': 'harvest_image',
+                'harvest_session_id': msg.harvest_session_id,
+                'item_type': msg.item_type,
+                'confidence': float(msg.confidence),
+                'distance': float(msg.distance),
+                'position': {
+                    'x': float(msg.position.x),
+                    'y': float(msg.position.y),
+                    'z': float(msg.position.z)
+                },
+                'crop_region': {
+                    'x': int(msg.crop_x),
+                    'y': int(msg.crop_y),
+                    'width': int(msg.crop_width),
+                    'height': int(msg.crop_height)
+                },
+                'harvest_status': msg.harvest_status,
+                'robot_id': msg.robot_id,
+                'location_info': msg.location_info,
+                'timestamp': int(msg.timestamp),
+                'cropped_image': {
+                    'format': msg.cropped_image.format,
+                    'data': cropped_image_b64
+                },
+                'full_image': {
+                    'format': msg.full_image.format,
+                    'data': full_image_b64
+                }
+            }
+            
+            # 发送到WebSocket服务器
+            self.ws.send(json.dumps(harvest_image_data))
+            self.get_logger().info(f"已发送采摘图像 - 会话ID: {msg.harvest_session_id}, "
+                                 f"状态: {msg.harvest_status}, 物品: {msg.item_type}")
+            
+        except Exception as e:
+            self.get_logger().error(f"转发采摘图像失败: {e}")
+            # 打印详细错误信息
+            import traceback
+            self.get_logger().error(traceback.format_exc())
     
     def destroy_node(self):
         """清理资源"""
