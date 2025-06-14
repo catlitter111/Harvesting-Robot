@@ -62,6 +62,9 @@ monthly_records = {}  # 格式: {robot_id: {year-month: [记录列表]}}
 # AI聊天相关 - 存储待处理的AI请求
 pending_ai_requests = {}  # 格式: {request_id: {client_id, timestamp, ...}}
 
+# 水果识别历史记录存储
+fruit_detection_history = {}  # 格式: {robot_id: [detection_records...]}
+
 
 # 命令监听器
 class ServerCommandListener(CommandListener):
@@ -753,6 +756,24 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
                             "timestamp": timestamp
                         })
 
+                elif message_type == "get_detection_history":
+                    # 处理获取水果识别历史记录请求
+                    robot_id = message.get("robot_id")
+                    date = message.get("date")  # 可选的日期过滤
+                    
+                    logger.info(f"收到水果识别历史请求 - 客户端: {client_id}, 机器人: {robot_id}")
+                    
+                    # 这里可以从数据库或缓存中获取历史记录
+                    # 目前返回示例数据，实际应用中应该从持久化存储中获取
+                    detection_history = await get_fruit_detection_history(robot_id, date)
+                    
+                    await websocket.send_json({
+                        "type": "detection_history",
+                        "data": detection_history,
+                        "robot_id": robot_id,
+                        "date": date
+                    })
+
             except json.JSONDecodeError:
                 logger.error(f"收到无效JSON: {data}")
             except Exception as e:
@@ -941,6 +962,10 @@ async def robot_websocket_endpoint(websocket: WebSocket, robot_id: str):
                     # 处理来自机器人节点的AI回复
                     await handle_ai_response_from_robot(message)
 
+                elif message_type == "fruit_detection_result":
+                    # 处理水果识别结果
+                    await handle_fruit_detection_result(robot_id, message)
+
             except json.JSONDecodeError:
                 logger.error(f"收到无效JSON: {data}")
             except Exception as e:
@@ -996,7 +1021,198 @@ async def handle_ai_response_from_robot(message):
         logger.error(f"处理机器人AI回复出错: {e}")
 
 
+async def handle_fruit_detection_result(robot_id, message):
+    """处理水果识别结果"""
+    try:
+        detection_data = message.get("data", {})
+        timestamp = message.get("timestamp", int(time.time() * 1000))
+        
+        # 提取关键信息用于控制台打印
+        fruit_type = detection_data.get("fruitType", "未知")
+        maturity = detection_data.get("maturity", 0)
+        quality_score = detection_data.get("qualityScore", 0)
+        health_status = detection_data.get("healthStatus", "未知")
+        confidence = detection_data.get("confidence", 0)
+        recommendation = detection_data.get("recommendation", "无建议")
+        action_taken = detection_data.get("actionTaken", "待检查")
+        location = detection_data.get("location", "未知位置")
+        detection_time = detection_data.get("detectionTime", "未知时间")
+        source_image = detection_data.get("source_image", "未知图片")
+        
+        # 在控制台打印详细的识别结果
+        print("\n" + "="*80)
+        print(f"🍎 水果识别结果 - 机器人: {robot_id}")
+        print("="*80)
+        print(f"📸 源图片: {source_image}")
+        print(f"🕒 检测时间: {detection_time}")
+        print(f"📍 检测位置: {location}")
+        print("-"*80)
+        print(f"🍏 水果类型: {fruit_type}")
+        print(f"🌱 成熟度: {maturity}%")
+        print(f"⭐ 品质分数: {quality_score}/100")
+        print(f"🏥 健康状态: {health_status}")
+        print(f"🎯 识别置信度: {confidence}%")
+        print("-"*80)
+        print(f"💡 采摘建议: {recommendation}")
+        print(f"🎬 建议操作: {action_taken}")
+        print("-"*80)
+        
+        # 如果有缺陷信息，也打印出来
+        defects = detection_data.get("defects", [])
+        if defects:
+            print(f"⚠️  发现缺陷: {', '.join(defects)}")
+        else:
+            print("✅ 未发现明显缺陷")
+            
+        # 如果有重量估算，也打印出来
+        estimated_weight = detection_data.get("estimatedWeight", 0)
+        if estimated_weight > 0:
+            print(f"⚖️  估算重量: {estimated_weight}克")
+            
+        # 如果有成熟度天数信息，也打印出来
+        ripeness_days = detection_data.get("ripeness_days", None)
+        if ripeness_days is not None:
+            if ripeness_days > 0:
+                print(f"📅 距离最佳采摘期: 还有{ripeness_days}天")
+            elif ripeness_days == 0:
+                print("📅 成熟度: 正好是最佳采摘期")
+            else:
+                print(f"📅 成熟度: 已过最佳采摘期{abs(ripeness_days)}天")
+        
+        print("="*80)
+        
+        # 显示当前识别统计
+        await print_detection_statistics(robot_id)
+        
+        # 使用logger记录
+        logger.info(f"水果识别完成 - 机器人: {robot_id}, 类型: {fruit_type}, "
+                   f"成熟度: {maturity}%, 品质: {quality_score}/100, 置信度: {confidence}%")
+        
+        # 转发给所有关联的微信客户端
+        async with lock:
+            if robot_id in robot_to_clients:
+                for client_id in robot_to_clients[robot_id]:
+                    if client_id in clients and "websocket" in clients[client_id]:
+                        try:
+                            # 发送水果识别结果给微信小程序
+                            await clients[client_id]["websocket"].send_json({
+                                "type": "fruit_detection_result",
+                                "data": detection_data,
+                                "timestamp": timestamp
+                            })
+                            logger.info(f"水果识别结果已转发给客户端 {client_id}")
+                        except Exception as e:
+                            logger.error(f"向客户端 {client_id} 发送水果识别结果失败: {e}")
+        
+        # 保存识别结果到历史记录
+        await save_fruit_detection_to_history(robot_id, detection_data)
+        
+    except Exception as e:
+        logger.error(f"处理水果识别结果出错: {e}")
+        print(f"\n❌ 处理水果识别结果时发生错误: {e}")
+
+
 # 新增：机器人断开连接处理函数
+async def save_fruit_detection_to_history(robot_id, detection_data):
+    """保存水果识别结果到历史记录"""
+    try:
+        async with lock:
+            if robot_id not in fruit_detection_history:
+                fruit_detection_history[robot_id] = []
+            
+            # 添加时间戳和日期信息
+            current_time = datetime.datetime.now()
+            detection_record = detection_data.copy()
+            detection_record["saved_timestamp"] = int(current_time.timestamp() * 1000)
+            detection_record["saved_date"] = current_time.strftime("%Y-%m-%d")
+            detection_record["saved_time"] = current_time.strftime("%H:%M:%S")
+            
+            # 添加到历史记录
+            fruit_detection_history[robot_id].append(detection_record)
+            
+            # 保持最近100条记录，避免内存过度使用
+            if len(fruit_detection_history[robot_id]) > 100:
+                fruit_detection_history[robot_id] = fruit_detection_history[robot_id][-100:]
+            
+            logger.debug(f"已保存水果识别记录到历史 - 机器人: {robot_id}")
+            
+    except Exception as e:
+        logger.error(f"保存水果识别历史记录出错: {e}")
+
+
+async def get_fruit_detection_history(robot_id, date_filter=None):
+    """获取水果识别历史记录"""
+    try:
+        async with lock:
+            if robot_id not in fruit_detection_history:
+                return []
+            
+            records = fruit_detection_history[robot_id].copy()
+            
+            # 如果指定了日期过滤
+            if date_filter:
+                filtered_records = []
+                for record in records:
+                    if record.get("saved_date") == date_filter:
+                        filtered_records.append(record)
+                records = filtered_records
+            
+            # 按时间倒序排列（最新的在前面）
+            records.sort(key=lambda x: x.get("saved_timestamp", 0), reverse=True)
+            
+            logger.debug(f"获取水果识别历史记录 - 机器人: {robot_id}, 记录数: {len(records)}")
+            return records
+            
+    except Exception as e:
+        logger.error(f"获取水果识别历史记录出错: {e}")
+        return []
+
+
+async def print_detection_statistics(robot_id):
+    """打印水果识别统计信息"""
+    try:
+        async with lock:
+            if robot_id not in fruit_detection_history:
+                print("📊 暂无识别统计数据")
+                return
+            
+            records = fruit_detection_history[robot_id]
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            
+            # 统计今日数据
+            today_records = [r for r in records if r.get("saved_date") == today]
+            total_today = len(today_records)
+            
+            # 统计水果类型
+            fruit_types = {}
+            quality_scores = []
+            
+            for record in today_records:
+                fruit_type = record.get("fruitType", "未知")
+                if fruit_type in fruit_types:
+                    fruit_types[fruit_type] += 1
+                else:
+                    fruit_types[fruit_type] = 1
+                
+                quality = record.get("qualityScore", 0)
+                if quality > 0:
+                    quality_scores.append(quality)
+            
+            # 计算平均品质
+            avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0
+            
+            print(f"📊 今日识别统计 (总计: {total_today}次)")
+            if fruit_types:
+                for fruit_type, count in fruit_types.items():
+                    print(f"   • {fruit_type}: {count}次")
+            if avg_quality > 0:
+                print(f"📈 平均品质分数: {avg_quality:.1f}/100")
+            print()
+            
+    except Exception as e:
+        logger.error(f"打印识别统计出错: {e}")
+
+
 async def handle_robot_disconnect(robot_id):
     async with lock:
         if robot_id in robots:

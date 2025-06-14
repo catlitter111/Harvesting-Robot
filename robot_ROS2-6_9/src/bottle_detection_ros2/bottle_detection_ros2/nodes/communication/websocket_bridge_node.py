@@ -41,8 +41,10 @@ class WebSocketBridgeNode(Node):
         # AI相关参数
         self.declare_parameter('ai_enabled', True)
         self.declare_parameter('ai_base_url', 'https://ai-gateway.vei.volces.com/v1')
-        self.declare_parameter('ai_api_key', 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30')
-        self.declare_parameter('ai_model', 'doubao-1.5-thinking-pro-vision')
+        self.declare_parameter('ai_api_key', 'sk-1b880a05df7249d3927443d4872e2839oklzor2ja52wf1eu')  # 文本模型API key
+        self.declare_parameter('ai_vision_api_key', 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30')  # 视觉模型API key
+        self.declare_parameter('ai_vision_model', 'doubao-1.5-thinking-pro-vision')  # 视觉模型，用于图片识别
+        self.declare_parameter('ai_text_model', 'doubao-1.5-lite-32k')  # 文本模型，用于聊天和Function Calling
         self.declare_parameter('ai_max_tokens', 300)
         
         # 获取参数
@@ -54,22 +56,40 @@ class WebSocketBridgeNode(Node):
         # AI参数
         self.ai_enabled = self.get_parameter('ai_enabled').value
         self.ai_base_url = self.get_parameter('ai_base_url').value
-        self.ai_api_key = self.get_parameter('ai_api_key').value
-        self.ai_model = self.get_parameter('ai_model').value
+        self.ai_api_key = self.get_parameter('ai_api_key').value  # 文本模型API key
+        self.ai_vision_api_key = self.get_parameter('ai_vision_api_key').value  # 视觉模型API key
+        self.ai_vision_model = self.get_parameter('ai_vision_model').value  # 视觉模型
+        self.ai_text_model = self.get_parameter('ai_text_model').value      # 文本模型
         self.ai_max_tokens = self.get_parameter('ai_max_tokens').value
         
-        # 初始化OpenAI客户端
-        self.ai_client = None
+        # 初始化OpenAI客户端 - 为两个模型分别创建客户端
+        self.ai_text_client = None  # 文本模型客户端
+        self.ai_vision_client = None  # 视觉模型客户端
+        
         if self.ai_enabled:
             try:
-                self.ai_client = OpenAI(
+                # 初始化文本模型客户端
+                self.ai_text_client = OpenAI(
                     base_url=self.ai_base_url,
                     api_key=self.ai_api_key,
                 )
-                self.get_logger().info('AI客户端初始化成功')
+                self.get_logger().info('文本模型客户端初始化成功')
+                self.get_logger().info(f'文本模型（聊天和Function Calling）: {self.ai_text_model}')
+                
+                # 初始化视觉模型客户端
+                self.ai_vision_client = OpenAI(
+                    base_url=self.ai_base_url,
+                    api_key=self.ai_vision_api_key,
+                )
+                self.get_logger().info('视觉模型客户端初始化成功')
+                self.get_logger().info(f'视觉模型（图片识别）: {self.ai_vision_model}')
+                
             except Exception as e:
                 self.get_logger().error(f'AI客户端初始化失败: {e}')
                 self.ai_enabled = False
+                
+        # 保持向后兼容性 - ai_client指向文本客户端
+        self.ai_client = self.ai_text_client
         
         # WebSocket相关
         self.ws = None
@@ -798,7 +818,7 @@ class WebSocketBridgeNode(Node):
     
     def handle_ai_chat_request(self, data):
         """处理AI聊天请求"""
-        if not self.ai_enabled or not self.ai_client:
+        if not self.ai_enabled or not self.ai_text_client:
             self.get_logger().error('AI功能未启用或客户端未初始化')
             # 发送错误响应
             error_response = {
@@ -848,9 +868,10 @@ class WebSocketBridgeNode(Node):
             # 构建包含机器人状态的上下文消息
             system_message = self.build_robot_context(robot_id)
             
-            # 调用AI API（支持Function Calling）
-            completion = self.ai_client.chat.completions.create(
-                model=self.ai_model,
+            # 调用AI API（支持Function Calling）- 使用文本模型
+            self.get_logger().info(f'使用文本模型处理聊天请求: {self.ai_text_model}')
+            completion = self.ai_text_client.chat.completions.create(
+                model=self.ai_text_model,  # 使用轻量级文本模型
                 messages=[
                     {
                         "role": "system",
@@ -1165,7 +1186,7 @@ class WebSocketBridgeNode(Node):
             user_message = data.get("message", "")
             robot_id = data.get("robot_id", self.robot_id)
             
-            if not self.ai_enabled or not self.ai_client:
+            if not self.ai_enabled or not self.ai_text_client:
                 self.get_logger().error('AI功能未启用')
                 return
             
@@ -1192,13 +1213,14 @@ class WebSocketBridgeNode(Node):
             use_functions = self.should_use_functions(user_message)
             
             self.get_logger().info(f'内部AI请求: "{user_message[:50]}...", 是否使用函数: {use_functions}')
+            self.get_logger().info(f'使用文本模型处理内部AI请求: {self.ai_text_model}')
             
             # 获取可用函数
             tools = self.get_available_functions() if use_functions else None
             
-            # 第一次调用AI API（根据判断结果决定是否支持Function Calling）
+            # 第一次调用AI API（根据判断结果决定是否支持Function Calling）- 使用文本模型
             api_params = {
-                "model": self.ai_model,
+                "model": self.ai_text_model,  # 使用轻量级文本模型
                 "messages": [
                     {
                         "role": "system",
@@ -1218,7 +1240,7 @@ class WebSocketBridgeNode(Node):
                 api_params["tools"] = tools
                 api_params["tool_choice"] = "auto"
             
-            completion = self.ai_client.chat.completions.create(**api_params)
+            completion = self.ai_text_client.chat.completions.create(**api_params)
             
             # 处理AI回复
             response_message = completion.choices[0].message
@@ -1303,8 +1325,8 @@ class WebSocketBridgeNode(Node):
                     ai_response = "\n\n".join(action_functions)
                 else:
                     # 只有执行类函数，使用AI生成的回复
-                    completion2 = self.ai_client.chat.completions.create(
-                        model=self.ai_model,
+                    completion2 = self.ai_text_client.chat.completions.create(
+                        model=self.ai_text_model,  # 使用轻量级文本模型
                         messages=messages_for_second_call,
                         max_tokens=self.ai_max_tokens,
                         temperature=0.7
@@ -1619,7 +1641,7 @@ class WebSocketBridgeNode(Node):
     
     def fruit_image_callback(self, msg):
         """水果图片回调 - 进行AI识别"""
-        if not self.ai_enabled or not self.ai_client:
+        if not self.ai_enabled or not self.ai_vision_client:
             self.get_logger().warn('AI功能未启用，跳过水果识别')
             return
         
@@ -1675,9 +1697,10 @@ class WebSocketBridgeNode(Node):
 
 请开始分析："""
             
-            # 调用AI API进行识别
-            completion = self.ai_client.chat.completions.create(
-                model=self.ai_model,
+            # 调用AI API进行识别 - 使用视觉模型（成本较高，只用于图片识别）
+            self.get_logger().info(f'使用视觉模型进行图片识别: {self.ai_vision_model}')
+            completion = self.ai_vision_client.chat.completions.create(
+                model=self.ai_vision_model,  # 使用视觉模型进行图片识别
                 messages=[
                     {
                         "role": "user",

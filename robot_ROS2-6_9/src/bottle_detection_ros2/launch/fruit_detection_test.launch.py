@@ -73,8 +73,10 @@ def generate_launch_description():
             'reconnect_interval': 3.0,
             'ai_enabled': True,
             'ai_base_url': 'https://ai-gateway.vei.volces.com/v1',
-            'ai_api_key': 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30',
-            'ai_model': 'doubao-1.5-thinking-pro-vision',
+            'ai_api_key': 'sk-1b880a05df7249d3927443d4872e2839oklzor2ja52wf1eu',  # 文本模型API key
+            'ai_vision_api_key': 'sk-41995897b2aa4a6595f155f9abe700e6utiiwrjgtvnzod30',  # 视觉模型API key
+            'ai_vision_model': 'doubao-1.5-thinking-pro-vision',  # 视觉模型，用于图片识别
+            'ai_text_model': 'doubao-1.5-lite-32k',              # 文本模型，用于聊天
             'ai_max_tokens': 800
         }],
         output='screen',
