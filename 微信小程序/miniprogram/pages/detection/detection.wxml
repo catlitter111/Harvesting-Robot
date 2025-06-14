@@ -294,16 +294,22 @@
               data-id="{{item.id}}">
           
           <view class="item-image">
-            <!-- 显示真实图片或占位符 -->
+            <!-- 显示本地图片或占位符 -->
             <image wx:if="{{item.imageUrl}}" 
                    class="fruit-thumbnail" 
-                   src="{{serverBaseUrl}}{{item.imageUrl}}" 
+                   src="{{item.imageUrl}}" 
                    mode="aspectFill"
                    lazy-load="true"
                    binderror="onImageError"
                    data-id="{{item.id}}">
             </image>
             <view wx:else class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
+            
+            <!-- 本地图片标识 -->
+            <view wx:if="{{item.isLocalImage}}" class="local-image-badge">
+              <text class="local-badge-text">本地</text>
+            </view>
+            
             <view class="detection-badge {{utils.safeToLowerCase(item.grade)}}">
               <text class="badge-text">{{item.grade}}</text>
             </view>

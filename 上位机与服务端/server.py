@@ -31,12 +31,10 @@ from adaptive_video_manager import AdaptiveVideoManager
 
 app = FastAPI()
 
-# 创建图片存储目录
-IMAGES_DIR = Path("fruit_images")
-IMAGES_DIR.mkdir(exist_ok=True)
-
-# 挂载静态文件服务
-app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
+# 注释掉图片存储目录和静态文件服务，改为直接传输base64数据
+# IMAGES_DIR = Path("fruit_images")
+# IMAGES_DIR.mkdir(exist_ok=True)
+# app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 # 允许跨域请求
 app.add_middleware(
@@ -1039,34 +1037,34 @@ async def handle_fruit_detection_result(robot_id, message):
         detection_data = message.get("data", {})
         timestamp = message.get("timestamp", int(time.time() * 1000))
         
-        # 处理图片数据
-        image_url = None
+        # 处理图片数据 - 直接传输base64数据给小程序
+        image_base64 = None
         if "image_base64" in detection_data and detection_data["image_base64"]:
             try:
-                # 保存图片到本地
-                image_filename = f"fruit_{robot_id}_{timestamp}.jpg"
-                image_path = IMAGES_DIR / image_filename
+                # 保留原始的base64数据，让小程序自己处理
+                image_base64 = detection_data["image_base64"]
                 
-                # 解码base64图片数据
-                image_data = base64.b64decode(detection_data["image_base64"])
+                # 生成唯一的图片ID，供小程序保存时使用
+                image_id = f"fruit_{robot_id}_{timestamp}"
                 
-                # 保存图片文件
-                with open(image_path, "wb") as f:
-                    f.write(image_data)
+                # 更新detection_data，传递base64数据而不是URL
+                detection_data["imageBase64"] = image_base64  # 图片的base64数据
+                detection_data["imageId"] = image_id  # 图片唯一标识
+                detection_data["imageFormat"] = "jpg"  # 图片格式
                 
-                # 生成可访问的URL
-                image_url = f"/images/{image_filename}"
+                # 移除服务端不需要的字段
+                if "thumbnailUrl" in detection_data:
+                    del detection_data["thumbnailUrl"]
+                if "imagePath" in detection_data:
+                    del detection_data["imagePath"]
+                if "imageUrl" in detection_data:
+                    del detection_data["imageUrl"]
                 
-                # 更新detection_data中的图片URL
-                detection_data["thumbnailUrl"] = image_url
-                detection_data["imagePath"] = image_url
-                detection_data["imageUrl"] = image_url  # 添加新的字段
-                
-                logger.info(f"图片已保存: {image_path}, URL: {image_url}")
+                logger.info(f"图片base64数据准备完成，ID: {image_id}, 大小: {len(image_base64)} 字符")
                 
             except Exception as e:
-                logger.error(f"保存图片失败: {e}")
-                image_url = None
+                logger.error(f"处理图片base64数据失败: {e}")
+                image_base64 = None
         
         # 提取关键信息用于控制台打印
         fruit_type = detection_data.get("fruitType", "未知")
@@ -1085,8 +1083,9 @@ async def handle_fruit_detection_result(robot_id, message):
         print(f"🍎 水果识别结果 - 机器人: {robot_id}")
         print("="*80)
         print(f"📸 源图片: {source_image}")
-        if image_url:
-            print(f"🖼️  图片URL: {image_url}")
+        if image_base64:
+            print(f"🖼️  图片数据: Base64格式，大小 {len(image_base64)} 字符")
+            print(f"📱 传输方式: 直接发送给小程序本地保存")
         print(f"🕒 检测时间: {detection_time}")
         print(f"📍 检测位置: {location}")
         print("-"*80)

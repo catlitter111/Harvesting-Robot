@@ -65,6 +65,10 @@
         "desc": "需要访问相册选择水果图片或保存检测结果"
       }
     },
+    "networkTimeout": {
+      "request": 10000,
+      "downloadFile": 10000
+    },
     "style": "v2",
     "componentFramework": "glass-easel",
     "sitemapLocation": "sitemap.json",

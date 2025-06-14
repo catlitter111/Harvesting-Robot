@@ -102,8 +102,33 @@ Page({
     connected: false,           // WebSocket连接状态
     robotId: 'robot_123',       // 机器人ID
     
+    // === 本地图片存储配置 ===
+    localImageStorage: true,    // 启用本地图片存储
+    imageStorageDir: 'fruit_images',  // 本地图片存储目录
+    maxLocalImages: 50,         // 最大本地图片数量
+    
+    // === 预设水果图片库 ===
+    fruitImageLibrary: {
+      '嘎啦苹果': '/images/fruits/apple_gala.jpg',
+      '红富士苹果': '/images/fruits/apple_fuji.jpg', 
+      '青苹果': '/images/fruits/apple_green.jpg',
+      '橙子': '/images/fruits/orange.jpg',
+      '柠檬': '/images/fruits/lemon.jpg',
+      '香蕉': '/images/fruits/banana.jpg',
+      '草莓': '/images/fruits/strawberry.jpg',
+      '葡萄': '/images/fruits/grape.jpg',
+      '桃子': '/images/fruits/peach.jpg',
+      '梨': '/images/fruits/pear.jpg',
+      '樱桃': '/images/fruits/cherry.jpg',
+      '猕猴桃': '/images/fruits/kiwi.jpg',
+      '芒果': '/images/fruits/mango.jpg',
+      '菠萝': '/images/fruits/pineapple.jpg',
+      '西瓜': '/images/fruits/watermelon.jpg',
+      '甜橙': '/images/fruits/sweet_orange.jpg'
+    },
+    
     // === 服务器配置 ===
-    serverBaseUrl: 'http://localhost:8000'  // 服务器基础URL
+    serverBaseUrl: 'http://10.52.163.144:8000',  // 服务器基础URL - 请根据实际情况修改IP地址
   },
 
   /**
@@ -126,6 +151,9 @@ Page({
     
     // 检查AI服务状态
     this.checkAIServiceStatus();
+    
+    // 清理过期的本地图片
+    this.cleanupLocalImages();
   },
 
   /**
@@ -1599,15 +1627,301 @@ Page({
       detectionTime: data.detectionTime || this.formatTime(new Date()),
       location: this.safeString(data.location, '未知位置'),
       actionTaken: this.safeString(data.actionTaken, '待处理'),
-      thumbnailUrl: data.imageUrl || data.thumbnailUrl || '',
-      imagePath: data.imageUrl || data.imagePath || '',
-      imageUrl: data.imageUrl || data.thumbnailUrl || '',  // 添加imageUrl字段
       imageName: data.source_image || '服务器图片',
-      detectionMode: 'comprehensive'
+      detectionMode: 'comprehensive',
+      // 处理图片数据
+      imageBase64: data.imageBase64 || '',  // 服务器传来的base64数据
+      imageId: data.imageId || detectionId,  // 图片唯一标识
+      imageFormat: data.imageFormat || 'jpg',  // 图片格式
+      imageUrl: '',  // 初始为空，保存后会更新
+      isLocalImage: true,  // 标记为本地图片
+      needsSaveImage: !!data.imageBase64  // 是否需要保存图片
     };
     
-    console.log('格式化完成 - 最终结果fruitType:', result.fruitType);
+    // 如果有base64图片数据，保存到本地
+    if (result.needsSaveImage) {
+      this.saveBase64ImageToLocal(result).then(savedPath => {
+        console.log('图片保存成功:', savedPath);
+        // 更新历史记录中的图片路径
+        this.updateImagePathInHistory(result.id, savedPath);
+      }).catch(error => {
+        console.error('图片保存失败:', error);
+        // 使用预设图片作为备选
+        const fallbackPath = this.getLocalFruitImage(result.fruitType);
+        this.updateImagePathInHistory(result.id, fallbackPath);
+      });
+    } else {
+      // 没有图片数据，使用预设图片
+      result.imageUrl = this.getLocalFruitImage(result.fruitType);
+    }
+    
+    console.log('服务器图片处理:');
+    console.log('- 水果类型:', data.fruitType);
+    console.log('- 是否有base64数据:', !!data.imageBase64);
+    console.log('- 图片ID:', result.imageId);
+    console.log('- 格式化完成 - 最终结果fruitType:', result.fruitType);
+    
     return result;
+  },
+
+  /**
+   * 保存base64图片数据到本地
+   * @param {Object} result - 识别结果对象
+   * @returns {Promise<string>} 保存后的本地路径
+   */
+  saveBase64ImageToLocal: function(result) {
+    return new Promise((resolve, reject) => {
+      if (!result.imageBase64) {
+        reject(new Error('没有图片数据'));
+        return;
+      }
+
+      try {
+        // 生成本地文件名
+        const fileName = `${result.imageId}.${result.imageFormat}`;
+        const tempFilePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+        
+        console.log('开始保存图片到本地:', fileName);
+        
+        // 将base64数据写入临时文件
+        const fs = wx.getFileSystemManager();
+        
+        // 移除base64前缀（如果有）
+        let base64Data = result.imageBase64;
+        if (base64Data.startsWith('data:')) {
+          base64Data = base64Data.split(',')[1];
+        }
+        
+        // 写入文件
+        fs.writeFile({
+          filePath: tempFilePath,
+          data: base64Data,
+          encoding: 'base64',
+          success: (res) => {
+            console.log('图片写入成功:', tempFilePath);
+            
+            // 保存到永久存储
+            wx.saveFile({
+              tempFilePath: tempFilePath,
+              success: (saveRes) => {
+                console.log('图片保存到永久存储成功:', saveRes.savedFilePath);
+                
+                // 更新本地图片记录
+                this.updateLocalImageRecord(fileName, saveRes.savedFilePath, result);
+                
+                resolve(saveRes.savedFilePath);
+              },
+              fail: (saveError) => {
+                console.error('保存到永久存储失败:', saveError);
+                // 即使永久保存失败，也可以使用临时路径
+                resolve(tempFilePath);
+              }
+            });
+          },
+          fail: (writeError) => {
+            console.error('图片写入失败:', writeError);
+            reject(writeError);
+          }
+        });
+        
+      } catch (error) {
+        console.error('保存图片过程中出错:', error);
+        reject(error);
+      }
+    });
+  },
+
+  /**
+   * 更新历史记录中的图片路径
+   * @param {string} recordId - 记录ID
+   * @param {string} imagePath - 图片路径
+   */
+  updateImagePathInHistory: function(recordId, imagePath) {
+    try {
+      // 更新页面数据
+      const history = this.data.detectionHistory;
+      const updatedHistory = history.map(item => {
+        if (item.id === recordId) {
+          item.imageUrl = imagePath;
+          item.localImagePath = imagePath;
+          console.log(`更新记录 ${recordId} 的图片路径:`, imagePath);
+        }
+        return item;
+      });
+      
+      this.setData({
+        detectionHistory: updatedHistory
+      });
+      
+      // 更新本地存储
+      const localHistory = wx.getStorageSync('detection_history') || [];
+      const updatedLocalHistory = localHistory.map(item => {
+        if (item.id === recordId) {
+          item.imageUrl = imagePath;
+          item.localImagePath = imagePath;
+        }
+        return item;
+      });
+      
+      wx.setStorageSync('detection_history', updatedLocalHistory);
+      
+    } catch (error) {
+      console.error('更新历史记录图片路径失败:', error);
+    }
+  },
+
+  /**
+   * 获取本地水果图片路径
+   * @param {string} fruitType - 水果类型
+   * @returns {string} 本地图片路径
+   */
+  getLocalFruitImage: function(fruitType) {
+    // 首先尝试从预设图片库中获取
+    if (this.data.fruitImageLibrary[fruitType]) {
+      return this.data.fruitImageLibrary[fruitType];
+    }
+    
+    // 尝试模糊匹配
+    const fruitKeys = Object.keys(this.data.fruitImageLibrary);
+    for (let key of fruitKeys) {
+      if (key.includes(fruitType) || fruitType.includes(key)) {
+        console.log(`模糊匹配水果图片: ${fruitType} -> ${key}`);
+        return this.data.fruitImageLibrary[key];
+      }
+    }
+    
+    // 如果没有找到匹配的图片，返回默认图片
+    console.log(`未找到匹配的水果图片: ${fruitType}，使用默认图片`);
+    return '/images/fruits/default_fruit.jpg';
+  },
+
+  /**
+   * 保存用户拍摄的图片到本地存储
+   * @param {string} tempFilePath - 临时文件路径
+   * @returns {Promise<string>} 保存后的本地路径
+   */
+  saveImageToLocal: function(tempFilePath) {
+    return new Promise((resolve, reject) => {
+      const timestamp = Date.now();
+      const fileName = `fruit_detection_${timestamp}.jpg`;
+      const savedFilePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+      
+      // 保存图片到本地
+      wx.saveFile({
+        tempFilePath: tempFilePath,
+        success: (res) => {
+          console.log('图片保存成功:', res.savedFilePath);
+          
+          // 更新本地图片记录
+          this.updateLocalImageRecord(fileName, res.savedFilePath);
+          
+          resolve(res.savedFilePath);
+        },
+        fail: (error) => {
+          console.error('图片保存失败:', error);
+          reject(error);
+        }
+      });
+    });
+  },
+
+  /**
+   * 更新本地图片记录
+   * @param {string} fileName - 文件名
+   * @param {string} filePath - 文件路径
+   * @param {Object} detectionResult - 识别结果（可选）
+   */
+  updateLocalImageRecord: function(fileName, filePath, detectionResult = null) {
+    try {
+      let localImages = wx.getStorageSync('local_fruit_images') || [];
+      
+      // 添加新记录
+      const newRecord = {
+        fileName: fileName,
+        filePath: filePath,
+        timestamp: Date.now(),
+        size: 0,  // 可以后续获取文件大小
+        fruitType: detectionResult ? detectionResult.fruitType : '未知',
+        detectionId: detectionResult ? detectionResult.id : null
+      };
+      
+      localImages.unshift(newRecord);
+      
+      // 限制最大数量
+      if (localImages.length > this.data.maxLocalImages) {
+        const removedImages = localImages.splice(this.data.maxLocalImages);
+        // 删除超出限制的图片文件
+        removedImages.forEach(img => {
+          wx.removeSavedFile({
+            filePath: img.filePath,
+            complete: () => {
+              console.log('删除旧图片:', img.fileName);
+            }
+          });
+        });
+      }
+      
+      // 保存更新后的记录
+      wx.setStorageSync('local_fruit_images', localImages);
+      
+      console.log('本地图片记录已更新:', newRecord);
+      
+    } catch (error) {
+      console.error('更新本地图片记录失败:', error);
+    }
+  },
+
+  /**
+   * 获取本地保存的图片列表
+   * @returns {Array} 本地图片列表
+   */
+  getLocalImageList: function() {
+    try {
+      return wx.getStorageSync('local_fruit_images') || [];
+    } catch (error) {
+      console.error('获取本地图片列表失败:', error);
+      return [];
+    }
+  },
+
+  /**
+   * 清理本地图片缓存
+   */
+  cleanupLocalImages: function() {
+    try {
+      const localImages = this.getLocalImageList();
+      const now = Date.now();
+      const maxAge = 7 * 24 * 60 * 60 * 1000; // 7天
+      
+      const validImages = [];
+      const expiredImages = [];
+      
+      localImages.forEach(img => {
+        if (now - img.timestamp > maxAge) {
+          expiredImages.push(img);
+        } else {
+          validImages.push(img);
+        }
+      });
+      
+      // 删除过期图片
+      expiredImages.forEach(img => {
+        wx.removeSavedFile({
+          filePath: img.filePath,
+          complete: () => {
+            console.log('清理过期图片:', img.fileName);
+          }
+        });
+      });
+      
+      // 保存有效图片列表
+      wx.setStorageSync('local_fruit_images', validImages);
+      
+      console.log(`图片清理完成: 删除 ${expiredImages.length} 张过期图片，保留 ${validImages.length} 张有效图片`);
+      
+    } catch (error) {
+      console.error('清理本地图片失败:', error);
+    }
   },
 
   /**
@@ -1690,9 +2004,25 @@ Page({
    */
   onImageError: function(e) {
     const itemId = e.currentTarget.dataset.id;
-    console.log(`图片加载失败，记录ID: ${itemId}`);
+    const imgSrc = e.detail.errMsg;
+    console.log(`图片加载失败，记录ID: ${itemId}, 图片URL: ${e.currentTarget.src}, 错误: ${imgSrc}`);
+    console.log(`当前serverBaseUrl: ${this.data.serverBaseUrl}`);
     
-    // 可以在这里添加重试逻辑或显示默认图片
+    // 尝试使用备用URL
+    const history = this.data.detectionHistory;
+    const updatedHistory = history.map(item => {
+      if (item.id === itemId) {
+        // 设置加载失败标记
+        item.imageLoadFailed = true;
+        console.log(`设置图片加载失败标记，原始imageUrl: ${item.imageUrl}`);
+      }
+      return item;
+    });
+    
+    this.setData({
+      detectionHistory: updatedHistory
+    });
+    
     wx.showToast({
       title: '图片加载失败',
       icon: 'none',
