@@ -226,12 +226,12 @@ Page({
   checkDevicePermissions: function() {
     const that = this;
     
-    // 检查相机权限
+    // 检查相机权限和相册权限
     wx.getSetting({
       success: (res) => {
         that.setData({
           cameraAuthorized: !!res.authSetting['scope.camera'],
-          albumAuthorized: !!res.authSetting['scope.writePhotosAlbum']
+          albumAuthorized: !!res.authSetting['scope.album'] // 修改为 scope.album
         });
       },
       fail: (error) => {
@@ -484,6 +484,22 @@ Page({
     const that = this;
     
     this.hideImageOptions();
+    
+    // 检查相册权限
+    if (!this.data.albumAuthorized) {
+      this.requestAlbumPermission(() => {
+        that.chooseFromAlbumImpl();
+      });
+    } else {
+      this.chooseFromAlbumImpl();
+    }
+  },
+
+  /**
+   * 实际执行从相册选择操作
+   */
+  chooseFromAlbumImpl: function() {
+    const that = this;
     
     wx.chooseImage({
       count: 1,
@@ -1151,12 +1167,15 @@ Page({
     let totalMaturity = 0;
     
     history.forEach(item => {
+      // 统计优质果数量（Excellent等级）
       if (item.grade === 'Excellent') {
         stats.excellentCount++;
       }
+      // 累加成熟度
       totalMaturity += item.maturity || 0;
     });
     
+    // 计算平均成熟度
     stats.averageMaturity = Math.round(totalMaturity / history.length) || 0;
     
     this.setData({ historyStats: stats });
@@ -1207,6 +1226,9 @@ Page({
         detectionHistory: filteredHistory.slice(0, 20),
         hasMoreHistory: filteredHistory.length > 20
       });
+      
+      // 重新计算统计数据 - 关键修复点
+      this.calculateHistoryStats(filteredHistory);
       
       console.log('历史记录筛选完成:', {
         date: date,
@@ -1295,17 +1317,32 @@ Page({
     setTimeout(() => {
       try {
         const allHistory = wx.getStorageSync('detection_history') || [];
+        let filteredHistory = allHistory;
+        
+        // 如果有日期筛选，应用筛选条件
+        if (this.data.filterDate) {
+          const today = this.formatDate(new Date());
+          if (this.data.filterDate !== today) {
+            filteredHistory = allHistory.filter(item => {
+              const itemDate = this.formatDate(new Date(item.timestamp));
+              return itemDate === this.data.filterDate;
+            });
+          }
+        }
+        
         const currentCount = this.data.detectionHistory.length;
-        const nextBatch = allHistory.slice(currentCount, currentCount + 20);
+        const nextBatch = filteredHistory.slice(currentCount, currentCount + 20);
         
         if (nextBatch.length > 0) {
           const newHistory = [...this.data.detectionHistory, ...nextBatch];
           
           this.setData({
             detectionHistory: newHistory,
-            hasMoreHistory: newHistory.length < allHistory.length,
+            hasMoreHistory: newHistory.length < filteredHistory.length,
             loadingMoreHistory: false
           });
+          
+          // 不需要重新计算统计数据，因为这只是加载更多，不是重新筛选
         } else {
           this.setData({
             hasMoreHistory: false,
@@ -1358,7 +1395,35 @@ Page({
   saveResult: function() {
     if (!this.data.detectionResult) return;
     
-    // 保存图片到相册
+    // 检查保存到相册的权限
+    wx.getSetting({
+      success: (res) => {
+        if (res.authSetting['scope.writePhotosAlbum'] === false) {
+          // 用户之前拒绝了权限，引导用户去设置
+          wx.showModal({
+            title: '需要保存权限',
+            content: '需要您授权保存图片到相册',
+            confirmText: '去设置',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                wx.openSetting();
+              }
+            }
+          });
+        } else {
+          // 尝试保存图片
+          this.saveImageToAlbum();
+        }
+      }
+    });
+  },
+
+  /**
+   * 保存图片到相册的具体实现
+   */
+  saveImageToAlbum: function() {
+    const that = this;
+    
     wx.saveImageToPhotosAlbum({
       filePath: this.data.currentImage,
       success: () => {
@@ -1369,10 +1434,28 @@ Page({
       },
       fail: (error) => {
         console.error('保存图片失败:', error);
-        wx.showToast({
-          title: '保存失败，请检查相册权限',
-          icon: 'none'
-        });
+        
+        if (error.errMsg.includes('auth')) {
+          // 权限被拒绝，请求权限
+          wx.authorize({
+            scope: 'scope.writePhotosAlbum',
+            success: () => {
+              // 重新尝试保存
+              that.saveImageToAlbum();
+            },
+            fail: () => {
+              wx.showToast({
+                title: '保存失败，请检查相册权限',
+                icon: 'none'
+              });
+            }
+          });
+        } else {
+          wx.showToast({
+            title: '保存失败，请重试',
+            icon: 'none'
+          });
+        }
       }
     });
   },
@@ -1516,7 +1599,47 @@ Page({
           confirmText: '去设置',
           success: (res) => {
             if (res.confirm) {
-              wx.openSetting();
+              wx.openSetting({
+                success: (settingRes) => {
+                  if (settingRes.authSetting['scope.camera']) {
+                    this.setData({ cameraAuthorized: true });
+                    if (callback) callback();
+                  }
+                }
+              });
+            }
+          }
+        });
+      }
+    });
+  },
+
+  /**
+   * 请求相册权限
+   * @param {Function} callback - 授权成功回调
+   */
+  requestAlbumPermission: function(callback) {
+    wx.authorize({
+      scope: 'scope.album', // 修改为正确的权限名称
+      success: () => {
+        this.setData({ albumAuthorized: true });
+        if (callback) callback();
+      },
+      fail: () => {
+        wx.showModal({
+          title: '需要相册权限',
+          content: '使用相册选择功能需要开启相册权限，请前往设置页面开启',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting({
+                success: (settingRes) => {
+                  if (settingRes.authSetting['scope.album']) {
+                    this.setData({ albumAuthorized: true });
+                    if (callback) callback();
+                  }
+                }
+              });
             }
           }
         });
@@ -1581,6 +1704,11 @@ Page({
       }
       
       this.setData({ todayDetectionCount: todayStats.count });
+      
+      // 如果当前筛选的是今日，更新统计数据
+      if (this.data.filterDate === today || this.data.filterDateText === '今日') {
+        this.filterHistoryByDate(today);
+      }
       
     } catch (error) {
       console.error('刷新今日统计失败:', error);

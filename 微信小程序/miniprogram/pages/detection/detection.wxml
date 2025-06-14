@@ -42,11 +42,11 @@
             <text class="placeholder-subtitle">支持拍照或从相册选择</text>
           </view>
           <view class="selection-buttons">
-            <view class="selection-btn camera-btn" bindtap="takePhoto">
+            <view class="selection-btn camera-btn" catchtap="showImageOptions">
               <text class="btn-icon">📷</text>
               <text class="btn-text">拍照检测</text>
             </view>
-            <view class="selection-btn album-btn" bindtap="chooseFromAlbum">
+            <view class="selection-btn album-btn" catchtap="showImageOptions">
               <text class="btn-icon">🖼️</text>
               <text class="btn-text">相册选择</text>
             </view>
@@ -82,14 +82,18 @@
         </view>
       </view>
 
-      <!-- 检测控制按钮 -->
+      <!-- 检测控制按钮 - 修复版本 -->
       <view class="detection-controls">
         <button class="detect-btn {{!currentImage || detecting ? 'disabled' : 'active'}}" 
                 bindtap="startDetection" 
                 disabled="{{!currentImage || detecting}}">
-          <text class="detect-text" wx:if="{{!detecting}}">
-            {{currentImage ? 'AI智能分析' : '请先选择图片'}}
-          </text>
+          
+          <!-- 非检测状态文字 - 修复居中 -->
+          <view class="detect-text" wx:if="{{!detecting}}">
+            {{currentImage ? 'AI智能分析' : '请选择图片'}}
+          </view>
+          
+          <!-- 检测中动画 - 修复居中 -->
           <view class="detecting-animation" wx:if="{{detecting}}">
             <view class="loading-dot"></view>
             <view class="loading-dot"></view>
@@ -287,7 +291,7 @@
               data-id="{{item.id}}">
           
           <view class="item-image">
-                          <view class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
+            <view class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
             <view class="detection-badge {{utils.safeToLowerCase(item.grade)}}">
               <text class="badge-text">{{item.grade}}</text>
             </view>
@@ -316,7 +320,7 @@
 
             <view class="item-footer">
               <text class="item-location">{{item.location}}</text>
-                              <view class="item-status {{utils.safeToLowerCase(item.actionTaken)}}">
+              <view class="item-status {{utils.safeToLowerCase(item.actionTaken)}}">
                 <text class="status-text">{{item.actionTaken}}</text>
               </view>
             </view>

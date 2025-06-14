@@ -340,7 +340,7 @@
     white-space: nowrap;
   }
   
-  /* === 检测控制按钮 === */
+  /* === 检测控制按钮 - 关键修复区域 === */
   .detection-controls {
     padding: 20rpx;
   }
@@ -349,8 +349,6 @@
     width: 100%;
     height: 70rpx;
     border-radius: 35rpx;
-    font-size: 30rpx;
-    font-weight: 700;
     border: none;
     margin-bottom: 20rpx;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -359,11 +357,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 70rpx;
     padding: 0;
-    text-align: center;
+    margin: 0 0 20rpx 0;
   }
-
+  
   .detect-btn::after {
     border: none;
   }
@@ -383,14 +380,21 @@
     background: #E0E0E0;
     color: #999;
   }
-
+  
+  /* 按钮文字居中 - 核心修复 */
   .detect-text {
     font-size: 30rpx;
     font-weight: 700;
-    text-align: center;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
     line-height: 1;
-    display: block;
+    text-align: center;
   }
   
   .detecting-animation {
@@ -400,6 +404,8 @@
     gap: 12rpx;
     width: 100%;
     height: 100%;
+    margin: 0;
+    padding: 0;
   }
   
   .loading-dot {
@@ -422,6 +428,8 @@
   .detecting-text {
     margin-left: 16rpx;
     font-size: 28rpx;
+    line-height: 1;
+    color: inherit;
   }
   
   /* === 快速设置 === */
