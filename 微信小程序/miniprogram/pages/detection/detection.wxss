@@ -824,6 +824,34 @@
     color: #E65100;
   }
   
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+  
+  .clear-data-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60rpx;
+    height: 60rpx;
+    background: rgba(244, 67, 54, 0.1);
+    border-radius: 50%;
+    border: 1rpx solid rgba(244, 67, 54, 0.3);
+    transition: all 0.3s ease;
+  }
+  
+  .clear-data-btn:active {
+    background: rgba(244, 67, 54, 0.2);
+    transform: scale(0.95);
+  }
+  
+  .clear-icon {
+    font-size: 24rpx;
+    color: #F44336;
+  }
+  
   .date-filter {
     display: flex;
     align-items: center;

@@ -193,12 +193,12 @@ Page({
     this.setData({
       filterDate: todayStr,
       filterDateText: '今日',
-      // 设置初始统计数据，避免界面空白
+      // 初始化空的统计数据，等待从服务器加载
       historyStats: {
-        totalDetections: 5,
-        excellentCount: 3,
-        averageMaturity: 78,
-        accuracyRate: 96
+        totalDetections: 0,
+        excellentCount: 0,
+        averageMaturity: 0,
+        accuracyRate: 0
       }
     });
     
@@ -217,6 +217,11 @@ Page({
       this.setData({
         connected: app.globalData.connected || false
       });
+      
+      // 如果WebSocket已连接，立即请求历史记录
+      if (app.globalData.connected) {
+        this.requestDetectionHistoryFromServer();
+      }
     }
   },
 
@@ -248,10 +253,9 @@ Page({
       // 加载检测历史
       let history = wx.getStorageSync('detection_history') || [];
       
-      // 如果没有历史数据，生成一些示例数据用于展示
+      // 如果没有本地历史数据，从服务器获取
       if (history.length === 0) {
-        history = this.generateSampleHistory();
-        wx.setStorageSync('detection_history', history);
+        this.requestDetectionHistoryFromServer();
       }
       
       // 加载今日统计
@@ -291,81 +295,6 @@ Page({
     } catch (error) {
       console.error('加载本地数据失败:', error);
     }
-  },
-
-  /**
-   * 生成示例历史数据（仅用于演示）
-   */
-  generateSampleHistory: function() {
-    const sampleData = [
-      {
-        id: 'detection_sample_001',
-        fruitType: '红富士苹果',
-        maturity: 85,
-        healthStatus: '健康',
-        qualityScore: 92,
-        grade: 'Excellent',
-        detectionTime: '14:23',
-        location: 'B-12区域',
-        actionTaken: '已采摘',
-        thumbnailUrl: '/images/apple-sample.jpg',
-        timestamp: Date.now() - 3600000
-      },
-      {
-        id: 'detection_sample_002',
-        fruitType: '嘎啦苹果',
-        maturity: 65,
-        healthStatus: '轻微斑点',
-        qualityScore: 75,
-        grade: 'Good',
-        detectionTime: '13:45',
-        location: 'B-11区域',
-        actionTaken: '待观察',
-        thumbnailUrl: '/images/apple-sample.jpg',
-        timestamp: Date.now() - 7200000
-      },
-      {
-        id: 'detection_sample_003',
-        fruitType: '青苹果',
-        maturity: 92,
-        healthStatus: '健康',
-        qualityScore: 88,
-        grade: 'Excellent',
-        detectionTime: '12:16',
-        location: 'B-10区域',
-        actionTaken: '已采摘',
-        thumbnailUrl: '/images/apple-sample.jpg',
-        timestamp: Date.now() - 10800000
-      },
-      {
-        id: 'detection_sample_004',
-        fruitType: '黄元帅苹果',
-        maturity: 72,
-        healthStatus: '健康',
-        qualityScore: 82,
-        grade: 'Good',
-        detectionTime: '11:30',
-        location: 'B-09区域',
-        actionTaken: '已采摘',
-        thumbnailUrl: '/images/apple-sample.jpg',
-        timestamp: Date.now() - 14400000
-      },
-      {
-        id: 'detection_sample_005',
-        fruitType: '红富士苹果',
-        maturity: 38,
-        healthStatus: '健康',
-        qualityScore: 65,
-        grade: 'Average',
-        detectionTime: '10:45',
-        location: 'B-08区域',
-        actionTaken: '待成熟',
-        thumbnailUrl: '/images/apple-sample.jpg',
-        timestamp: Date.now() - 18000000
-      }
-    ];
-    
-    return sampleData;
   },
 
   // ==================== AI服务相关方法 ====================
@@ -1211,6 +1140,16 @@ Page({
    */
   filterHistoryByDate: function(date) {
     try {
+      // 更新筛选日期
+      this.setData({
+        filterDate: date,
+        filterDateText: date === this.formatDate(new Date()) ? '今日' : date
+      });
+      
+      // 从服务器获取指定日期的历史记录
+      this.requestDetectionHistoryFromServer();
+      
+      // 同时筛选本地历史记录作为备用
       const allHistory = wx.getStorageSync('detection_history') || [];
       
       let filteredHistory = allHistory;
@@ -1227,7 +1166,7 @@ Page({
         hasMoreHistory: filteredHistory.length > 20
       });
       
-      // 重新计算统计数据 - 关键修复点
+      // 重新计算统计数据
       this.calculateHistoryStats(filteredHistory);
       
       console.log('历史记录筛选完成:', {
@@ -1543,12 +1482,253 @@ Page({
         this.handleDetectionError(new Error(data.message || '检测失败'));
         break;
         
+      case 'fruit_detection_result':
+        // 处理来自服务器的水果识别结果
+        this.handleServerDetectionResult(data);
+        break;
+        
+      case 'detection_history_response':
+        // 处理来自服务器的历史记录响应
+        this.handleDetectionHistoryResponse(data);
+        break;
+        
       default:
         console.log('未处理的消息类型:', data.type);
     }
   },
 
+  /**
+   * 从服务器请求水果识别历史记录
+   */
+  requestDetectionHistoryFromServer: function() {
+    const app = getApp();
+    
+    if (!app.globalData || !app.globalData.connected) {
+      console.log('WebSocket未连接，无法获取服务器历史记录');
+      return;
+    }
+    
+    try {
+      app.sendSocketMessage({
+        type: 'get_detection_history',
+        robot_id: this.data.robotId,
+        date_filter: this.data.filterDate,
+        timestamp: Date.now()
+      });
+      
+      console.log('已请求服务器历史记录');
+      
+    } catch (error) {
+      console.error('请求服务器历史记录失败:', error);
+    }
+  },
+
+  /**
+   * 处理来自服务器的水果识别结果
+   * @param {Object} data - 服务器发送的识别结果
+   */
+  handleServerDetectionResult: function(data) {
+    console.log('收到服务器水果识别结果:', data);
+    console.log('原始数据结构:', JSON.stringify(data, null, 2));
+    
+    try {
+      // 格式化服务器返回的识别结果
+      const result = this.formatServerDetectionResult(data);
+      console.log('格式化后的结果:', JSON.stringify(result, null, 2));
+      
+      // 保存到本地历史记录
+      this.saveDetectionRecord(result);
+      
+      // 更新统计数据
+      this.updateTodayStats();
+      
+      // 显示通知
+      wx.showToast({
+        title: `收到新识别结果: ${result.fruitType}`,
+        icon: 'success',
+        duration: 2000
+      });
+      
+      // 如果当前在检测页面，刷新显示
+      this.refreshPageData();
+      
+    } catch (error) {
+      console.error('处理服务器识别结果失败:', error);
+      console.error('错误详情:', error.stack);
+    }
+  },
+
+  /**
+   * 格式化服务器返回的识别结果
+   * @param {Object} serverData - 服务器数据
+   * @returns {Object} 格式化后的结果
+   */
+  formatServerDetectionResult: function(serverData) {
+    const detectionId = generateDetectionId();
+    
+    // 服务器数据字段映射（支持两种格式：直接字段名和嵌套data字段）
+    const data = serverData.data || serverData;
+    
+    console.log('格式化数据 - 原始serverData:', serverData);
+    console.log('格式化数据 - 提取的data:', data);
+    console.log('格式化数据 - fruitType字段值:', data.fruitType);
+    
+    const result = {
+      id: detectionId,
+      fruitType: this.safeString(data.fruitType, '未知水果'),
+      fruitEmoji: this.getFruitEmoji(data.fruitType),
+      variety: this.safeString(data.variety, '未知品种'),
+      confidence: Math.round(data.confidence || 0),
+      maturity: Math.round(data.maturity || 0),
+      healthStatus: this.safeString(data.healthStatus, '未知'),
+      healthGrade: this.getHealthGrade(data.qualityScore),
+      pestStatus: this.safeString(data.pestStatus, 'none'),
+      diseaseStatus: this.safeString(data.diseaseStatus, 'none'),
+      qualityScore: Math.round(data.qualityScore || 0),
+      appearanceStars: Math.round((data.qualityScore || 0) / 20),
+      sizeCategory: this.safeString(data.sizeCategory, '中等'),
+      overallGrade: this.getOverallGrade(data.qualityScore),
+      recommendation: this.safeString(data.recommendation, '暂无建议'),
+      suggestedAction: this.safeString(data.suggestedAction, 'inspect'),
+      actionable: data.actionable !== false,
+      boundingBox: data.boundingBox || null,
+      timestamp: data.timestamp || Date.now(),
+      detectionTime: data.detectionTime || this.formatTime(new Date()),
+      location: this.safeString(data.location, '未知位置'),
+      actionTaken: this.safeString(data.actionTaken, '待处理'),
+      thumbnailUrl: data.thumbnailUrl || '',
+      imagePath: data.imagePath || '',
+      imageName: data.source_image || '服务器图片',
+      detectionMode: 'comprehensive'
+    };
+    
+    console.log('格式化完成 - 最终结果fruitType:', result.fruitType);
+    return result;
+  },
+
+  /**
+   * 处理来自服务器的历史记录响应
+   * @param {Object} data - 服务器返回的历史记录数据
+   */
+  handleDetectionHistoryResponse: function(data) {
+    console.log('收到服务器历史记录响应:', data);
+    
+    try {
+      if (data.success && data.history && Array.isArray(data.history)) {
+        // 格式化历史记录数据
+        const formattedHistory = data.history.map(record => 
+          this.formatServerDetectionResult(record)
+        );
+        
+        // 合并本地和服务器历史记录
+        const localHistory = wx.getStorageSync('detection_history') || [];
+        const mergedHistory = this.mergeHistoryRecords(localHistory, formattedHistory);
+        
+        // 保存合并后的历史记录
+        wx.setStorageSync('detection_history', mergedHistory);
+        
+        // 更新页面显示
+        this.setData({
+          detectionHistory: mergedHistory.slice(0, 20),
+          hasMoreHistory: mergedHistory.length > 20
+        });
+        
+        // 重新计算统计数据
+        this.calculateHistoryStats(mergedHistory);
+        
+        console.log(`成功加载 ${formattedHistory.length} 条服务器历史记录`);
+        
+      } else {
+        console.log('服务器返回空历史记录或请求失败');
+      }
+      
+    } catch (error) {
+      console.error('处理服务器历史记录响应失败:', error);
+    }
+  },
+
+  /**
+   * 合并本地和服务器历史记录，去重并按时间排序
+   * @param {Array} localHistory - 本地历史记录
+   * @param {Array} serverHistory - 服务器历史记录
+   * @returns {Array} 合并后的历史记录
+   */
+  mergeHistoryRecords: function(localHistory, serverHistory) {
+    // 创建一个Map来去重，以timestamp为key
+    const recordMap = new Map();
+    
+    // 添加本地记录
+    localHistory.forEach(record => {
+      if (record.timestamp) {
+        recordMap.set(record.timestamp, record);
+      }
+    });
+    
+    // 添加服务器记录（会覆盖相同timestamp的本地记录）
+    serverHistory.forEach(record => {
+      if (record.timestamp) {
+        recordMap.set(record.timestamp, record);
+      }
+    });
+    
+    // 转换为数组并按时间倒序排列
+    const mergedHistory = Array.from(recordMap.values())
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    
+    // 限制最大记录数量
+    return mergedHistory.slice(0, 100);
+  },
+
   // ==================== 工具方法 ====================
+
+  /**
+   * 清除本地存储的检测数据（用于测试）
+   */
+  clearLocalDetectionData: function() {
+    wx.showModal({
+      title: '清除本地数据',
+      content: '确定要清除所有本地检测历史记录吗？此操作不可恢复。',
+      success: (res) => {
+        if (res.confirm) {
+          try {
+            // 清除本地存储
+            wx.removeStorageSync('detection_history');
+            wx.removeStorageSync('today_detection_stats');
+            
+            // 重置页面数据
+            this.setData({
+              detectionHistory: [],
+              todayDetectionCount: 0,
+              hasMoreHistory: false,
+              historyStats: {
+                totalDetections: 0,
+                excellentCount: 0,
+                averageMaturity: 0,
+                accuracyRate: 0
+              }
+            });
+            
+            wx.showToast({
+              title: '本地数据已清除',
+              icon: 'success'
+            });
+            
+            // 重新从服务器获取数据
+            setTimeout(() => {
+              this.requestDetectionHistoryFromServer();
+            }, 1000);
+            
+          } catch (error) {
+            console.error('清除本地数据失败:', error);
+            wx.showToast({
+              title: '清除失败',
+              icon: 'error'
+            });
+          }
+        }
+      }
+    });
+  },
 
   /**
    * 发送动作命令到机器人

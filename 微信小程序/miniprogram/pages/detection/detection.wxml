@@ -242,6 +242,9 @@
           <text class="history-title">检测历史</text>
         </view>
         <view class="header-right">
+          <view class="clear-data-btn" bindtap="clearLocalDetectionData">
+            <text class="clear-icon">🗑️</text>
+          </view>
           <picker bindchange="onDateFilterChange" mode="date" value="{{filterDate}}">
             <view class="date-filter">
               <text class="filter-text">{{filterDateText}}</text>

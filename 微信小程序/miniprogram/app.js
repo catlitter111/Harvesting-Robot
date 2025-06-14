@@ -10,6 +10,7 @@ App({
       robotId: 'robot_123',
       statisticsPage: null,
       controlPage: null,
+      detectionPage: null,
       lastPongTime: 0,
       reconnectDelay: 5000, // 初始重连延迟时间(毫秒)
       maxReconnectDelay: 30000, // 最大重连延迟时间(毫秒)
@@ -241,6 +242,20 @@ App({
               // 如果聊天页面存在，则转发AI回复消息
               if (that.globalData.chatPage) {
                 that.globalData.chatPage.onSocketMessage(data);
+              }
+              break;
+              
+            case 'fruit_detection_result':
+              // 处理水果识别结果，转发给检测页面
+              if (that.globalData.detectionPage) {
+                that.globalData.detectionPage.onSocketMessage(data);
+              }
+              break;
+              
+            case 'detection_history_response':
+              // 处理水果识别历史记录响应，转发给检测页面
+              if (that.globalData.detectionPage) {
+                that.globalData.detectionPage.onSocketMessage(data);
               }
               break;
               
