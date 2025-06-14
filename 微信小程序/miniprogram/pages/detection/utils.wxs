@@ -1,0 +1,50 @@
+// WXS工具方法 - 检测页面专用
+
+// 安全的toLowerCase转换
+function safeToLowerCase(str) {
+  if (str === null || str === undefined) {
+    return '';
+  }
+  var result = str + '';
+  return result.toLowerCase();
+}
+
+// 安全的charAt操作  
+function safeCharAt(str, index) {
+  if (str === null || str === undefined) {
+    return '';
+  }
+  var result = str + '';
+  var idx = index || 0;
+  return result.charAt(idx) || '';
+}
+
+// 获取首字母
+function getFirstChar(str) {
+  if (str === null || str === undefined) {
+    return '🍎';
+  }
+  var result = str + '';
+  return result.charAt(0) || '🍎';
+}
+
+// 安全的字符串转换
+function safeString(value, defaultValue) {
+  if (value === null || value === undefined) {
+    return defaultValue || '';
+  }
+  return value + '';
+}
+
+// 检查是否为空
+function isEmpty(value) {
+  return value === null || value === undefined || value === '';
+}
+
+module.exports = {
+  safeToLowerCase: safeToLowerCase,
+  safeCharAt: safeCharAt,
+  safeString: safeString,
+  isEmpty: isEmpty,
+  getFirstChar: getFirstChar
+}; 

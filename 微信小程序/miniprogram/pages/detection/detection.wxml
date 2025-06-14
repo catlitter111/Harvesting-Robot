@@ -1,0 +1,444 @@
+<!--pages/detection/detection.wxml-->
+<!--智能水果识别页面 - 独立标签页设计-->
+
+<!-- 引入工具方法 -->
+<wxs module="utils" src="./utils.wxs"></wxs>
+
+<view class="detection-container">
+  
+  <!-- 页面头部状态栏 -->
+  <view class="header-status">
+    <view class="status-item">
+      <view class="status-dot {{aiServiceStatus === 'online' ? 'online' : 'offline'}}"></view>
+      <text class="status-text">AI服务{{aiServiceStatus === 'online' ? '在线' : '离线'}}</text>
+    </view>
+    <view class="status-item">
+      <text class="today-count">今日检测：{{todayDetectionCount}}次</text>
+    </view>
+  </view>
+
+  <!-- 主要内容区域 -->
+  <scroll-view class="main-content" scroll-y="true" enhanced="true" show-scrollbar="false">
+    
+    <!-- 拍摄识别卡片 -->
+    <view class="detection-card">
+      <view class="card-header">
+        <view class="header-left">
+          <text class="card-icon">📸</text>
+          <text class="card-title">智能检测</text>
+        </view>
+        <view class="header-right">
+          <text class="detection-mode {{detectionMode}}">{{detectionModeText}}</text>
+        </view>
+      </view>
+
+      <!-- 图片选择区域 -->
+      <view class="image-selection-area">
+        <!-- 如果没有选择图片，显示选择区域 -->
+        <view class="image-placeholder" wx:if="{{!currentImage}}" bindtap="showImageOptions">
+          <view class="placeholder-content">
+            <view class="placeholder-icon">📷</view>
+            <text class="placeholder-title">选择水果图片进行检测</text>
+            <text class="placeholder-subtitle">支持拍照或从相册选择</text>
+          </view>
+          <view class="selection-buttons">
+            <view class="selection-btn camera-btn" bindtap="takePhoto">
+              <text class="btn-icon">📷</text>
+              <text class="btn-text">拍照检测</text>
+            </view>
+            <view class="selection-btn album-btn" bindtap="chooseFromAlbum">
+              <text class="btn-icon">🖼️</text>
+              <text class="btn-text">相册选择</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 已选择图片显示区域 -->
+        <view class="selected-image-area" wx:if="{{currentImage}}">
+          <image src="{{currentImage}}" class="selected-image" mode="aspectFill" bindtap="previewImage"></image>
+          
+          <!-- 图片信息覆盖层 -->
+          <view class="image-overlay">
+            <view class="image-info">
+              <text class="image-name">{{imageName}}</text>
+              <text class="image-time">{{imageTime}}</text>
+            </view>
+            <view class="image-actions">
+              <view class="action-btn reselect-btn" bindtap="showImageOptions">
+                <text class="action-icon">🔄</text>
+              </view>
+              <view class="action-btn delete-btn" bindtap="clearCurrentImage">
+                <text class="action-icon">🗑️</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- AI识别区域标记 (如果有识别结果) -->
+          <view class="detection-overlay" wx:if="{{detectionResult && detectionResult.boundingBox}}">
+            <view class="detection-box" style="left: {{detectionResult.boundingBox.x}}px; top: {{detectionResult.boundingBox.y}}px; width: {{detectionResult.boundingBox.width}}px; height: {{detectionResult.boundingBox.height}}px;">
+              <text class="detection-label">{{detectionResult.fruitType}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 检测控制按钮 -->
+      <view class="detection-controls">
+        <button class="detect-btn {{!currentImage || detecting ? 'disabled' : 'active'}}" 
+                bindtap="startDetection" 
+                disabled="{{!currentImage || detecting}}">
+          <text class="detect-text" wx:if="{{!detecting}}">
+            {{currentImage ? 'AI智能分析' : '请先选择图片'}}
+          </text>
+          <view class="detecting-animation" wx:if="{{detecting}}">
+            <view class="loading-dot"></view>
+            <view class="loading-dot"></view>
+            <view class="loading-dot"></view>
+            <text class="detecting-text">AI分析中...</text>
+          </view>
+        </button>
+        
+        <!-- 快速设置 -->
+        <view class="quick-settings">
+          <view class="setting-item" bindtap="toggleDetectionMode">
+            <text class="setting-label">检测模式</text>
+            <text class="setting-value">{{detectionModeText}}</text>
+            <text class="setting-arrow">›</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 分析结果卡片 -->
+    <view class="result-card" wx:if="{{detectionResult}}">
+      <view class="result-header">
+        <text class="result-icon">🔍</text>
+        <text class="result-title">AI分析结果</text>
+        <view class="confidence-badge">
+          <text class="confidence-text">置信度 {{detectionResult.confidence}}%</text>
+        </view>
+      </view>
+
+      <view class="result-content">
+        <!-- 水果基本信息 -->
+        <view class="fruit-basic-info">
+          <view class="fruit-avatar">
+            <text class="fruit-emoji">{{detectionResult.fruitEmoji}}</text>
+          </view>
+          <view class="fruit-details">
+            <text class="fruit-name">{{detectionResult.fruitType}}</text>
+            <text class="fruit-variety">{{detectionResult.variety}}</text>
+          </view>
+          <view class="overall-grade {{utils.safeToLowerCase(detectionResult.overallGrade)}}">
+            <text class="grade-text">{{detectionResult.overallGrade}}</text>
+          </view>
+        </view>
+
+        <!-- 详细分析指标 -->
+        <view class="analysis-metrics">
+          <view class="metric-item">
+            <view class="metric-header">
+              <text class="metric-label">成熟度</text>
+              <text class="metric-value">{{detectionResult.maturity}}%</text>
+            </view>
+            <progress class="metric-progress" 
+                     percent="{{detectionResult.maturity}}" 
+                     activeColor="{{detectionResult.maturity >= 80 ? '#4CAF50' : detectionResult.maturity >= 60 ? '#FF9800' : '#F44336'}}"
+                     backgroundColor="#E0E0E0" 
+                     stroke-width="6" />
+          </view>
+
+          <view class="metric-item">
+            <view class="metric-header">
+              <text class="metric-label">健康状况</text>
+              <text class="metric-value {{utils.safeToLowerCase(detectionResult.healthGrade)}}">{{detectionResult.healthStatus}}</text>
+            </view>
+            <view class="health-indicators">
+              <view class="health-tag {{detectionResult.pestStatus === 'none' ? 'good' : 'warning'}}">
+                <text class="tag-text">病虫害: {{detectionResult.pestStatus === 'none' ? '无' : detectionResult.pestStatus}}</text>
+              </view>
+              <view class="health-tag {{detectionResult.diseaseStatus === 'none' ? 'good' : 'warning'}}">
+                <text class="tag-text">病害: {{detectionResult.diseaseStatus === 'none' ? '无' : detectionResult.diseaseStatus}}</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="metric-item">
+            <view class="metric-header">
+              <text class="metric-label">品质评估</text>
+              <text class="metric-value">{{detectionResult.qualityScore}}/100</text>
+            </view>
+            <view class="quality-breakdown">
+              <view class="quality-item">
+                <text class="quality-aspect">外观</text>
+                <view class="quality-stars">
+                  <text class="star {{index < detectionResult.appearanceStars ? 'filled' : 'empty'}}" 
+                        wx:for="{{[1,2,3,4,5]}}" wx:key="index">★</text>
+                </view>
+              </view>
+              <view class="quality-item">
+                <text class="quality-aspect">大小</text>
+                <text class="quality-text">{{detectionResult.sizeCategory}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- AI建议 -->
+        <view class="ai-recommendation">
+          <view class="recommendation-header">
+            <text class="recommendation-icon">💡</text>
+            <text class="recommendation-title">AI建议</text>
+          </view>
+          <text class="recommendation-text">{{detectionResult.recommendation}}</text>
+          
+          <!-- 行动建议按钮 -->
+          <view class="action-suggestions" wx:if="{{detectionResult.actionable}}">
+            <button class="suggestion-btn harvest" 
+                    wx:if="{{detectionResult.suggestedAction === 'harvest'}}"
+                    bindtap="executeSuggestedAction">
+              立即采摘
+            </button>
+            <button class="suggestion-btn wait" 
+                    wx:if="{{detectionResult.suggestedAction === 'wait'}}"
+                    bindtap="setReminder">
+              设置提醒
+            </button>
+            <button class="suggestion-btn inspect" 
+                    wx:if="{{detectionResult.suggestedAction === 'inspect'}}"
+                    bindtap="markForInspection">
+              标记检查
+            </button>
+          </view>
+        </view>
+      </view>
+
+      <!-- 结果操作区域 -->
+      <view class="result-actions">
+        <button class="result-action-btn share" bindtap="shareResult">
+          <text class="action-btn-icon">📤</text>
+          <text class="action-btn-text">分享</text>
+        </button>
+        <button class="result-action-btn save" bindtap="saveResult">
+          <text class="action-btn-icon">💾</text>
+          <text class="action-btn-text">保存</text>
+        </button>
+        <button class="result-action-btn report" bindtap="generateReport">
+          <text class="action-btn-icon">📊</text>
+          <text class="action-btn-text">报告</text>
+        </button>
+      </view>
+    </view>
+
+    <!-- 历史记录卡片 -->
+    <view class="history-card">
+      <view class="history-header">
+        <view class="header-left">
+          <text class="history-icon">📋</text>
+          <text class="history-title">检测历史</text>
+        </view>
+        <view class="header-right">
+          <picker bindchange="onDateFilterChange" mode="date" value="{{filterDate}}">
+            <view class="date-filter">
+              <text class="filter-text">{{filterDateText}}</text>
+              <text class="filter-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+      </view>
+
+      <!-- 历史统计概览 -->
+      <view class="history-stats">
+        <view class="stat-item">
+          <text class="stat-number">{{historyStats.totalDetections}}</text>
+          <text class="stat-label">总检测</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-number">{{historyStats.excellentCount}}</text>
+          <text class="stat-label">优质果</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-number">{{historyStats.averageMaturity}}</text>
+          <text class="stat-label">平均成熟度</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-number">{{historyStats.accuracyRate}}%</text>
+          <text class="stat-label">准确率</text>
+        </view>
+      </view>
+
+      <!-- 检测记录列表 -->
+      <view class="detection-list">
+        <!-- 列表为空时的提示 -->
+        <view class="empty-list" wx:if="{{detectionHistory.length === 0}}">
+          <view class="empty-icon">📭</view>
+          <text class="empty-title">暂无检测记录</text>
+          <text class="empty-subtitle">开始你的第一次智能检测吧</text>
+        </view>
+
+        <!-- 检测记录项 -->
+        <view class="detection-item" 
+              wx:for="{{detectionHistory}}" 
+              wx:key="id" 
+              bindtap="viewDetectionDetail" 
+              data-id="{{item.id}}">
+          
+          <view class="item-image">
+                          <view class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
+            <view class="detection-badge {{utils.safeToLowerCase(item.grade)}}">
+              <text class="badge-text">{{item.grade}}</text>
+            </view>
+          </view>
+
+          <view class="item-content">
+            <view class="item-header">
+              <text class="fruit-type">{{item.fruitType}}</text>
+              <text class="detection-time">{{item.detectionTime}}</text>
+            </view>
+            
+            <view class="item-metrics">
+              <view class="metric-tag maturity">
+                <text class="tag-label">成熟度</text>
+                <text class="tag-value">{{item.maturity}}%</text>
+              </view>
+              <view class="metric-tag health">
+                <text class="tag-label">健康</text>
+                <text class="tag-value">{{item.healthStatus}}</text>
+              </view>
+              <view class="metric-tag quality">
+                <text class="tag-label">品质</text>
+                <text class="tag-value">{{item.qualityScore}}</text>
+              </view>
+            </view>
+
+            <view class="item-footer">
+              <text class="item-location">{{item.location}}</text>
+                              <view class="item-status {{utils.safeToLowerCase(item.actionTaken)}}">
+                <text class="status-text">{{item.actionTaken}}</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="item-actions">
+            <view class="quick-action" bindtap="quickAction" data-action="reanalyze" data-id="{{item.id}}">
+              <text class="action-icon">🔄</text>
+            </view>
+            <view class="quick-action" bindtap="quickAction" data-action="share" data-id="{{item.id}}">
+              <text class="action-icon">📤</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 加载更多 -->
+        <view class="load-more" wx:if="{{hasMoreHistory}}" bindtap="loadMoreHistory">
+          <text class="load-more-text">{{loadingMoreHistory ? '加载中...' : '加载更多'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="bottom-spacing"></view>
+  </scroll-view>
+
+  <!-- 图片选择操作表 -->
+  <view class="image-options-modal {{showImageOptions ? 'show' : 'hide'}}" bindtap="hideImageOptions">
+    <view class="options-content" catchtap="stopPropagation">
+      <view class="options-header">
+        <text class="options-title">选择图片</text>
+        <view class="close-btn" bindtap="hideImageOptions">
+          <text class="close-icon">×</text>
+        </view>
+      </view>
+      
+      <view class="options-list">
+        <view class="option-item" bindtap="takePhoto">
+          <view class="option-icon camera">📷</view>
+          <view class="option-content">
+            <text class="option-title">拍摄照片</text>
+            <text class="option-desc">使用相机拍摄水果照片</text>
+          </view>
+        </view>
+        
+        <view class="option-item" bindtap="chooseFromAlbum">
+          <view class="option-icon album">🖼️</view>
+          <view class="option-content">
+            <text class="option-title">从相册选择</text>
+            <text class="option-desc">从手机相册中选择图片</text>
+          </view>
+        </view>
+        
+        <view class="option-item" bindtap="chooseMultipleImages">
+          <view class="option-icon multiple">📁</view>
+          <view class="option-content">
+            <text class="option-title">批量选择</text>
+            <text class="option-desc">一次选择多张图片进行检测</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 检测模式选择模态框 -->
+  <view class="mode-modal {{showModeModal ? 'show' : 'hide'}}" bindtap="hideModeModal">
+    <view class="mode-content" catchtap="stopPropagation">
+      <view class="mode-header">
+        <text class="mode-title">检测模式</text>
+        <view class="close-btn" bindtap="hideModeModal">
+          <text class="close-icon">×</text>
+        </view>
+      </view>
+      
+      <view class="mode-list">
+        <view class="mode-item {{detectionMode === 'comprehensive' ? 'selected' : ''}}" 
+              bindtap="selectDetectionMode" data-mode="comprehensive">
+          <view class="mode-info">
+            <text class="mode-name">综合检测</text>
+            <text class="mode-desc">全面分析成熟度、病虫害、品质等</text>
+          </view>
+          <view class="mode-indicator">
+            <text class="indicator-icon">{{detectionMode === 'comprehensive' ? '✓' : ''}}</text>
+          </view>
+        </view>
+        
+        <view class="mode-item {{detectionMode === 'maturity' ? 'selected' : ''}}" 
+              bindtap="selectDetectionMode" data-mode="maturity">
+          <view class="mode-info">
+            <text class="mode-name">成熟度检测</text>
+            <text class="mode-desc">专注于水果成熟度评估</text>
+          </view>
+          <view class="mode-indicator">
+            <text class="indicator-icon">{{detectionMode === 'maturity' ? '✓' : ''}}</text>
+          </view>
+        </view>
+        
+        <view class="mode-item {{detectionMode === 'health' ? 'selected' : ''}}" 
+              bindtap="selectDetectionMode" data-mode="health">
+          <view class="mode-info">
+            <text class="mode-name">健康检测</text>
+            <text class="mode-desc">重点检测病虫害和疾病</text>
+          </view>
+          <view class="mode-indicator">
+            <text class="indicator-icon">{{detectionMode === 'health' ? '✓' : ''}}</text>
+          </view>
+        </view>
+        
+        <view class="mode-item {{detectionMode === 'quality' ? 'selected' : ''}}" 
+              bindtap="selectDetectionMode" data-mode="quality">
+          <view class="mode-info">
+            <text class="mode-name">品质评估</text>
+            <text class="mode-desc">评估水果外观和市场品质</text>
+          </view>
+          <view class="mode-indicator">
+            <text class="indicator-icon">{{detectionMode === 'quality' ? '✓' : ''}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 隐藏的Canvas用于图像处理 - 使用Canvas 2D -->
+  <canvas type="2d" id="imageProcessCanvas" class="hidden-canvas"></canvas>
+</view>
