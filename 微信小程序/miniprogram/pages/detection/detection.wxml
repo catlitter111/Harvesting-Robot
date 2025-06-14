@@ -294,7 +294,16 @@
               data-id="{{item.id}}">
           
           <view class="item-image">
-            <view class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
+            <!-- 显示真实图片或占位符 -->
+            <image wx:if="{{item.imageUrl}}" 
+                   class="fruit-thumbnail" 
+                   src="{{serverBaseUrl}}{{item.imageUrl}}" 
+                   mode="aspectFill"
+                   lazy-load="true"
+                   binderror="onImageError"
+                   data-id="{{item.id}}">
+            </image>
+            <view wx:else class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
             <view class="detection-badge {{utils.safeToLowerCase(item.grade)}}">
               <text class="badge-text">{{item.grade}}</text>
             </view>

@@ -970,6 +970,14 @@
     border-radius: 12rpx;
   }
   
+  .fruit-thumbnail {
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: 12rpx;
+    border: 2rpx solid #E0E0E0;
+    background: #F5F5F5;
+  }
+  
   .thumbnail-placeholder {
     width: 80rpx;
     height: 80rpx;

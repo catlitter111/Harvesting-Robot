@@ -1802,7 +1802,9 @@ class WebSocketBridgeNode(Node):
                 'defects': recognition_result.get('defects', []),
                 'estimatedWeight': recognition_result.get('estimatedWeight', 0),
                 'ripeness_days': recognition_result.get('ripeness_days', 0),
-                'source_image': filename
+                'source_image': filename,
+                'image_base64': image_base64,  # 添加base64编码的图片数据
+                'image_data_url': data_url     # 添加完整的data URL
             }
             
             self.get_logger().info(f'水果识别完成: {detection_data["fruitType"]}, 质量: {detection_data["qualityScore"]}/100, 成熟度: {detection_data["maturity"]}%')

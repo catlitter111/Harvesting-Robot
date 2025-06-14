@@ -100,7 +100,10 @@ Page({
     
     // === WebSocket连接状态 ===
     connected: false,           // WebSocket连接状态
-    robotId: 'robot_123'        // 机器人ID
+    robotId: 'robot_123',       // 机器人ID
+    
+    // === 服务器配置 ===
+    serverBaseUrl: 'http://localhost:8000'  // 服务器基础URL
   },
 
   /**
@@ -1596,8 +1599,9 @@ Page({
       detectionTime: data.detectionTime || this.formatTime(new Date()),
       location: this.safeString(data.location, '未知位置'),
       actionTaken: this.safeString(data.actionTaken, '待处理'),
-      thumbnailUrl: data.thumbnailUrl || '',
-      imagePath: data.imagePath || '',
+      thumbnailUrl: data.imageUrl || data.thumbnailUrl || '',
+      imagePath: data.imageUrl || data.imagePath || '',
+      imageUrl: data.imageUrl || data.thumbnailUrl || '',  // 添加imageUrl字段
       imageName: data.source_image || '服务器图片',
       detectionMode: 'comprehensive'
     };
@@ -1677,6 +1681,23 @@ Page({
     
     // 限制最大记录数量
     return mergedHistory.slice(0, 100);
+  },
+
+  // ==================== 图片处理相关方法 ====================
+
+  /**
+   * 图片加载错误处理
+   */
+  onImageError: function(e) {
+    const itemId = e.currentTarget.dataset.id;
+    console.log(`图片加载失败，记录ID: ${itemId}`);
+    
+    // 可以在这里添加重试逻辑或显示默认图片
+    wx.showToast({
+      title: '图片加载失败',
+      icon: 'none',
+      duration: 1000
+    });
   },
 
   // ==================== 工具方法 ====================

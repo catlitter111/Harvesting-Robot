@@ -1,6 +1,8 @@
 # server.py
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
 import json
 import asyncio
@@ -9,6 +11,9 @@ import datetime
 import threading
 import time
 import random
+import base64
+import os
+from pathlib import Path
 
 # 导入华为IoT SDK
 from iot_device_sdk_python.client.client_conf import ClientConf
@@ -25,6 +30,13 @@ from iot_device_sdk_python.client.listener.property_listener import PropertyList
 from adaptive_video_manager import AdaptiveVideoManager
 
 app = FastAPI()
+
+# 创建图片存储目录
+IMAGES_DIR = Path("fruit_images")
+IMAGES_DIR.mkdir(exist_ok=True)
+
+# 挂载静态文件服务
+app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 # 允许跨域请求
 app.add_middleware(
@@ -1027,6 +1039,35 @@ async def handle_fruit_detection_result(robot_id, message):
         detection_data = message.get("data", {})
         timestamp = message.get("timestamp", int(time.time() * 1000))
         
+        # 处理图片数据
+        image_url = None
+        if "image_base64" in detection_data and detection_data["image_base64"]:
+            try:
+                # 保存图片到本地
+                image_filename = f"fruit_{robot_id}_{timestamp}.jpg"
+                image_path = IMAGES_DIR / image_filename
+                
+                # 解码base64图片数据
+                image_data = base64.b64decode(detection_data["image_base64"])
+                
+                # 保存图片文件
+                with open(image_path, "wb") as f:
+                    f.write(image_data)
+                
+                # 生成可访问的URL
+                image_url = f"/images/{image_filename}"
+                
+                # 更新detection_data中的图片URL
+                detection_data["thumbnailUrl"] = image_url
+                detection_data["imagePath"] = image_url
+                detection_data["imageUrl"] = image_url  # 添加新的字段
+                
+                logger.info(f"图片已保存: {image_path}, URL: {image_url}")
+                
+            except Exception as e:
+                logger.error(f"保存图片失败: {e}")
+                image_url = None
+        
         # 提取关键信息用于控制台打印
         fruit_type = detection_data.get("fruitType", "未知")
         maturity = detection_data.get("maturity", 0)
@@ -1044,6 +1085,8 @@ async def handle_fruit_detection_result(robot_id, message):
         print(f"🍎 水果识别结果 - 机器人: {robot_id}")
         print("="*80)
         print(f"📸 源图片: {source_image}")
+        if image_url:
+            print(f"🖼️  图片URL: {image_url}")
         print(f"🕒 检测时间: {detection_time}")
         print(f"📍 检测位置: {location}")
         print("-"*80)
