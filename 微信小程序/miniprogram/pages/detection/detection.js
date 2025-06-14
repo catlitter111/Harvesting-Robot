@@ -601,7 +601,7 @@ Page({
   },
 
   /**
-   * 使用Canvas压缩图片
+   * 使用Canvas 2D压缩图片
    * @param {string} imagePath - 图片路径
    * @param {number} width - 目标宽度
    * @param {number} height - 目标高度
@@ -610,31 +610,61 @@ Page({
    */
   compressImageWithCanvas: function(imagePath, width, height, quality) {
     return new Promise((resolve, reject) => {
-      const ctx = wx.createCanvasContext('imageProcessCanvas', this);
-      
-      // 绘制图片到Canvas
-      ctx.drawImage(imagePath, 0, 0, width, height);
-      
-      ctx.draw(false, () => {
-        // 导出压缩后的图片
-        wx.canvasToTempFilePath({
-          canvasId: 'imageProcessCanvas',
-          width: width,
-          height: height,
-          destWidth: width,
-          destHeight: height,
-          quality: quality,
-          fileType: 'jpg',
-          success: (res) => {
-            console.log('图片压缩完成:', res.tempFilePath);
-            resolve(res.tempFilePath);
-          },
-          fail: (error) => {
-            console.error('图片压缩失败:', error);
-            reject(error);
+      // 使用新的Canvas 2D API
+      const query = wx.createSelectorQuery().in(this);
+      query.select('#imageProcessCanvas')
+        .fields({ node: true, size: true })
+        .exec((res) => {
+          if (!res || !res[0]) {
+            reject(new Error('Canvas节点获取失败'));
+            return;
           }
-        }, this);
-      });
+
+          const canvas = res[0].node;
+          const ctx = canvas.getContext('2d');
+
+          // 设置canvas尺寸
+          const dpr = wx.getSystemInfoSync().pixelRatio;
+          canvas.width = width * dpr;
+          canvas.height = height * dpr;
+          ctx.scale(dpr, dpr);
+
+          // 创建图片对象
+          const img = canvas.createImage();
+          img.onload = () => {
+            // 清除画布
+            ctx.clearRect(0, 0, width, height);
+            // 绘制图片
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // 导出压缩后的图片
+            wx.canvasToTempFilePath({
+              canvas: canvas,
+              width: width,
+              height: height,
+              destWidth: width,
+              destHeight: height,
+              quality: quality,
+              fileType: 'jpg',
+              success: (res) => {
+                console.log('图片压缩完成:', res.tempFilePath);
+                resolve(res.tempFilePath);
+              },
+              fail: (error) => {
+                console.error('图片压缩失败:', error);
+                reject(error);
+              }
+            });
+          };
+
+          img.onerror = (error) => {
+            console.error('图片加载失败:', error);
+            reject(error);
+          };
+
+          // 设置图片源
+          img.src = imagePath;
+        });
     });
   },
 

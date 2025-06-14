@@ -5,7 +5,7 @@
 .detection-container {
     min-height: 100vh;
     background: linear-gradient(180deg, #F6F6F6 0%, #FAFAFA 100%);
-    padding-bottom: 20rpx;
+    padding: 0 10rpx 20rpx 20rpx;
     box-sizing: border-box;
     width: 100%;
     overflow-x: hidden;
@@ -68,7 +68,7 @@
   
   /* === 主要内容滚动区域 === */
   .main-content {
-    padding: 15rpx 20rpx 0;
+    padding: 15rpx 0 0;
     height: calc(100vh - 120rpx);
   }
   
@@ -77,10 +77,10 @@
   .result-card,
   .history-card {
     background: white;
-    border-radius: 24rpx;
-    margin-bottom: 20rpx;
+    border-radius: 20rpx;
+    margin-bottom: 18rpx;
     overflow: hidden;
-    box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.06);
+    box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.06);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
@@ -96,7 +96,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20rpx 25rpx;
+    padding: 18rpx 20rpx;
     background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);
     border-bottom: 1rpx solid #E0E0E0;
   }
@@ -820,7 +820,7 @@
   .history-stats {
     display: flex;
     align-items: center;
-    padding: 20rpx 25rpx;
+    padding: 18rpx 20rpx;
     background: linear-gradient(135deg, #F9FBE7 0%, #F1F8E9 100%);
   }
   
@@ -853,7 +853,7 @@
   
   /* === 检测记录列表 === */
   .detection-list {
-    padding: 0 25rpx 25rpx;
+    padding: 0 20rpx 20rpx;
     max-height: 600rpx;
     overflow-y: auto;
   }
@@ -1310,13 +1310,14 @@
   /* === 响应式设计 === */
   @media (max-width: 750rpx) {
     .selection-buttons {
-      flex-direction: column;
+      flex-direction: row;
       gap: 20rpx;
+      justify-content: center;
     }
     
     .selection-btn {
-      min-width: auto;
-      width: 100%;
+      min-width: 120rpx;
+      flex: 0 0 auto;
     }
     
     .history-stats {

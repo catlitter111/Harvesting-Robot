@@ -439,6 +439,6 @@
     </view>
   </view>
 
-  <!-- 隐藏的Canvas用于图像处理 -->
-  <canvas canvas-id="imageProcessCanvas" class="hidden-canvas"></canvas>
+  <!-- 隐藏的Canvas用于图像处理 - 使用Canvas 2D -->
+  <canvas type="2d" id="imageProcessCanvas" class="hidden-canvas"></canvas>
 </view>
