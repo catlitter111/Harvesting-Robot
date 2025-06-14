@@ -1,0 +1,295 @@
+<!--pages/detection/detail.wxml-->
+<!--水果检测详情页面-->
+
+<!-- 引入工具方法 -->
+<wxs module="utils" src="./detail.wxs"></wxs>
+
+<view class="detail-container">
+  
+  <!-- 水果图片展示区域 -->
+  <view class="fruit-image-section">
+    <view class="image-container">
+      <image wx:if="{{detectionData.imageUrl}}" 
+             class="fruit-image" 
+             src="{{detectionData.imageUrl}}" 
+             mode="aspectFill"
+             bindtap="previewImage">
+      </image>
+      <view wx:else class="image-placeholder">
+        <text class="placeholder-emoji">{{detectionData.fruitEmoji || '🍎'}}</text>
+        <text class="placeholder-text">暂无图片</text>
+      </view>
+      
+      <!-- 图片标识 -->
+      <view class="image-badges">
+        <view wx:if="{{detectionData.isLocalImage}}" class="image-badge local">
+          <text class="badge-text">本地</text>
+        </view>
+        <view class="image-badge confidence">
+          <text class="badge-text">{{detectionData.confidence}}%</text>
+        </view>
+      </view>
+      
+      <!-- 品质等级徽章 -->
+      <view class="grade-badge {{detectionData.grade ? detectionData.grade.toLowerCase() : 'average'}}">
+        <text class="grade-text">{{detectionData.grade || 'Average'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 基本信息卡片 -->
+  <view class="info-card basic-info">
+    <view class="card-header">
+      <text class="card-icon">🍎</text>
+      <text class="card-title">基本信息</text>
+    </view>
+    
+    <view class="info-content">
+      <view class="info-row main-info">
+        <view class="fruit-identity">
+          <text class="fruit-emoji">{{detectionData.fruitEmoji || '🍎'}}</text>
+          <view class="fruit-details">
+            <text class="fruit-name">{{detectionData.fruitType || '未知水果'}}</text>
+            <text class="fruit-variety">{{detectionData.variety || '未知品种'}}</text>
+          </view>
+        </view>
+        <view class="detection-time">
+          <text class="time-label">检测时间</text>
+          <text class="time-value">{{detectionData.detectionTime || '--:--'}}</text>
+        </view>
+      </view>
+      
+      <view class="info-row">
+        <view class="info-item">
+          <text class="info-label">检测位置</text>
+          <text class="info-value">{{detectionData.location || '未知位置'}}</text>
+        </view>
+      </view>
+      
+      <view class="info-row">
+        <view class="info-item">
+          <text class="info-label">操作建议</text>
+          <view class="action-status {{utils.getActionStatusClass(detectionData.actionTaken)}}">
+            <text class="status-text">{{detectionData.actionTaken || '待处理'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 成熟度分析卡片 -->
+  <view class="info-card maturity-analysis">
+    <view class="card-header">
+      <text class="card-icon">🌱</text>
+      <text class="card-title">成熟度分析</text>
+    </view>
+    
+    <view class="analysis-content">
+      <view class="maturity-display">
+        <view class="maturity-circle">
+          <view class="circle-progress" style="background: conic-gradient(#4CAF50 0deg {{(detectionData.maturity || 0) * 3.6}}deg, #E0E0E0 {{(detectionData.maturity || 0) * 3.6}}deg 360deg);">
+            <view class="circle-inner">
+              <text class="maturity-percent">{{detectionData.maturity || 0}}%</text>
+              <text class="maturity-label">成熟度</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="maturity-info">
+          <view class="maturity-stage">
+            <text class="stage-label">成熟阶段</text>
+            <text class="stage-value">{{utils.getMaturityStage(detectionData.maturity)}}</text>
+          </view>
+           
+          <view wx:if="{{detectionData.ripeness_days !== undefined}}" class="ripeness-timing">
+            <text class="timing-label">采摘时机</text>
+            <text class="timing-value {{detectionData.ripeness_days === 0 ? 'optimal' : detectionData.ripeness_days > 0 ? 'wait' : 'overdue'}}">
+              {{utils.getRipenessText(detectionData.ripeness_days)}}
+            </text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- 成熟度建议 -->
+      <view class="maturity-recommendation">
+        <text class="recommendation-text">
+          {{utils.getMaturityRecommendation(detectionData.maturity, detectionData.ripeness_days)}}
+        </text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 健康状况卡片 -->
+  <view class="info-card health-status">
+    <view class="card-header">
+      <text class="card-icon">🏥</text>
+      <text class="card-title">健康状况</text>
+    </view>
+    
+    <view class="health-content">
+      <view class="health-overview">
+        <view class="health-indicator {{utils.getHealthLevel(detectionData.healthStatus)}}">
+          <text class="health-icon">{{utils.getHealthIcon(detectionData.healthStatus)}}</text>
+          <text class="health-text">{{detectionData.healthStatus || '未知'}}</text>
+        </view>
+      </view>
+      
+      <!-- 缺陷列表 -->
+      <view wx:if="{{detectionData.defects && detectionData.defects.length > 0}}" class="defects-section">
+        <text class="defects-title">发现的缺陷</text>
+        <view class="defects-list">
+          <view class="defect-item" wx:for="{{detectionData.defects}}" wx:key="index">
+            <text class="defect-icon">⚠️</text>
+            <text class="defect-text">{{item}}</text>
+          </view>
+        </view>
+      </view>
+      
+      <view wx:else class="no-defects">
+        <text class="no-defects-icon">✅</text>
+        <text class="no-defects-text">未发现明显缺陷</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 品质评估卡片 -->
+  <view class="info-card quality-assessment">
+    <view class="card-header">
+      <text class="card-icon">⭐</text>
+      <text class="card-title">品质评估</text>
+    </view>
+    
+    <view class="quality-content">
+      <view class="quality-score-display">
+        <view class="score-circle">
+          <text class="score-number">{{detectionData.qualityScore || 0}}</text>
+          <text class="score-label">分</text>
+        </view>
+        <view class="score-info">
+          <text class="score-grade">{{utils.getQualityGrade(detectionData.qualityScore)}}</text>
+          <view class="score-stars">
+            <text class="star {{index < utils.getStarCount(detectionData.qualityScore) ? 'filled' : 'empty'}}" 
+                  wx:for="{{[1,2,3,4,5]}}" wx:key="index">★</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="quality-breakdown">
+        <view class="quality-item">
+          <text class="quality-aspect">大小规格</text>
+          <text class="quality-value">{{detectionData.sizeCategory || '中等'}}</text>
+        </view>
+        <view class="quality-item">
+          <text class="quality-aspect">外观评级</text>
+          <text class="quality-value">{{detectionData.grade || 'Average'}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 市场价值卡片 -->
+  <view wx:if="{{detectionData.marketValue || detectionData.estimatedWeight}}" class="info-card market-value">
+    <view class="card-header">
+      <text class="card-icon">💰</text>
+      <text class="card-title">市场价值</text>
+    </view>
+    
+    <view class="market-content">
+      <view class="value-display">
+        <view wx:if="{{detectionData.marketValue}}" class="market-price">
+          <text class="price-label">市场价格</text>
+          <text class="price-value">¥{{detectionData.marketValue}}/斤</text>
+        </view>
+        
+        <view wx:if="{{detectionData.estimatedWeight}}" class="estimated-weight">
+          <text class="weight-label">预估重量</text>
+          <text class="weight-value">{{detectionData.estimatedWeight}}克</text>
+        </view>
+      </view>
+      
+      <view wx:if="{{detectionData.marketValue && detectionData.estimatedWeight}}" class="estimated-value">
+        <text class="value-label">预估单果价值</text>
+        <text class="value-amount">¥{{utils.calculateFruitValue(detectionData.marketValue, detectionData.estimatedWeight)}}</text>
+      </view>
+      
+      <view wx:if="{{detectionData.storageLife}}" class="storage-info">
+        <text class="storage-label">储存期限</text>
+        <text class="storage-value">{{detectionData.storageLife}}天</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- AI建议卡片 -->
+  <view class="info-card ai-recommendation">
+    <view class="card-header">
+      <text class="card-icon">💡</text>
+      <text class="card-title">AI专业建议</text>
+    </view>
+    
+    <view class="recommendation-content">
+      <text class="recommendation-text">{{detectionData.recommendation || '暂无建议'}}</text>
+      
+      <!-- 操作建议 -->
+      <view wx:if="{{detectionData.suggestedAction}}" class="action-suggestion">
+        <text class="action-label">建议操作</text>
+        <view class="action-code {{detectionData.suggestedAction}}">
+          <text class="action-text">{{utils.getActionText(detectionData.suggestedAction)}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 技术信息卡片 -->
+  <view class="info-card technical-info">
+    <view class="card-header">
+      <text class="card-icon">🔬</text>
+      <text class="card-title">技术信息</text>
+    </view>
+    
+    <view class="technical-content">
+      <view class="tech-item">
+        <text class="tech-label">识别置信度</text>
+        <view class="confidence-bar">
+          <view class="confidence-fill" style="width: {{detectionData.confidence || 0}}%"></view>
+          <text class="confidence-text">{{detectionData.confidence || 0}}%</text>
+        </view>
+      </view>
+      
+      <view class="tech-item">
+        <text class="tech-label">检测模式</text>
+        <text class="tech-value">{{detectionData.detectionMode || '综合检测'}}</text>
+      </view>
+      
+      <view class="tech-item">
+        <text class="tech-label">数据来源</text>
+        <text class="tech-value">{{detectionData.isLocalImage ? '本地图片' : '服务器图片'}}</text>
+      </view>
+      
+      <view class="tech-item">
+        <text class="tech-label">检测ID</text>
+        <text class="tech-value tech-id">{{detectionData.id || '未知'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮区域 -->
+  <view class="action-buttons">
+    <button class="action-btn secondary" bindtap="shareResult">
+      <text class="btn-icon">📤</text>
+      <text class="btn-text">分享结果</text>
+    </button>
+    
+    <button class="action-btn secondary" bindtap="saveToAlbum">
+      <text class="btn-icon">💾</text>
+      <text class="btn-text">保存图片</text>
+    </button>
+    
+    <button class="action-btn primary" bindtap="reanalyze">
+      <text class="btn-icon">🔄</text>
+      <text class="btn-text">重新分析</text>
+    </button>
+  </view>
+
+  <!-- 底部间距 -->
+  <view class="bottom-spacing"></view>
+</view>

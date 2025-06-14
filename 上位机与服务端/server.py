@@ -1077,6 +1077,10 @@ async def handle_fruit_detection_result(robot_id, message):
         location = detection_data.get("location", "未知位置")
         detection_time = detection_data.get("detectionTime", "未知时间")
         source_image = detection_data.get("source_image", "未知图片")
+        market_value = detection_data.get("marketValue", 0)
+        storage_life = detection_data.get("storageLife", 0)
+        grade = detection_data.get("grade", "Average")
+        size_category = detection_data.get("sizeCategory", "中等")
         
         # 在控制台打印详细的识别结果
         print("\n" + "="*80)
@@ -1092,11 +1096,17 @@ async def handle_fruit_detection_result(robot_id, message):
         print(f"🍏 水果类型: {fruit_type}")
         print(f"🌱 成熟度: {maturity}%")
         print(f"⭐ 品质分数: {quality_score}/100")
+        print(f"🏆 品质等级: {grade}")
+        print(f"📏 大小分类: {size_category}")
         print(f"🏥 健康状态: {health_status}")
         print(f"🎯 识别置信度: {confidence}%")
         print("-"*80)
         print(f"💡 采摘建议: {recommendation}")
         print(f"🎬 建议操作: {action_taken}")
+        if market_value > 0:
+            print(f"💰 市场价值: {market_value}元/斤")
+        if storage_life > 0:
+            print(f"📦 储存期限: {storage_life}天")
         print("-"*80)
         
         # 如果有缺陷信息，也打印出来
@@ -1128,7 +1138,9 @@ async def handle_fruit_detection_result(robot_id, message):
         
         # 使用logger记录
         logger.info(f"水果识别完成 - 机器人: {robot_id}, 类型: {fruit_type}, "
-                   f"成熟度: {maturity}%, 品质: {quality_score}/100, 置信度: {confidence}%")
+                   f"成熟度: {maturity}%, 品质: {quality_score}/100, 等级: {grade}, 置信度: {confidence}%")
+        if market_value > 0:
+            logger.info(f"市场价值评估 - 机器人: {robot_id}, 价值: {market_value}元/斤, 储存期: {storage_life}天")
         
         # 转发给所有关联的微信客户端
         async with lock:

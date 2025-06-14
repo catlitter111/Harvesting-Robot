@@ -3,6 +3,7 @@
       "pages/control/control",
       "pages/statistics/statistics",
       "pages/detection/detection",
+      "pages/detection/detail",
       "pages/chat/chat",
       "pages/settings/settings",
       "pages/logs/logs"

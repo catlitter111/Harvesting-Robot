@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "检测详情",
+  "navigationBarBackgroundColor": "#4CAF50",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#F6F6F6",
+  "enablePullDownRefresh": false,
+  "onReachBottomDistance": 50
+} 

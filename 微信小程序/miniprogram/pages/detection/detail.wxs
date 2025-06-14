@@ -1,0 +1,182 @@
+// pages/detection/detail.wxs
+// 详情页面工具函数
+
+/**
+ * 获取成熟度阶段描述
+ * @param {number} maturity - 成熟度百分比
+ * @returns {string} 成熟度阶段
+ */
+function getMaturityStage(maturity) {
+    if (!maturity) return '未知';
+    
+    if (maturity <= 20) return '幼果期';
+    if (maturity <= 40) return '生长期';
+    if (maturity <= 60) return '转色期';
+    if (maturity <= 80) return '近熟期';
+    if (maturity <= 95) return '最佳采摘期';
+    return '过熟期';
+  }
+  
+  /**
+   * 获取采摘时机文本
+   * @param {number} ripeness_days - 采摘天数
+   * @returns {string} 采摘时机描述
+   */
+  function getRipenessText(ripeness_days) {
+    if (ripeness_days === undefined || ripeness_days === null) return '未知';
+    
+    if (ripeness_days === 0) return '立即采摘';
+    if (ripeness_days > 0) return ripeness_days + '天后采摘';
+    return '已过最佳期' + Math.abs(ripeness_days) + '天';
+  }
+  
+  /**
+   * 获取成熟度建议
+   * @param {number} maturity - 成熟度
+   * @param {number} ripeness_days - 采摘天数
+   * @returns {string} 建议文本
+   */
+  function getMaturityRecommendation(maturity, ripeness_days) {
+    if (!maturity) return '无法提供建议，缺少成熟度数据';
+    
+    if (maturity >= 80 && maturity <= 95) {
+      return '水果已达到最佳成熟度，建议立即采摘以获得最佳口感和营养价值。';
+    } else if (maturity > 95) {
+      return '水果已过度成熟，建议尽快采摘，适合立即食用或加工处理。';
+    } else if (maturity >= 60) {
+      return '水果接近成熟，建议继续观察，预计几天内可达到最佳采摘期。';
+    } else if (maturity >= 40) {
+      return '水果正在转色期，需要继续等待成熟，建议一周后重新检测。';
+    } else {
+      return '水果尚未成熟，需要较长时间继续生长，建议2-3周后重新检测。';
+    }
+  }
+  
+  /**
+   * 获取健康等级
+   * @param {string} healthStatus - 健康状态
+   * @returns {string} 健康等级类名
+   */
+  function getHealthLevel(healthStatus) {
+    if (!healthStatus) return 'unknown';
+    
+    var status = healthStatus.toLowerCase();
+    if (status.indexOf('完全健康') !== -1 || status.indexOf('excellent') !== -1) return 'excellent';
+    if (status.indexOf('轻微') !== -1 || status.indexOf('good') !== -1) return 'good';
+    if (status.indexOf('中度') !== -1 || status.indexOf('moderate') !== -1) return 'warning';
+    if (status.indexOf('严重') !== -1 || status.indexOf('poor') !== -1) return 'poor';
+    return 'good';
+  }
+  
+  /**
+   * 获取健康图标
+   * @param {string} healthStatus - 健康状态
+   * @returns {string} 健康图标
+   */
+  function getHealthIcon(healthStatus) {
+    if (!healthStatus) return '❓';
+    
+    var status = healthStatus.toLowerCase();
+    if (status.indexOf('完全健康') !== -1 || status.indexOf('excellent') !== -1) return '💚';
+    if (status.indexOf('轻微') !== -1 || status.indexOf('good') !== -1) return '💛';
+    if (status.indexOf('中度') !== -1 || status.indexOf('moderate') !== -1) return '🧡';
+    if (status.indexOf('严重') !== -1 || status.indexOf('poor') !== -1) return '❤️';
+    return '💚';
+  }
+  
+  /**
+   * 获取品质等级
+   * @param {number} qualityScore - 品质分数
+   * @returns {string} 品质等级
+   */
+  function getQualityGrade(qualityScore) {
+    if (!qualityScore) return '未评级';
+    
+    if (qualityScore >= 90) return '优质';
+    if (qualityScore >= 80) return '良好';
+    if (qualityScore >= 70) return '一般';
+    if (qualityScore >= 60) return '合格';
+    return '不合格';
+  }
+  
+  /**
+   * 获取星级数量
+   * @param {number} qualityScore - 品质分数
+   * @returns {number} 星级数量
+   */
+  function getStarCount(qualityScore) {
+    if (!qualityScore) return 0;
+    return Math.round(qualityScore / 20);
+  }
+  
+  /**
+   * 获取操作建议文本
+   * @param {string} actionCode - 操作代码
+   * @returns {string} 操作文本
+   */
+  function getActionText(actionCode) {
+    var actionMap = {
+      'harvest_now': '立即采摘',
+      'harvest_priority': '优先采摘',
+      'harvest_normal': '正常采摘',
+      'wait_3_days': '等待3天',
+      'wait_week': '等待一周',
+      'inspect_closely': '密切观察',
+      'reject': '不建议采摘'
+    };
+    
+    return actionMap[actionCode] || actionCode || '未知操作';
+  }
+  
+  /**
+   * 计算单果价值
+   * @param {number} marketValue - 市场价格(元/斤)
+   * @param {number} estimatedWeight - 预估重量(克)
+   * @returns {string} 单果价值
+   */
+  function calculateFruitValue(marketValue, estimatedWeight) {
+    if (!marketValue || !estimatedWeight) return '0.00';
+    
+    // 转换为元/克，然后计算单果价值
+    var pricePerGram = marketValue / 500; // 1斤 = 500克
+    var fruitValue = pricePerGram * estimatedWeight;
+    
+    return fruitValue.toFixed(2);
+  }
+  
+  /**
+   * 安全地处理操作状态，移除空格并转为小写（修复WXML编译错误）
+   * @param {string} actionTaken - 操作状态
+   * @returns {string} 处理后的CSS类名
+   */
+  function getActionStatusClass(actionTaken) {
+    if (!actionTaken) return 'default';
+    
+    var result = actionTaken + '';
+    // 手动移除空格（替代正则表达式）
+    var cleaned = '';
+    for (var i = 0; i < result.length; i++) {
+      var char = result.charAt(i);
+      if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') {
+        cleaned += char;
+      }
+    }
+    
+    // 转为小写
+    cleaned = cleaned.toLowerCase();
+    
+    return cleaned || 'default';
+  }
+  
+  module.exports = {
+    getMaturityStage: getMaturityStage,
+    getRipenessText: getRipenessText,
+    getMaturityRecommendation: getMaturityRecommendation,
+    getHealthLevel: getHealthLevel,
+    getHealthIcon: getHealthIcon,
+    getQualityGrade: getQualityGrade,
+    getStarCount: getStarCount,
+    getActionText: getActionText,
+    calculateFruitValue: calculateFruitValue,
+    getActionStatusClass: getActionStatusClass
+  };

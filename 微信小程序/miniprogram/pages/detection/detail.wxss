@@ -1,0 +1,790 @@
+/* pages/detection/detail.wxss */
+/* 水果检测详情页面样式 */
+
+/* === 页面基础布局 === */
+.detail-container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #F6F6F6 0%, #FAFAFA 100%);
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+/* === 水果图片展示区域 === */
+.fruit-image-section {
+  margin-bottom: 20rpx;
+}
+
+.image-container {
+  position: relative;
+  width: 100%;
+  height: 400rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
+}
+
+.fruit-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #F1F8E9 0%, #E8F5E8 100%);
+}
+
+.placeholder-emoji {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.placeholder-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+/* 图片标识徽章 */
+.image-badges {
+  position: absolute;
+  top: 20rpx;
+  left: 20rpx;
+  display: flex;
+  gap: 10rpx;
+}
+
+.image-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.image-badge.local {
+  background: rgba(33, 150, 243, 0.9);
+  color: white;
+}
+
+.image-badge.confidence {
+  background: rgba(76, 175, 80, 0.9);
+  color: white;
+}
+
+/* 品质等级徽章 */
+.grade-badge {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 25rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.grade-badge.premium {
+  background: linear-gradient(135deg, #FFD700, #FFA000);
+  color: white;
+}
+
+.grade-badge.excellent {
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  color: white;
+}
+
+.grade-badge.good {
+  background: linear-gradient(135deg, #2196F3, #64B5F6);
+  color: white;
+}
+
+.grade-badge.average {
+  background: linear-gradient(135deg, #FF9800, #FFB74D);
+  color: white;
+}
+
+.grade-badge.poor {
+  background: linear-gradient(135deg, #F44336, #EF5350);
+  color: white;
+}
+
+/* === 信息卡片通用样式 === */
+.info-card {
+  background: white;
+  border-radius: 20rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);
+  border-bottom: 1rpx solid #E0E0E0;
+}
+
+.card-icon {
+  font-size: 32rpx;
+  margin-right: 16rpx;
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #2E7D32;
+}
+
+/* === 基本信息卡片 === */
+.info-content {
+  padding: 24rpx;
+}
+
+.info-row {
+  margin-bottom: 20rpx;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.main-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.fruit-identity {
+  display: flex;
+  align-items: center;
+}
+
+.fruit-emoji {
+  font-size: 48rpx;
+  margin-right: 20rpx;
+}
+
+.fruit-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.fruit-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4rpx;
+}
+
+.fruit-variety {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.detection-time {
+  text-align: right;
+}
+
+.time-label {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-bottom: 4rpx;
+}
+
+.time-value {
+  font-size: 24rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.info-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.action-status {
+  padding: 8rpx 16rpx;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.action-status.harvestnow,
+.action-status.harvest_now {
+  background: #E8F5E8;
+  color: #2E7D32;
+}
+
+.action-status.harvestpriority,
+.action-status.harvest_priority {
+  background: #FFF3E0;
+  color: #E65100;
+}
+
+.action-status.wait3days,
+.action-status.wait_3_days {
+  background: #E3F2FD;
+  color: #1565C0;
+}
+
+.action-status.default {
+  background: #F5F5F5;
+  color: #666;
+}
+
+/* === 成熟度分析卡片 === */
+.analysis-content {
+  padding: 24rpx;
+}
+
+.maturity-display {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.maturity-circle {
+  margin-right: 40rpx;
+}
+
+.circle-progress {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.circle-inner {
+  width: 80rpx;
+  height: 80rpx;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.maturity-percent {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #4CAF50;
+}
+
+.maturity-label {
+  font-size: 18rpx;
+  color: #666;
+}
+
+.maturity-info {
+  flex: 1;
+}
+
+.maturity-stage,
+.ripeness-timing {
+  margin-bottom: 16rpx;
+}
+
+.stage-label,
+.timing-label {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-bottom: 4rpx;
+}
+
+.stage-value {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.timing-value {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.timing-value.optimal {
+  color: #4CAF50;
+}
+
+.timing-value.wait {
+  color: #FF9800;
+}
+
+.timing-value.overdue {
+  color: #F44336;
+}
+
+.maturity-recommendation {
+  padding: 20rpx;
+  background: linear-gradient(135deg, #F9FBE7 0%, #F1F8E9 100%);
+  border-radius: 16rpx;
+  border-left: 4rpx solid #4CAF50;
+}
+
+.recommendation-text {
+  font-size: 26rpx;
+  color: #2E7D32;
+  line-height: 1.6;
+}
+
+/* === 健康状况卡片 === */
+.health-content {
+  padding: 24rpx;
+}
+
+.health-overview {
+  margin-bottom: 24rpx;
+}
+
+.health-indicator {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  border-radius: 16rpx;
+}
+
+.health-indicator.excellent {
+  background: linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%);
+}
+
+.health-indicator.good {
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+}
+
+.health-indicator.warning {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+}
+
+.health-indicator.poor {
+  background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+}
+
+.health-icon {
+  font-size: 32rpx;
+  margin-right: 16rpx;
+}
+
+.health-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.defects-section {
+  margin-top: 20rpx;
+}
+
+.defects-title {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 16rpx;
+  font-weight: 600;
+}
+
+.defects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.defect-item {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  background: #FFF3E0;
+  border-radius: 12rpx;
+  border-left: 3rpx solid #FF9800;
+}
+
+.defect-icon {
+  font-size: 24rpx;
+  margin-right: 12rpx;
+}
+
+.defect-text {
+  font-size: 24rpx;
+  color: #E65100;
+}
+
+.no-defects {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx;
+  background: linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%);
+  border-radius: 16rpx;
+}
+
+.no-defects-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+}
+
+.no-defects-text {
+  font-size: 26rpx;
+  color: #2E7D32;
+  font-weight: 600;
+}
+
+/* === 品质评估卡片 === */
+.quality-content {
+  padding: 24rpx;
+}
+
+.quality-score-display {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.score-circle {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-right: 40rpx;
+  box-shadow: 0 8rpx 24rpx rgba(76, 175, 80, 0.3);
+}
+
+.score-number {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: white;
+}
+
+.score-label {
+  font-size: 20rpx;
+  color: white;
+  opacity: 0.9;
+}
+
+.score-info {
+  flex: 1;
+}
+
+.score-grade {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.score-stars {
+  display: flex;
+  gap: 4rpx;
+}
+
+.star {
+  font-size: 28rpx;
+}
+
+.star.filled {
+  color: #FFD700;
+}
+
+.star.empty {
+  color: #E0E0E0;
+}
+
+.quality-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.quality-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  background: #F8F9FA;
+  border-radius: 12rpx;
+}
+
+.quality-aspect {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.quality-value {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+/* === 市场价值卡片 === */
+.market-content {
+  padding: 24rpx;
+}
+
+.value-display {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.market-price,
+.estimated-weight {
+  text-align: center;
+  flex: 1;
+}
+
+.price-label,
+.weight-label {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.price-value,
+.weight-value {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #4CAF50;
+}
+
+.estimated-value {
+  text-align: center;
+  padding: 20rpx;
+  background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.value-label {
+  display: block;
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 8rpx;
+}
+
+.value-amount {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #2E7D32;
+}
+
+.storage-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  background: #F8F9FA;
+  border-radius: 12rpx;
+}
+
+.storage-label {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.storage-value {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+/* === AI建议卡片 === */
+.recommendation-content {
+  padding: 24rpx;
+}
+
+.recommendation-text {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.6;
+  margin-bottom: 20rpx;
+}
+
+.action-suggestion {
+  padding: 20rpx;
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+  border-radius: 16rpx;
+  border-left: 4rpx solid #2196F3;
+}
+
+.action-label {
+  display: block;
+  font-size: 22rpx;
+  color: #1565C0;
+  margin-bottom: 8rpx;
+  font-weight: 600;
+}
+
+.action-code {
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  display: inline-block;
+}
+
+.action-code.harvest_now {
+  background: #4CAF50;
+  color: white;
+}
+
+.action-code.harvest_priority {
+  background: #FF9800;
+  color: white;
+}
+
+.action-code.wait_3_days {
+  background: #2196F3;
+  color: white;
+}
+
+.action-text {
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* === 技术信息卡片 === */
+.technical-content {
+  padding: 24rpx;
+}
+
+.tech-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.tech-item:last-child {
+  border-bottom: none;
+}
+
+.tech-label {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.tech-value {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.tech-id {
+  font-family: monospace;
+  font-size: 20rpx;
+  color: #999;
+}
+
+.confidence-bar {
+  position: relative;
+  width: 200rpx;
+  height: 24rpx;
+  background: #E0E0E0;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  border-radius: 12rpx;
+  transition: width 0.3s ease;
+}
+
+.confidence-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18rpx;
+  color: white;
+  font-weight: 600;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
+}
+
+/* === 操作按钮区域 === */
+.action-buttons {
+  display: flex;
+  gap: 16rpx;
+  margin: 20rpx 0;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  color: white;
+  box-shadow: 0 6rpx 20rpx rgba(76, 175, 80, 0.3);
+}
+
+.action-btn.primary:active {
+  transform: translateY(2rpx);
+  box-shadow: 0 4rpx 16rpx rgba(76, 175, 80, 0.3);
+}
+
+.action-btn.secondary {
+  background: white;
+  color: #4CAF50;
+  border: 2rpx solid #4CAF50;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+}
+
+.action-btn.secondary:active {
+  background: #F1F8E9;
+  transform: translateY(2rpx);
+}
+
+.btn-icon {
+  font-size: 24rpx;
+  margin-right: 8rpx;
+}
+
+.btn-text {
+  font-size: 26rpx;
+}
+
+/* === 底部间距 === */
+.bottom-spacing {
+  height: 40rpx;
+} 

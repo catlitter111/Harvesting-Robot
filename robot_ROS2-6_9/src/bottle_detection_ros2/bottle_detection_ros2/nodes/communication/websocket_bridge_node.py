@@ -1671,31 +1671,115 @@ class WebSocketBridgeNode(Node):
             image_base64 = base64.b64encode(image_data).decode('utf-8')
             data_url = f"data:image/jpeg;base64,{image_base64}"
             
-            # 构建AI识别提示词
-            prompt = """你是一个专业的水果识别专家。请仔细分析这张水果图片，并返回以下JSON格式的识别结果：
+            # 构建优化后的AI识别提示词
+            prompt = """🍎 你是一位具有20年经验的农业水果专家和AI视觉识别系统，专门为智能采摘机器人提供精准的水果识别服务。
 
+📋 **分析任务**：请对这张水果图片进行全方位专业分析，严格按照以下JSON格式返回结果：
+
+```json
 {
-  "fruitType": "水果类型名称（如：红富士苹果、嘎啦苹果、青苹果等）",
-  "maturity": 成熟度百分比（0-100的数字）,
-  "healthStatus": "健康状态（如：健康、轻微斑点、病虫害、腐烂等）",
-  "qualityScore": 品质分数（0-100的数字）,
-  "grade": "等级（Excellent/Good/Average/Poor）",
-  "confidence": 识别置信度（0-100的数字）,
-  "sizeCategory": "大小分类（小/中等/大/特大）",
-  "recommendation": "采摘建议（简短描述是否建议采摘及原因）",
-  "suggestedAction": "建议操作（harvest/wait/inspect）",
-  "defects": ["缺陷列表，如有虫眼、斑点、裂纹等"],
-  "estimatedWeight": 估算重量（克）,
-  "ripeness_days": 距离最佳采摘期还有多少天（负数表示已过期）
+  "fruitType": "具体水果品种名称",
+  "maturity": 成熟度百分比（0-100数字）,
+  "healthStatus": "健康状态描述",
+  "qualityScore": 综合品质分数（0-100数字）,
+  "grade": "等级评定",
+  "confidence": 识别置信度（0-100数字）,
+  "sizeCategory": "大小分类",
+  "recommendation": "专业采摘建议",
+  "suggestedAction": "操作建议代码",
+  "defects": ["具体缺陷列表"],
+  "estimatedWeight": 估算重量克数,
+  "ripeness_days": 距最佳采摘期天数,
+  "marketValue": 预估市场价值,
+  "storageLife": 预计储存期限天数
 }
+```
 
-请确保：
-1. 严格按照JSON格式返回
-2. 所有数值字段不要加引号
-3. 给出专业准确的评估
-4. 如果图片不清楚或不是水果，请在fruitType中返回"无法识别"
+🔍 **专业分析维度**：
 
-请开始分析："""
+**1. 水果类型识别（fruitType）**：
+- 苹果类：红富士、嘎啦、国光、红星、青苹果、黄元帅、烟富3号、烟富8号等
+- 梨类：鸭梨、雪花梨、香梨、酥梨等
+- 柑橘类：橙子、柚子、柠檬、橘子等
+- 其他：如识别为非目标水果，请准确标注
+- 如无法识别，返回"无法识别-[原因]"
+
+**2. 成熟度评估（maturity 0-100%）**：
+- **0-20%**：幼果期，果实小，颜色青绿，硬度高
+- **21-40%**：生长期，体积增大，开始转色
+- **41-60%**：转色期，颜色变化明显，硬度适中
+- **61-80%**：近成熟期，颜色接近成熟标准，糖分上升
+- **81-95%**：最佳采摘期，色泽饱满，硬度适宜，糖分最佳
+- **96-100%**：过熟期，可能软化，储存期短
+
+**3. 健康状态（healthStatus）**：
+- "完全健康"：无任何病虫害和机械损伤
+- "轻微瑕疵"：有1-2个小斑点或轻微划痕
+- "中度缺陷"：有明显斑点、虫眼或小面积病害
+- "严重问题"：大面积病害、腐烂或严重虫害
+- "不宜采摘"：严重病虫害或腐烂
+
+**4. 品质评分（qualityScore 0-100）**：
+综合考虑：外观完整度(25%) + 成熟度适宜性(30%) + 无缺陷程度(25%) + 大小规格(20%)
+- 90-100分：优质特级，完美外观，最佳成熟度
+- 80-89分：优质一级，轻微瑕疵，成熟度良好
+- 70-79分：良好二级，有一定缺陷但可接受
+- 60-69分：合格三级，缺陷较多但仍有商业价值
+- 0-59分：不合格，不建议采摘
+
+**5. 等级评定（grade）**：
+- "Premium"：特级品质，完美外观，最佳成熟度
+- "Excellent"：优秀品质，极少缺陷
+- "Good"：良好品质，轻微缺陷
+- "Average"：平均品质，一般缺陷
+- "Poor"：较差品质，明显缺陷
+- "Reject"：拒收品质，严重问题
+
+**6. 大小分类（sizeCategory）**：
+根据水果直径/长度：
+- "特大"：超大规格，适合礼品包装
+- "大"：大规格，适合零售
+- "中等"：标准规格，最常见
+- "小"：小规格，适合加工
+- "偏小"：规格不足，价值较低
+
+**7. 操作建议（suggestedAction）**：
+- "harvest_now"：立即采摘，最佳时机
+- "harvest_priority"：优先采摘，成熟度极佳
+- "harvest_normal"：正常采摘，符合标准
+- "wait_3_days"：等待3天后采摘
+- "wait_week"：等待一周后采摘
+- "inspect_closely"：需要近距离检查
+- "reject"：拒绝采摘，不符合标准
+
+**8. 置信度评估（confidence）**：
+- 95-100%：图片清晰，特征明显，识别极其确定
+- 85-94%：图片良好，特征清楚，识别很确定
+- 75-84%：图片一般，特征较清楚，识别较确定
+- 60-74%：图片模糊或特征不明显，识别有一定把握
+- 0-59%：图片质量差或特征不清，识别不确定
+
+**🎯 特别关注事项**：
+1. **光照条件**：分析图片光照是否充足，是否有阴影影响判断
+2. **拍摄角度**：评估是否能看到水果完整外观
+3. **遮挡情况**：是否有叶子或其他水果遮挡
+4. **背景干扰**：是否有复杂背景影响识别
+5. **采摘紧急性**：如果是易腐水果，提高采摘优先级
+
+**📊 数值估算标准**：
+- **estimatedWeight**：根据水果大小和品种的标准重量范围估算
+- **ripeness_days**：负数表示已过最佳期，正数表示还需等待的天数
+- **marketValue**：按当前市场价格和品质等级估算价值（元/斤）
+- **storageLife**：在适宜条件下的预计储存天数
+
+**⚠️ 输出要求**：
+1. 必须严格按照JSON格式输出，不要添加任何额外文字
+2. 所有数值字段必须是纯数字，不要加引号
+3. 字符串字段用双引号包围
+4. 数组字段即使为空也要用[]表示
+5. 如果无法识别，在fruitType中说明具体原因
+
+现在请开始分析这张图片："""
             
             # 调用AI API进行识别 - 使用视觉模型（成本较高，只用于图片识别）
             self.get_logger().info(f'使用视觉模型进行图片识别: {self.ai_vision_model}')
@@ -1719,8 +1803,8 @@ class WebSocketBridgeNode(Node):
                         ]
                     }
                 ],
-                max_tokens=800,
-                temperature=0.1
+                max_tokens=1200,  # 增加token限制以支持更详细的分析
+                temperature=0.1   # 降低温度以获得更稳定的结果
             )
             
             # 解析AI回复
@@ -1754,13 +1838,31 @@ class WebSocketBridgeNode(Node):
                     'confidence': 80,
                     'sizeCategory': '中等',
                     'recommendation': '需要进一步检查',
-                    'suggestedAction': 'inspect'
+                    'suggestedAction': 'inspect_closely',
+                    'defects': [],
+                    'estimatedWeight': 150,
+                    'ripeness_days': 0,
+                    'marketValue': 3.0,
+                    'storageLife': 7
                 }
                 
                 for field, default_value in required_fields.items():
                     if field not in recognition_result:
                         recognition_result[field] = default_value
                 
+                # 数据类型验证和修正
+                if not isinstance(recognition_result.get('defects'), list):
+                    recognition_result['defects'] = []
+                
+                # 确保数值字段是数字类型
+                numeric_fields = ['maturity', 'qualityScore', 'confidence', 'estimatedWeight', 'ripeness_days', 'marketValue', 'storageLife']
+                for field in numeric_fields:
+                    if field in recognition_result:
+                        try:
+                            recognition_result[field] = float(recognition_result[field])
+                        except (ValueError, TypeError):
+                            recognition_result[field] = required_fields[field]
+                            
             except (json.JSONDecodeError, ValueError) as e:
                 self.get_logger().error(f'解析AI回复JSON失败: {e}')
                 # 创建默认识别结果
@@ -1773,10 +1875,12 @@ class WebSocketBridgeNode(Node):
                     'confidence': 0,
                     'sizeCategory': '中等',
                     'recommendation': 'AI识别结果解析失败，需要人工检查',
-                    'suggestedAction': 'inspect',
+                    'suggestedAction': 'inspect_closely',
                     'defects': ['AI解析错误'],
-                    'estimatedWeight': 0,
-                    'ripeness_days': 0
+                    'estimatedWeight': 150,
+                    'ripeness_days': 0,
+                    'marketValue': 0,
+                    'storageLife': 0
                 }
             
             # 添加识别相关的元数据
@@ -1793,21 +1897,49 @@ class WebSocketBridgeNode(Node):
                 'grade': recognition_result.get('grade', 'Average'),
                 'detectionTime': time.strftime('%H:%M'),
                 'location': self.get_current_location(),
-                'actionTaken': self.get_action_from_suggestion(recognition_result.get('suggestedAction', 'inspect')),
+                'actionTaken': self.get_action_from_suggestion(recognition_result.get('suggestedAction', 'inspect_closely')),
                 'thumbnailUrl': f'/temp/{filename}',  # 临时图片路径
                 'timestamp': int(current_time * 1000),
                 'confidence': recognition_result.get('confidence', 80),
                 'sizeCategory': recognition_result.get('sizeCategory', '中等'),
                 'recommendation': recognition_result.get('recommendation', '需要进一步检查'),
                 'defects': recognition_result.get('defects', []),
-                'estimatedWeight': recognition_result.get('estimatedWeight', 0),
+                'estimatedWeight': recognition_result.get('estimatedWeight', 150),
                 'ripeness_days': recognition_result.get('ripeness_days', 0),
+                'marketValue': recognition_result.get('marketValue', 0),
+                'storageLife': recognition_result.get('storageLife', 0),
                 'source_image': filename,
                 'image_base64': image_base64,  # 添加base64编码的图片数据
                 'image_data_url': data_url     # 添加完整的data URL
             }
             
-            self.get_logger().info(f'水果识别完成: {detection_data["fruitType"]}, 质量: {detection_data["qualityScore"]}/100, 成熟度: {detection_data["maturity"]}%')
+            self.get_logger().info(f'水果识别完成: {detection_data["fruitType"]}, 质量: {detection_data["qualityScore"]}/100, 成熟度: {detection_data["maturity"]}%, 市场价值: {detection_data["marketValue"]}元/斤')
+            
+            # 增强日志输出，提供更详细的识别信息
+            maturity_desc = self.get_maturity_description(detection_data["maturity"])
+            quality_desc = self.get_quality_assessment(detection_data["qualityScore"])
+            
+            self.get_logger().info(f'详细识别结果 - 水果: {detection_data["fruitType"]}, {maturity_desc}({detection_data["maturity"]}%), {quality_desc}({detection_data["qualityScore"]}分), 置信度: {detection_data["confidence"]}%, 操作建议: {detection_data["actionTaken"]}')
+            
+            if detection_data["defects"]:
+                self.get_logger().info(f'发现缺陷: {", ".join(detection_data["defects"])}')
+            
+            if detection_data["ripeness_days"] != 0:
+                if detection_data["ripeness_days"] > 0:
+                    self.get_logger().info(f'建议等待 {detection_data["ripeness_days"]} 天后采摘')
+                else:
+                    self.get_logger().warn(f'水果已过最佳采摘期 {abs(detection_data["ripeness_days"])} 天')
+            
+            # 根据识别结果自动调整采摘策略
+            if detection_data["qualityScore"] >= 85 and detection_data["maturity"] >= 80:
+                self.get_logger().info(f'🎯 发现优质水果，建议优先采摘！')
+            elif detection_data["qualityScore"] < 60:
+                self.get_logger().warn(f'⚠️ 水果品质较差，建议跳过')
+            
+            # 市场价值评估日志
+            if detection_data["marketValue"] > 0:
+                estimated_value = detection_data["estimatedWeight"] * detection_data["marketValue"] / 500  # 转换为单个水果价值
+                self.get_logger().info(f'💰 预估单果价值: {estimated_value:.2f}元, 储存期: {detection_data["storageLife"]}天')
             
             # 发布识别结果到ROS2话题
             result_msg = String()
@@ -1840,11 +1972,47 @@ class WebSocketBridgeNode(Node):
     def get_action_from_suggestion(self, suggested_action):
         """根据AI建议转换为行动描述"""
         action_map = {
+            'harvest_now': '立即采摘',
+            'harvest_priority': '优先采摘',
+            'harvest_normal': '正常采摘',
+            'wait_3_days': '等待3天',
+            'wait_week': '等待一周',
+            'inspect_closely': '需检查',
+            'reject': '拒绝采摘',
+            # 兼容旧版本
             'harvest': '建议采摘',
             'wait': '待成熟',
             'inspect': '需检查'
         }
         return action_map.get(suggested_action, '待检查')
+    
+    def get_maturity_description(self, maturity):
+        """根据成熟度百分比返回描述"""
+        if maturity <= 20:
+            return "幼果期"
+        elif maturity <= 40:
+            return "生长期"
+        elif maturity <= 60:
+            return "转色期"
+        elif maturity <= 80:
+            return "近成熟期"
+        elif maturity <= 95:
+            return "最佳采摘期"
+        else:
+            return "过熟期"
+    
+    def get_quality_assessment(self, quality_score):
+        """根据品质分数返回评估"""
+        if quality_score >= 90:
+            return "优质特级"
+        elif quality_score >= 80:
+            return "优质一级"
+        elif quality_score >= 70:
+            return "良好二级"
+        elif quality_score >= 60:
+            return "合格三级"
+        else:
+            return "不合格"
 
     def detection_callback(self, msg):
         """瓶子检测信息回调"""

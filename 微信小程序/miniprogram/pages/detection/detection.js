@@ -1629,6 +1629,13 @@ Page({
       actionTaken: this.safeString(data.actionTaken, '待处理'),
       imageName: data.source_image || '服务器图片',
       detectionMode: 'comprehensive',
+      // 新增字段支持
+      grade: this.safeString(data.grade, 'Average'),
+      defects: Array.isArray(data.defects) ? data.defects : [],
+      estimatedWeight: Math.round(data.estimatedWeight || 0),
+      ripeness_days: data.ripeness_days || 0,
+      marketValue: parseFloat(data.marketValue || 0),
+      storageLife: Math.round(data.storageLife || 0),
       // 处理图片数据
       imageBase64: data.imageBase64 || '',  // 服务器传来的base64数据
       imageId: data.imageId || detectionId,  // 图片唯一标识
@@ -2357,5 +2364,41 @@ Page({
       return defaultValue;
     }
     return String(value);
+  },
+
+  /**
+   * 从详情页面返回时重新分析
+   * @param {Object} detectionData - 检测数据
+   */
+  reanalyzeFromDetail: function(detectionData) {
+    if (!detectionData || !detectionData.imageUrl) {
+      wx.showToast({
+        title: '无法重新分析，缺少图片信息',
+        icon: 'none'
+      });
+      return;
+    }
+
+    // 设置当前图片
+    this.setData({
+      currentImage: detectionData.imageUrl,
+      imageName: detectionData.imageName || '重新分析图片',
+      imageTime: this.formatTime(new Date()),
+      detectionResult: null
+    });
+
+    // 显示提示
+    wx.showToast({
+      title: '图片已加载，可以开始重新分析',
+      icon: 'success'
+    });
+
+    // 自动滚动到检测区域
+    setTimeout(() => {
+      wx.pageScrollTo({
+        selector: '.detection-card',
+        duration: 300
+      });
+    }, 500);
   }
 });
