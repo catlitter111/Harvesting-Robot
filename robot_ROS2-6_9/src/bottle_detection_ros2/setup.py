@@ -56,6 +56,9 @@ setup(
             # 通信节点
             'websocket_bridge_node = bottle_detection_ros2.nodes.communication.websocket_bridge_node:main',
             
+            # 测试节点
+            'fruit_image_publisher_node = bottle_detection_ros2.nodes.testing.fruit_image_publisher_node:main',
+            
             # 硬件节点
             'laser_obstacle_avoidance = bottle_detection_ros2.core.hardware.laser_obstacle_avoidance:main',
             

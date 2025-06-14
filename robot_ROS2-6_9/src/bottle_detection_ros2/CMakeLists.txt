@@ -18,6 +18,7 @@ install(PROGRAMS
   bottle_detection_ros2/robot_control_node.py
   bottle_detection_ros2/servo_control_node.py
   bottle_detection_ros2/auto_harvest_controller.py
+  bottle_detection_ros2/nodes/testing/fruit_image_publisher_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

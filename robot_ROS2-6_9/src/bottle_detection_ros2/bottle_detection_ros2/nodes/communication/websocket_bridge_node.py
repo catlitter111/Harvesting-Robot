@@ -115,6 +115,14 @@ class WebSocketBridgeNode(Node):
             10
         )
         
+        # 新增：订阅水果识别原始图片
+        self.fruit_image_sub = self.create_subscription(
+            CompressedImage,
+            'fruit_detection/raw_image',
+            self.fruit_image_callback,
+            10
+        )
+        
         # 创建发布者 - 发布控制命令
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.robot_cmd_pub = self.create_publisher(RobotCommand, 'robot/command', 10)
@@ -129,6 +137,9 @@ class WebSocketBridgeNode(Node):
         
         # 新增：AI聊天响应发布者
         self.ai_response_pub = self.create_publisher(String, 'ai/chat_response', 10)
+        
+        # 新增：水果识别结果发布者
+        self.fruit_detection_result_pub = self.create_publisher(String, 'fruit_detection/result', 10)
         
         # 消息队列
         self.image_queue = queue.Queue(maxsize=10)
@@ -1606,6 +1617,210 @@ class WebSocketBridgeNode(Node):
             self.get_logger().error(f'发送状态失败: {e}')
             self.get_logger().error(traceback.format_exc())
     
+    def fruit_image_callback(self, msg):
+        """水果图片回调 - 进行AI识别"""
+        if not self.ai_enabled or not self.ai_client:
+            self.get_logger().warn('AI功能未启用，跳过水果识别')
+            return
+        
+        try:
+            # 提取文件名
+            filename = 'unknown.jpg'
+            if '|' in msg.header.frame_id:
+                filename = msg.header.frame_id.split('|')[1]
+            
+            self.get_logger().info(f'收到水果图片进行AI识别: {filename}')
+            
+            # 在新线程中处理图片识别，避免阻塞
+            recognition_thread = threading.Thread(
+                target=self.process_fruit_recognition,
+                args=(msg.data, filename)
+            )
+            recognition_thread.daemon = True
+            recognition_thread.start()
+            
+        except Exception as e:
+            self.get_logger().error(f'水果图片回调出错: {e}')
+    
+    def process_fruit_recognition(self, image_data, filename):
+        """在单独线程中处理水果识别"""
+        try:
+            # 将图片数据转换为base64格式
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            data_url = f"data:image/jpeg;base64,{image_base64}"
+            
+            # 构建AI识别提示词
+            prompt = """你是一个专业的水果识别专家。请仔细分析这张水果图片，并返回以下JSON格式的识别结果：
+
+{
+  "fruitType": "水果类型名称（如：红富士苹果、嘎啦苹果、青苹果等）",
+  "maturity": 成熟度百分比（0-100的数字）,
+  "healthStatus": "健康状态（如：健康、轻微斑点、病虫害、腐烂等）",
+  "qualityScore": 品质分数（0-100的数字）,
+  "grade": "等级（Excellent/Good/Average/Poor）",
+  "confidence": 识别置信度（0-100的数字）,
+  "sizeCategory": "大小分类（小/中等/大/特大）",
+  "recommendation": "采摘建议（简短描述是否建议采摘及原因）",
+  "suggestedAction": "建议操作（harvest/wait/inspect）",
+  "defects": ["缺陷列表，如有虫眼、斑点、裂纹等"],
+  "estimatedWeight": 估算重量（克）,
+  "ripeness_days": 距离最佳采摘期还有多少天（负数表示已过期）
+}
+
+请确保：
+1. 严格按照JSON格式返回
+2. 所有数值字段不要加引号
+3. 给出专业准确的评估
+4. 如果图片不清楚或不是水果，请在fruitType中返回"无法识别"
+
+请开始分析："""
+            
+            # 调用AI API进行识别
+            completion = self.ai_client.chat.completions.create(
+                model=self.ai_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": data_url,
+                                    "detail": "high"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=800,
+                temperature=0.1
+            )
+            
+            # 解析AI回复
+            ai_response = completion.choices[0].message.content.strip()
+            self.get_logger().info(f'AI识别原始回复: {ai_response[:200]}...')
+            
+            # 尝试提取JSON数据
+            try:
+                # 查找JSON数据（可能包含在代码块中）
+                if '```json' in ai_response:
+                    json_start = ai_response.find('```json') + 7
+                    json_end = ai_response.find('```', json_start)
+                    json_str = ai_response[json_start:json_end].strip()
+                elif '{' in ai_response:
+                    json_start = ai_response.find('{')
+                    json_end = ai_response.rfind('}') + 1
+                    json_str = ai_response[json_start:json_end]
+                else:
+                    raise ValueError("AI回复中未找到JSON数据")
+                
+                # 解析JSON
+                recognition_result = json.loads(json_str)
+                
+                # 验证必需字段并设置默认值
+                required_fields = {
+                    'fruitType': '未知水果',
+                    'maturity': 50,
+                    'healthStatus': '健康',
+                    'qualityScore': 70,
+                    'grade': 'Average',
+                    'confidence': 80,
+                    'sizeCategory': '中等',
+                    'recommendation': '需要进一步检查',
+                    'suggestedAction': 'inspect'
+                }
+                
+                for field, default_value in required_fields.items():
+                    if field not in recognition_result:
+                        recognition_result[field] = default_value
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                self.get_logger().error(f'解析AI回复JSON失败: {e}')
+                # 创建默认识别结果
+                recognition_result = {
+                    'fruitType': '解析失败',
+                    'maturity': 50,
+                    'healthStatus': '无法确定',
+                    'qualityScore': 60,
+                    'grade': 'Average',
+                    'confidence': 0,
+                    'sizeCategory': '中等',
+                    'recommendation': 'AI识别结果解析失败，需要人工检查',
+                    'suggestedAction': 'inspect',
+                    'defects': ['AI解析错误'],
+                    'estimatedWeight': 0,
+                    'ripeness_days': 0
+                }
+            
+            # 添加识别相关的元数据
+            current_time = time.time()
+            detection_id = f"fruit_detection_{int(current_time * 1000)}"
+            
+            # 生成符合微信小程序格式的识别结果
+            detection_data = {
+                'id': detection_id,
+                'fruitType': recognition_result.get('fruitType', '未知水果'),
+                'maturity': recognition_result.get('maturity', 50),
+                'healthStatus': recognition_result.get('healthStatus', '健康'),
+                'qualityScore': recognition_result.get('qualityScore', 70),
+                'grade': recognition_result.get('grade', 'Average'),
+                'detectionTime': time.strftime('%H:%M'),
+                'location': self.get_current_location(),
+                'actionTaken': self.get_action_from_suggestion(recognition_result.get('suggestedAction', 'inspect')),
+                'thumbnailUrl': f'/temp/{filename}',  # 临时图片路径
+                'timestamp': int(current_time * 1000),
+                'confidence': recognition_result.get('confidence', 80),
+                'sizeCategory': recognition_result.get('sizeCategory', '中等'),
+                'recommendation': recognition_result.get('recommendation', '需要进一步检查'),
+                'defects': recognition_result.get('defects', []),
+                'estimatedWeight': recognition_result.get('estimatedWeight', 0),
+                'ripeness_days': recognition_result.get('ripeness_days', 0),
+                'source_image': filename
+            }
+            
+            self.get_logger().info(f'水果识别完成: {detection_data["fruitType"]}, 质量: {detection_data["qualityScore"]}/100, 成熟度: {detection_data["maturity"]}%')
+            
+            # 发布识别结果到ROS2话题
+            result_msg = String()
+            result_msg.data = json.dumps(detection_data)
+            self.fruit_detection_result_pub.publish(result_msg)
+            
+            # 通过WebSocket发送给服务端
+            if self.connected and self.ws:
+                ws_message = {
+                    "type": "fruit_detection_result",
+                    "data": detection_data,
+                    "timestamp": int(current_time * 1000)
+                }
+                self.ws.send(json.dumps(ws_message))
+                self.get_logger().info(f'水果识别结果已发送到服务端')
+            
+        except Exception as e:
+            self.get_logger().error(f'水果识别处理出错: {e}')
+            self.get_logger().error(f'详细错误: {traceback.format_exc()}')
+    
+    def get_current_location(self):
+        """获取当前位置描述"""
+        if hasattr(self, 'robot_status'):
+            lat = self.robot_status.get('latitude', 34.9385)
+            lon = self.robot_status.get('longitude', 108.2415)
+            return self.get_location_name(lat, lon)
+        else:
+            return "B-12区域"  # 默认位置
+    
+    def get_action_from_suggestion(self, suggested_action):
+        """根据AI建议转换为行动描述"""
+        action_map = {
+            'harvest': '建议采摘',
+            'wait': '待成熟',
+            'inspect': '需检查'
+        }
+        return action_map.get(suggested_action, '待检查')
+
     def detection_callback(self, msg):
         """瓶子检测信息回调"""
         if not self.connected or not self.ws:
