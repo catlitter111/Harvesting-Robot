@@ -1082,7 +1082,7 @@ class IntegratedBottleDetectionNode(Node):
             detection_box = (int(x1), int(y1), int(x2), int(y2))
             
             # 确定物品类型
-            item_type = "apple"  # 默认类型，可以根据class_id映射
+            item_type = "bottle"  # 默认类型，可以根据class_id映射
             if hasattr(self, 'class_names') and class_id < len(self.class_names):
                 item_type = self.class_names[int(class_id)]
             

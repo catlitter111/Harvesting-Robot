@@ -356,6 +356,16 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 70rpx;
+    padding: 0;
+    text-align: center;
+  }
+
+  .detect-btn::after {
+    border: none;
   }
   
   .detect-btn.active {
@@ -373,12 +383,23 @@
     background: #E0E0E0;
     color: #999;
   }
+
+  .detect-text {
+    font-size: 30rpx;
+    font-weight: 700;
+    text-align: center;
+    width: 100%;
+    line-height: 1;
+    display: block;
+  }
   
   .detecting-animation {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12rpx;
+    width: 100%;
+    height: 100%;
   }
   
   .loading-dot {
