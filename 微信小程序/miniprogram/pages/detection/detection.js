@@ -865,24 +865,24 @@ Page({
     // 生成检测记录ID
     const detectionId = generateDetectionId();
     
-    // 格式化结果数据
+    // 格式化结果数据（确保所有字符串字段都安全）
     const formattedResult = {
       id: detectionId,
-      fruitType: rawResult.fruit_type || '未知水果',
+      fruitType: this.safeString(rawResult.fruit_type, '未知水果'),
       fruitEmoji: this.getFruitEmoji(rawResult.fruit_type),
-      variety: rawResult.variety || '未知品种',
+      variety: this.safeString(rawResult.variety, '未知品种'),
       confidence: Math.round(rawResult.confidence || 0),
       maturity: Math.round(rawResult.maturity_percentage || 0),
-      healthStatus: rawResult.health_status || '未知',
-      healthGrade: this.getHealthGrade(rawResult.health_score),
-      pestStatus: rawResult.pest_status || 'none',
-      diseaseStatus: rawResult.disease_status || 'none',
+      healthStatus: this.safeString(rawResult.health_status, '未知'),
+      healthGrade: this.safeString(this.getHealthGrade(rawResult.health_score), 'unknown'),
+      pestStatus: this.safeString(rawResult.pest_status, 'none'),
+      diseaseStatus: this.safeString(rawResult.disease_status, 'none'),
       qualityScore: Math.round(rawResult.quality_score || 0),
       appearanceStars: Math.round((rawResult.appearance_score || 0) / 20), // 转换为1-5星
-      sizeCategory: rawResult.size_category || '中等',
-      overallGrade: this.getOverallGrade(rawResult.overall_score),
-      recommendation: rawResult.recommendation || '暂无建议',
-      suggestedAction: rawResult.suggested_action || 'inspect',
+      sizeCategory: this.safeString(rawResult.size_category, '中等'),
+      overallGrade: this.safeString(this.getOverallGrade(rawResult.overall_score), 'Unknown'),
+      recommendation: this.safeString(rawResult.recommendation, '暂无建议'),
+      suggestedAction: this.safeString(rawResult.suggested_action, 'inspect'),
       actionable: rawResult.actionable !== false,
       boundingBox: rawResult.bounding_box || null,
       timestamp: Date.now(),
@@ -927,9 +927,10 @@ Page({
    * @returns {string} 健康等级
    */
   getHealthGrade: function(healthScore) {
-    if (healthScore >= 90) return 'excellent';
-    if (healthScore >= 75) return 'good';
-    if (healthScore >= 60) return 'average';
+    const score = Number(healthScore) || 0;
+    if (score >= 90) return 'excellent';
+    if (score >= 75) return 'good';
+    if (score >= 60) return 'average';
     return 'poor';
   },
 
@@ -939,9 +940,10 @@ Page({
    * @returns {string} 总体评级
    */
   getOverallGrade: function(overallScore) {
-    if (overallScore >= 90) return 'Excellent';
-    if (overallScore >= 75) return 'Good';
-    if (overallScore >= 60) return 'Average';
+    const score = Number(overallScore) || 0;
+    if (score >= 90) return 'Excellent';
+    if (score >= 75) return 'Good';
+    if (score >= 60) return 'Average';
     return 'Poor';
   },
 
@@ -1047,14 +1049,14 @@ Page({
    */
   saveDetectionRecord: function(result) {
     try {
-      // 创建历史记录条目
+      // 创建历史记录条目（确保所有字符串字段都安全）
       const historyItem = {
-        id: result.id,
-        fruitType: result.fruitType,
-        maturity: result.maturity,
-        healthStatus: result.healthStatus,
-        qualityScore: result.qualityScore,
-        grade: result.overallGrade,
+        id: this.safeString(result.id, generateDetectionId()),
+        fruitType: this.safeString(result.fruitType, '未知水果'),
+        maturity: result.maturity || 0,
+        healthStatus: this.safeString(result.healthStatus, '未知'),
+        qualityScore: result.qualityScore || 0,
+        grade: this.safeString(result.overallGrade, 'Unknown'),
         detectionTime: this.formatTime(new Date()),
         location: '当前区域', // TODO: 从GPS或机器人位置获取
         actionTaken: '待处理',
@@ -1625,5 +1627,46 @@ Page({
       icon: 'none',
       duration: 2000
     });
+  },
+
+  // ==================== 安全字符串处理方法 ====================
+
+  /**
+   * 安全的toLowerCase转换
+   * @param {any} str - 需要转换的值
+   * @returns {string} 转换后的小写字符串，如果输入无效则返回空字符串
+   */
+  safeToLowerCase: function(str) {
+    if (str === null || str === undefined) {
+      return '';
+    }
+    return String(str).toLowerCase();
+  },
+
+  /**
+   * 安全的charAt操作
+   * @param {any} str - 字符串
+   * @param {number} index - 索引位置
+   * @returns {string} 指定位置的字符，如果无效则返回空字符串
+   */
+  safeCharAt: function(str, index = 0) {
+    if (str === null || str === undefined) {
+      return '';
+    }
+    const stringValue = String(str);
+    return stringValue.charAt(index) || '';
+  },
+
+  /**
+   * 安全的字符串获取
+   * @param {any} value - 需要转换的值
+   * @param {string} defaultValue - 默认值
+   * @returns {string} 安全的字符串值
+   */
+  safeString: function(value, defaultValue = '') {
+    if (value === null || value === undefined) {
+      return defaultValue;
+    }
+    return String(value);
   }
 });

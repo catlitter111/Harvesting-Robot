@@ -1,5 +1,9 @@
 <!--pages/detection/detection.wxml-->
 <!--智能水果识别页面 - 独立标签页设计-->
+
+<!-- 引入工具方法 -->
+<wxs module="utils" src="./utils.wxs"></wxs>
+
 <view class="detection-container">
   
   <!-- 页面头部状态栏 -->
@@ -125,7 +129,7 @@
             <text class="fruit-name">{{detectionResult.fruitType}}</text>
             <text class="fruit-variety">{{detectionResult.variety}}</text>
           </view>
-          <view class="overall-grade {{detectionResult.overallGrade.toLowerCase()}}">
+          <view class="overall-grade {{utils.safeToLowerCase(detectionResult.overallGrade)}}">
             <text class="grade-text">{{detectionResult.overallGrade}}</text>
           </view>
         </view>
@@ -147,7 +151,7 @@
           <view class="metric-item">
             <view class="metric-header">
               <text class="metric-label">健康状况</text>
-              <text class="metric-value {{detectionResult.healthGrade.toLowerCase()}}">{{detectionResult.healthStatus}}</text>
+              <text class="metric-value {{utils.safeToLowerCase(detectionResult.healthGrade)}}">{{detectionResult.healthStatus}}</text>
             </view>
             <view class="health-indicators">
               <view class="health-tag {{detectionResult.pestStatus === 'none' ? 'good' : 'warning'}}">
@@ -283,8 +287,8 @@
               data-id="{{item.id}}">
           
           <view class="item-image">
-            <view class="thumbnail-placeholder">{{item.fruitType.charAt(0)}}</view>
-            <view class="detection-badge {{item.grade.toLowerCase()}}">
+                          <view class="thumbnail-placeholder">{{utils.getFirstChar(item.fruitType)}}</view>
+            <view class="detection-badge {{utils.safeToLowerCase(item.grade)}}">
               <text class="badge-text">{{item.grade}}</text>
             </view>
           </view>
@@ -312,7 +316,7 @@
 
             <view class="item-footer">
               <text class="item-location">{{item.location}}</text>
-              <view class="item-status {{item.actionTaken.toLowerCase()}}">
+                              <view class="item-status {{utils.safeToLowerCase(item.actionTaken)}}">
                 <text class="status-text">{{item.actionTaken}}</text>
               </view>
             </view>
