@@ -104,7 +104,7 @@
           <view wx:if="{{detectionData.ripeness_days !== undefined}}" class="ripeness-timing">
             <text class="timing-label">采摘时机</text>
             <text class="timing-value {{detectionData.ripeness_days === 0 ? 'optimal' : detectionData.ripeness_days > 0 ? 'wait' : 'overdue'}}">
-              {{utils.getRipenessText(detectionData.ripeness_days)}}
+              {{utils.getRipenessText(detectionData.ripeness_days, detectionData.healthStatus, detectionData.actionTaken)}}
             </text>
           </view>
         </view>
@@ -113,7 +113,7 @@
       <!-- 成熟度建议 -->
       <view class="maturity-recommendation">
         <text class="recommendation-text">
-          {{utils.getMaturityRecommendation(detectionData.maturity, detectionData.ripeness_days)}}
+          {{utils.getMaturityRecommendation(detectionData.maturity, detectionData.ripeness_days, detectionData.healthStatus, detectionData.actionTaken)}}
         </text>
       </view>
     </view>

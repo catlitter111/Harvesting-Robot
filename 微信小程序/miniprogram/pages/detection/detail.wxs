@@ -18,11 +18,28 @@ function getMaturityStage(maturity) {
   }
   
   /**
-   * 获取采摘时机文本
+   * 获取采摘时机文本（修复版本 - 考虑健康状态）
    * @param {number} ripeness_days - 采摘天数
+   * @param {string} healthStatus - 健康状态
+   * @param {string} actionTaken - 操作建议
    * @returns {string} 采摘时机描述
    */
-  function getRipenessText(ripeness_days) {
+  function getRipenessText(ripeness_days, healthStatus, actionTaken) {
+    // 健康状态优先级检查
+    if (healthStatus) {
+      var healthLower = healthStatus.toLowerCase();
+      if (healthLower.indexOf('严重') !== -1 || healthLower.indexOf('腐烂') !== -1 || 
+          healthLower.indexOf('病害') !== -1 || healthLower.indexOf('虫蛀') !== -1) {
+        return '禁止采摘';
+      }
+    }
+    
+    // 检查操作建议
+    if (actionTaken && actionTaken.indexOf('拒绝') !== -1) {
+      return '不建议采摘';
+    }
+    
+    // 健康状态正常时，根据成熟度天数给出建议
     if (ripeness_days === undefined || ripeness_days === null) return '未知';
     
     if (ripeness_days === 0) return '立即采摘';
@@ -31,24 +48,45 @@ function getMaturityStage(maturity) {
   }
   
   /**
-   * 获取成熟度建议
+   * 获取成熟度建议（修复版本 - 考虑健康状态）
    * @param {number} maturity - 成熟度
    * @param {number} ripeness_days - 采摘天数
+   * @param {string} healthStatus - 健康状态
+   * @param {string} actionTaken - 操作建议
    * @returns {string} 建议文本
    */
-  function getMaturityRecommendation(maturity, ripeness_days) {
+  function getMaturityRecommendation(maturity, ripeness_days, healthStatus, actionTaken) {
     if (!maturity) return '无法提供建议，缺少成熟度数据';
     
+    // 健康状态优先级检查 - 如果有严重问题，优先显示安全警告
+    if (healthStatus) {
+      var healthLower = healthStatus.toLowerCase();
+      if (healthLower.indexOf('严重') !== -1 || healthLower.indexOf('腐烂') !== -1 || 
+          healthLower.indexOf('病害') !== -1 || healthLower.indexOf('虫蛀') !== -1) {
+        return '⚠️ 安全警告：发现严重健康问题，无论成熟度如何都不建议采摘，避免影响其他健康水果。';
+      }
+      
+      if (healthLower.indexOf('中度') !== -1 || healthLower.indexOf('缺陷') !== -1) {
+        return '⚠️ 注意：发现中度健康问题，建议仔细检查后再决定是否采摘，成熟度为' + maturity + '%。';
+      }
+    }
+    
+    // 检查操作建议是否为拒绝
+    if (actionTaken && actionTaken.indexOf('拒绝') !== -1) {
+      return '⚠️ 系统建议：基于综合评估，不建议采摘此水果。';
+    }
+    
+    // 健康状态正常时，根据成熟度给出建议
     if (maturity >= 80 && maturity <= 95) {
-      return '水果已达到最佳成熟度，建议立即采摘以获得最佳口感和营养价值。';
+      return '✅ 水果已达到最佳成熟度，建议立即采摘以获得最佳口感和营养价值。';
     } else if (maturity > 95) {
-      return '水果已过度成熟，建议尽快采摘，适合立即食用或加工处理。';
+      return '⏰ 水果已过度成熟，建议尽快采摘，适合立即食用或加工处理。';
     } else if (maturity >= 60) {
-      return '水果接近成熟，建议继续观察，预计几天内可达到最佳采摘期。';
+      return '🕐 水果接近成熟，建议继续观察，预计几天内可达到最佳采摘期。';
     } else if (maturity >= 40) {
-      return '水果正在转色期，需要继续等待成熟，建议一周后重新检测。';
+      return '⏳ 水果正在转色期，需要继续等待成熟，建议一周后重新检测。';
     } else {
-      return '水果尚未成熟，需要较长时间继续生长，建议2-3周后重新检测。';
+      return '🌱 水果尚未成熟，需要较长时间继续生长，建议2-3周后重新检测。';
     }
   }
   
