@@ -37,10 +37,17 @@ Page({
       // 从本地存储获取检测历史
       const detectionHistory = wx.getStorageSync('detection_history') || [];
       
+      console.log('详情页面 - 加载检测数据, ID:', detectionId);
+      console.log('详情页面 - 历史记录总数:', detectionHistory.length);
+      
       // 查找对应的检测记录
       const detectionData = detectionHistory.find(item => item.id === detectionId);
       
       if (detectionData) {
+        console.log('详情页面 - 找到检测记录:', JSON.stringify(detectionData, null, 2));
+        console.log('详情页面 - recommendation字段:', detectionData.recommendation);
+        console.log('详情页面 - recommendation字段类型:', typeof detectionData.recommendation);
+        
         this.setData({
           detectionData: detectionData,
           loading: false
@@ -51,6 +58,9 @@ Page({
           title: `${detectionData.fruitType || '水果'}检测详情`
         });
       } else {
+        console.log('详情页面 - 未找到检测记录, ID:', detectionId);
+        console.log('详情页面 - 可用的ID列表:', detectionHistory.map(item => item.id));
+        
         this.setData({
           error: '未找到对应的检测记录',
           loading: false

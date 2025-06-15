@@ -1055,20 +1055,54 @@ Page({
    */
   saveDetectionRecord: function(result) {
     try {
-      // 创建历史记录条目（确保所有字符串字段都安全）
+      console.log('保存检测记录 - 输入result:', JSON.stringify(result, null, 2));
+      console.log('保存检测记录 - result.recommendation:', result.recommendation);
+      
+      // 创建历史记录条目（确保所有字段都包含，特别是recommendation）
       const historyItem = {
         id: this.safeString(result.id, generateDetectionId()),
         fruitType: this.safeString(result.fruitType, '未知水果'),
+        fruitEmoji: result.fruitEmoji || '🍎',
+        variety: this.safeString(result.variety, '未知品种'),
+        confidence: result.confidence || 0,
         maturity: result.maturity || 0,
         healthStatus: this.safeString(result.healthStatus, '未知'),
+        healthGrade: result.healthGrade || 'unknown',
+        pestStatus: this.safeString(result.pestStatus, 'none'),
+        diseaseStatus: this.safeString(result.diseaseStatus, 'none'),
         qualityScore: result.qualityScore || 0,
-        grade: this.safeString(result.overallGrade, 'Unknown'),
-        detectionTime: this.formatTime(new Date()),
-        location: '当前区域', // TODO: 从GPS或机器人位置获取
-        actionTaken: '待处理',
-        thumbnailUrl: result.imagePath,
-        timestamp: result.timestamp
+        appearanceStars: result.appearanceStars || 0,
+        sizeCategory: this.safeString(result.sizeCategory, '中等'),
+        overallGrade: this.safeString(result.overallGrade, 'Unknown'),
+        grade: this.safeString(result.grade, 'Average'),
+        recommendation: this.safeString(result.recommendation, '暂无建议'), // 关键字段！
+        suggestedAction: this.safeString(result.suggestedAction, 'inspect'),
+        actionable: result.actionable !== false,
+        boundingBox: result.boundingBox || null,
+        detectionTime: result.detectionTime || this.formatTime(new Date()),
+        location: this.safeString(result.location, '当前区域'),
+        actionTaken: this.safeString(result.actionTaken, '待处理'),
+        imageName: result.imageName || '未知图片',
+        detectionMode: result.detectionMode || 'comprehensive',
+        // 新增字段支持
+        defects: Array.isArray(result.defects) ? result.defects : [],
+        estimatedWeight: result.estimatedWeight || 0,
+        ripeness_days: result.ripeness_days || 0,
+        marketValue: result.marketValue || 0,
+        storageLife: result.storageLife || 0,
+        // 图片相关
+        imageBase64: result.imageBase64 || '',
+        imageId: result.imageId || result.id,
+        imageFormat: result.imageFormat || 'jpg',
+        imageUrl: result.imageUrl || result.imagePath || '',
+        localImagePath: result.localImagePath || '',
+        isLocalImage: result.isLocalImage || false,
+        thumbnailUrl: result.thumbnailUrl || result.imagePath,
+        timestamp: result.timestamp || Date.now()
       };
+      
+      console.log('保存检测记录 - 创建的historyItem:', JSON.stringify(historyItem, null, 2));
+      console.log('保存检测记录 - historyItem.recommendation:', historyItem.recommendation);
       
       // 获取现有历史记录
       let history = wx.getStorageSync('detection_history') || [];
@@ -1603,6 +1637,8 @@ Page({
     console.log('格式化数据 - 原始serverData:', serverData);
     console.log('格式化数据 - 提取的data:', data);
     console.log('格式化数据 - fruitType字段值:', data.fruitType);
+    console.log('格式化数据 - recommendation字段值:', data.recommendation);
+    console.log('格式化数据 - recommendation字段类型:', typeof data.recommendation);
     
     const result = {
       id: detectionId,
@@ -1644,6 +1680,9 @@ Page({
       isLocalImage: true,  // 标记为本地图片
       needsSaveImage: !!data.imageBase64  // 是否需要保存图片
     };
+    
+    console.log('格式化完成 - result.recommendation:', result.recommendation);
+    console.log('格式化完成 - 完整result对象:', JSON.stringify(result, null, 2));
     
     // 如果有base64图片数据，保存到本地
     if (result.needsSaveImage) {

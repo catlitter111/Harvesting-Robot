@@ -1665,13 +1665,13 @@ class WebSocketBridgeNode(Node):
             self.get_logger().error(f'水果图片回调出错: {e}')
     
     def process_fruit_recognition(self, image_data, filename):
-        """在单独线程中处理水果识别"""
+        """在单独线程中处理水果识别（修复版本）"""
         try:
             # 将图片数据转换为base64格式
             image_base64 = base64.b64encode(image_data).decode('utf-8')
             data_url = f"data:image/jpeg;base64,{image_base64}"
             
-            # 构建优化后的AI识别提示词
+            # 优化后的AI识别提示词 - 增强逻辑判断
             prompt = """🍎 你是一位具有20年经验的农业水果专家和AI视觉识别系统，专门为智能采摘机器人提供精准的水果识别服务。
 
 📋 **分析任务**：请对这张水果图片进行全方位专业分析，严格按照以下JSON格式返回结果：
@@ -1695,22 +1695,30 @@ class WebSocketBridgeNode(Node):
 }
 ```
 
-🔍 **专业分析维度**：
+🔍 **关键逻辑规则 - 必须严格遵守**：
 
-**1. 水果类型识别（fruitType）**：
-- 苹果类：红富士、嘎啦、国光、红星、青苹果、黄元帅、烟富3号、烟富8号等
-- 梨类：鸭梨、雪花梨、香梨、酥梨等
-- 柑橘类：橙子、柚子、柠檬、橘子等
-- 其他：如识别为非目标水果，请准确标注
-- 如无法识别，返回"无法识别-[原因]"
+**健康状态判断优先级最高：**
+- 如果healthStatus包含"严重"、"腐烂"、"病害"、"虫蛀"等词，则：
+  - suggestedAction必须是"reject"
+  - recommendation必须包含"不建议采摘"
+  - qualityScore不得超过30分
+  - marketValue设为0
+
+- 如果healthStatus是"完全健康"且maturity >= 80，则：
+  - suggestedAction可以是"harvest_now"或"harvest_priority"
+  - recommendation建议采摘
+
+- 如果maturity < 60，无论健康状况如何：
+  - suggestedAction应该是"wait_3_days"或"wait_week"
+  - recommendation建议等待成熟
 
 **2. 成熟度评估（maturity 0-100%）**：
-- **0-20%**：幼果期，果实小，颜色青绿，硬度高
-- **21-40%**：生长期，体积增大，开始转色
-- **41-60%**：转色期，颜色变化明显，硬度适中
-- **61-80%**：近成熟期，颜色接近成熟标准，糖分上升
-- **81-95%**：最佳采摘期，色泽饱满，硬度适宜，糖分最佳
-- **96-100%**：过熟期，可能软化，储存期短
+- **0-20%**：幼果期，suggestedAction: "wait_week"
+- **21-40%**：生长期，suggestedAction: "wait_week"
+- **41-60%**：转色期，suggestedAction: "wait_3_days"
+- **61-80%**：近成熟期，suggestedAction: "harvest_normal"（健康时）
+- **81-95%**：最佳采摘期，suggestedAction: "harvest_now"（健康时）
+- **96-100%**：过熟期，suggestedAction: "harvest_priority"（健康时）
 
 **3. 健康状态（healthStatus）**：
 - "完全健康"：无任何病虫害和机械损伤
@@ -1719,72 +1727,27 @@ class WebSocketBridgeNode(Node):
 - "严重问题"：大面积病害、腐烂或严重虫害
 - "不宜采摘"：严重病虫害或腐烂
 
-**4. 品质评分（qualityScore 0-100）**：
-综合考虑：外观完整度(25%) + 成熟度适宜性(30%) + 无缺陷程度(25%) + 大小规格(20%)
-- 90-100分：优质特级，完美外观，最佳成熟度
-- 80-89分：优质一级，轻微瑕疵，成熟度良好
-- 70-79分：良好二级，有一定缺陷但可接受
-- 60-69分：合格三级，缺陷较多但仍有商业价值
-- 0-59分：不合格，不建议采摘
+**4. 操作建议（suggestedAction）严格规则**：
+- "harvest_now"：仅当healthStatus="完全健康"且maturity>=80时使用
+- "harvest_priority"：仅当healthStatus="完全健康"且maturity>=75时使用
+- "harvest_normal"：仅当healthStatus="完全健康"或"轻微瑕疵"时使用
+- "wait_3_days"：成熟度不足或轻微问题时使用
+- "wait_week"：成熟度过低时使用
+- "inspect_closely"：有疑问或中度问题时使用
+- "reject"：严重健康问题或不可食用时必须使用
 
-**5. 等级评定（grade）**：
-- "Premium"：特级品质，完美外观，最佳成熟度
-- "Excellent"：优秀品质，极少缺陷
-- "Good"：良好品质，轻微缺陷
-- "Average"：平均品质，一般缺陷
-- "Poor"：较差品质，明显缺陷
-- "Reject"：拒收品质，严重问题
+**5. 品质评分（qualityScore）严格规则**：
+- 健康状态为"严重问题"或"不宜采摘"：最高30分
+- 健康状态为"中度缺陷"：最高60分
+- 健康状态为"轻微瑕疵"：最高85分
+- 健康状态为"完全健康"：可达90-100分
 
-**6. 大小分类（sizeCategory）**：
-根据水果直径/长度：
-- "特大"：超大规格，适合礼品包装
-- "大"：大规格，适合零售
-- "中等"：标准规格，最常见
-- "小"：小规格，适合加工
-- "偏小"：规格不足，价值较低
-
-**7. 操作建议（suggestedAction）**：
-- "harvest_now"：立即采摘，最佳时机
-- "harvest_priority"：优先采摘，成熟度极佳
-- "harvest_normal"：正常采摘，符合标准
-- "wait_3_days"：等待3天后采摘
-- "wait_week"：等待一周后采摘
-- "inspect_closely"：需要近距离检查
-- "reject"：拒绝采摘，不符合标准
-
-**8. 置信度评估（confidence）**：
-- 95-100%：图片清晰，特征明显，识别极其确定
-- 85-94%：图片良好，特征清楚，识别很确定
-- 75-84%：图片一般，特征较清楚，识别较确定
-- 60-74%：图片模糊或特征不明显，识别有一定把握
-- 0-59%：图片质量差或特征不清，识别不确定
-
-**🎯 特别关注事项**：
-1. **光照条件**：分析图片光照是否充足，是否有阴影影响判断
-2. **拍摄角度**：评估是否能看到水果完整外观
-3. **遮挡情况**：是否有叶子或其他水果遮挡
-4. **背景干扰**：是否有复杂背景影响识别
-5. **采摘紧急性**：如果是易腐水果，提高采摘优先级
-
-**📊 数值估算标准**：
-- **estimatedWeight**：根据水果大小和品种的标准重量范围估算
-- **ripeness_days**：负数表示已过最佳期，正数表示还需等待的天数
-- **marketValue**：按当前市场价格和品质等级估算价值（元/斤）
-- **storageLife**：在适宜条件下的预计储存天数
-
-**⚠️ 输出要求**：
-1. 必须严格按照JSON格式输出，不要添加任何额外文字
-2. 所有数值字段必须是纯数字，不要加引号
-3. 字符串字段用双引号包围
-4. 数组字段即使为空也要用[]表示
-5. 如果无法识别，在fruitType中说明具体原因
-
-现在请开始分析这张图片："""
+现在请开始分析这张图片，严格遵守上述逻辑规则："""
             
-            # 调用AI API进行识别 - 使用视觉模型（成本较高，只用于图片识别）
+            # 调用AI API进行识别 - 使用视觉模型
             self.get_logger().info(f'使用视觉模型进行图片识别: {self.ai_vision_model}')
             completion = self.ai_vision_client.chat.completions.create(
-                model=self.ai_vision_model,  # 使用视觉模型进行图片识别
+                model=self.ai_vision_model,
                 messages=[
                     {
                         "role": "user",
@@ -1803,7 +1766,7 @@ class WebSocketBridgeNode(Node):
                         ]
                     }
                 ],
-                max_tokens=1200,  # 增加token限制以支持更详细的分析
+                max_tokens=1200,
                 temperature=0.1   # 降低温度以获得更稳定的结果
             )
             
@@ -1828,62 +1791,15 @@ class WebSocketBridgeNode(Node):
                 # 解析JSON
                 recognition_result = json.loads(json_str)
                 
-                # 验证必需字段并设置默认值
-                required_fields = {
-                    'fruitType': '未知水果',
-                    'maturity': 50,
-                    'healthStatus': '健康',
-                    'qualityScore': 70,
-                    'grade': 'Average',
-                    'confidence': 80,
-                    'sizeCategory': '中等',
-                    'recommendation': '需要进一步检查',
-                    'suggestedAction': 'inspect_closely',
-                    'defects': [],
-                    'estimatedWeight': 150,
-                    'ripeness_days': 0,
-                    'marketValue': 3.0,
-                    'storageLife': 7
-                }
+                # 关键修复：验证和修正逻辑一致性
+                recognition_result = self.validate_and_fix_recognition_logic(recognition_result)
                 
-                for field, default_value in required_fields.items():
-                    if field not in recognition_result:
-                        recognition_result[field] = default_value
-                
-                # 数据类型验证和修正
-                if not isinstance(recognition_result.get('defects'), list):
-                    recognition_result['defects'] = []
-                
-                # 确保数值字段是数字类型
-                numeric_fields = ['maturity', 'qualityScore', 'confidence', 'estimatedWeight', 'ripeness_days', 'marketValue', 'storageLife']
-                for field in numeric_fields:
-                    if field in recognition_result:
-                        try:
-                            recognition_result[field] = float(recognition_result[field])
-                        except (ValueError, TypeError):
-                            recognition_result[field] = required_fields[field]
-                            
             except (json.JSONDecodeError, ValueError) as e:
                 self.get_logger().error(f'解析AI回复JSON失败: {e}')
-                # 创建默认识别结果
-                recognition_result = {
-                    'fruitType': '解析失败',
-                    'maturity': 50,
-                    'healthStatus': '无法确定',
-                    'qualityScore': 60,
-                    'grade': 'Average',
-                    'confidence': 0,
-                    'sizeCategory': '中等',
-                    'recommendation': 'AI识别结果解析失败，需要人工检查',
-                    'suggestedAction': 'inspect_closely',
-                    'defects': ['AI解析错误'],
-                    'estimatedWeight': 150,
-                    'ripeness_days': 0,
-                    'marketValue': 0,
-                    'storageLife': 0
-                }
+                # 创建安全的默认识别结果
+                recognition_result = self.create_safe_default_result()
             
-            # 添加识别相关的元数据
+            # 继续处理识别结果...
             current_time = time.time()
             detection_id = f"fruit_detection_{int(current_time * 1000)}"
             
@@ -1898,7 +1814,7 @@ class WebSocketBridgeNode(Node):
                 'detectionTime': time.strftime('%H:%M'),
                 'location': self.get_current_location(),
                 'actionTaken': self.get_action_from_suggestion(recognition_result.get('suggestedAction', 'inspect_closely')),
-                'thumbnailUrl': f'/temp/{filename}',  # 临时图片路径
+                'thumbnailUrl': f'/temp/{filename}',
                 'timestamp': int(current_time * 1000),
                 'confidence': recognition_result.get('confidence', 80),
                 'sizeCategory': recognition_result.get('sizeCategory', '中等'),
@@ -1909,37 +1825,16 @@ class WebSocketBridgeNode(Node):
                 'marketValue': recognition_result.get('marketValue', 0),
                 'storageLife': recognition_result.get('storageLife', 0),
                 'source_image': filename,
-                'image_base64': image_base64,  # 添加base64编码的图片数据
-                'image_data_url': data_url     # 添加完整的data URL
+                'imageBase64': image_base64,
+                'imageId': detection_id,
+                'imageFormat': 'jpg'
             }
             
-            self.get_logger().info(f'水果识别完成: {detection_data["fruitType"]}, 质量: {detection_data["qualityScore"]}/100, 成熟度: {detection_data["maturity"]}%, 市场价值: {detection_data["marketValue"]}元/斤')
+            # 最终安全检查
+            detection_data = self.final_safety_check(detection_data)
             
-            # 增强日志输出，提供更详细的识别信息
-            maturity_desc = self.get_maturity_description(detection_data["maturity"])
-            quality_desc = self.get_quality_assessment(detection_data["qualityScore"])
-            
-            self.get_logger().info(f'详细识别结果 - 水果: {detection_data["fruitType"]}, {maturity_desc}({detection_data["maturity"]}%), {quality_desc}({detection_data["qualityScore"]}分), 置信度: {detection_data["confidence"]}%, 操作建议: {detection_data["actionTaken"]}')
-            
-            if detection_data["defects"]:
-                self.get_logger().info(f'发现缺陷: {", ".join(detection_data["defects"])}')
-            
-            if detection_data["ripeness_days"] != 0:
-                if detection_data["ripeness_days"] > 0:
-                    self.get_logger().info(f'建议等待 {detection_data["ripeness_days"]} 天后采摘')
-                else:
-                    self.get_logger().warn(f'水果已过最佳采摘期 {abs(detection_data["ripeness_days"])} 天')
-            
-            # 根据识别结果自动调整采摘策略
-            if detection_data["qualityScore"] >= 85 and detection_data["maturity"] >= 80:
-                self.get_logger().info(f'🎯 发现优质水果，建议优先采摘！')
-            elif detection_data["qualityScore"] < 60:
-                self.get_logger().warn(f'⚠️ 水果品质较差，建议跳过')
-            
-            # 市场价值评估日志
-            if detection_data["marketValue"] > 0:
-                estimated_value = detection_data["estimatedWeight"] * detection_data["marketValue"] / 500  # 转换为单个水果价值
-                self.get_logger().info(f'💰 预估单果价值: {estimated_value:.2f}元, 储存期: {detection_data["storageLife"]}天')
+            # 详细日志记录
+            self.log_detection_result(detection_data)
             
             # 发布识别结果到ROS2话题
             result_msg = String()
@@ -1959,6 +1854,138 @@ class WebSocketBridgeNode(Node):
         except Exception as e:
             self.get_logger().error(f'水果识别处理出错: {e}')
             self.get_logger().error(f'详细错误: {traceback.format_exc()}')
+
+    def validate_and_fix_recognition_logic(self, result):
+        """验证和修正识别结果的逻辑一致性"""
+        
+        # 获取关键字段
+        health_status = result.get('healthStatus', '健康')
+        maturity = float(result.get('maturity', 50))
+        quality_score = float(result.get('qualityScore', 70))
+        suggested_action = result.get('suggestedAction', 'inspect_closely')
+        
+        self.get_logger().info(f'逻辑验证 - 健康状态: {health_status}, 成熟度: {maturity}%, 品质: {quality_score}分, 建议: {suggested_action}')
+        
+        # 检查健康状态关键词
+        health_lower = health_status.lower()
+        has_serious_problem = any(keyword in health_lower for keyword in [
+            '严重', '腐烂', '病害', '虫蛀', '霉变', '不宜', '拒绝', 'serious', 'severe', 'rotten', 'diseased'
+        ])
+        
+        has_moderate_problem = any(keyword in health_lower for keyword in [
+            '中度', '缺陷', '斑点', '虫眼', 'moderate', 'defect'
+        ])
+        
+        is_healthy = any(keyword in health_lower for keyword in [
+            '完全健康', '健康', '良好', 'healthy', 'excellent', 'good'
+        ])
+        
+        # 逻辑修正规则
+        if has_serious_problem:
+            # 严重问题：强制拒绝采摘
+            result['suggestedAction'] = 'reject'
+            result['recommendation'] = f'发现严重健康问题：{health_status}，不建议采摘，避免影响其他健康水果'
+            result['qualityScore'] = min(30, quality_score)  # 最高30分
+            result['marketValue'] = 0  # 无市场价值
+            result['actionTaken'] = '拒绝采摘'
+            self.get_logger().warn(f'逻辑修正：严重健康问题，强制设置为拒绝采摘')
+            
+        elif has_moderate_problem:
+            # 中度问题：需要检查或等待
+            if suggested_action in ['harvest_now', 'harvest_priority']:
+                result['suggestedAction'] = 'inspect_closely'
+                result['recommendation'] = f'发现中度健康问题：{health_status}，建议仔细检查后再决定是否采摘'
+            result['qualityScore'] = min(60, quality_score)  # 最高60分
+            result['marketValue'] = result.get('marketValue', 0) * 0.5  # 价值减半
+            self.get_logger().info(f'逻辑修正：中度健康问题，调整建议为检查')
+            
+        elif is_healthy:
+            # 健康状态：根据成熟度决定
+            if maturity < 40:
+                result['suggestedAction'] = 'wait_week'
+                result['recommendation'] = f'水果健康但成熟度过低（{maturity}%），建议等待一周后再检查'
+            elif maturity < 60:
+                result['suggestedAction'] = 'wait_3_days'
+                result['recommendation'] = f'水果健康但成熟度偏低（{maturity}%），建议等待3天后采摘'
+            elif maturity >= 80:
+                if suggested_action not in ['harvest_now', 'harvest_priority', 'harvest_normal']:
+                    result['suggestedAction'] = 'harvest_now'
+                    result['recommendation'] = f'水果健康且成熟度达到{maturity}%，建议立即采摘以获得最佳品质'
+            self.get_logger().info(f'逻辑修正：健康水果，根据成熟度{maturity}%调整建议')
+        
+        # 成熟度过高的处理
+        if maturity > 95:
+            if is_healthy:
+                result['suggestedAction'] = 'harvest_priority'
+                result['recommendation'] = f'水果健康但已过熟（{maturity}%），建议优先采摘避免继续过熟'
+            else:
+                result['suggestedAction'] = 'reject'
+                result['recommendation'] = f'水果过熟且有健康问题，不建议采摘'
+        
+        # 置信度过低的处理
+        confidence = float(result.get('confidence', 80))
+        if confidence < 60:
+            if result['suggestedAction'] in ['harvest_now', 'harvest_priority']:
+                result['suggestedAction'] = 'inspect_closely'
+                result['recommendation'] = f'识别置信度较低（{confidence}%），建议人工检查确认'
+            self.get_logger().warn(f'逻辑修正：置信度过低（{confidence}%），调整为检查')
+        
+        return result
+
+    def create_safe_default_result(self):
+        """创建安全的默认识别结果"""
+        return {
+            'fruitType': '识别失败',
+            'maturity': 50,
+            'healthStatus': '无法确定',
+            'qualityScore': 30,
+            'grade': 'Poor',
+            'confidence': 0,
+            'sizeCategory': '中等',
+            'recommendation': 'AI识别失败，强烈建议人工检查确认水果状态',
+            'suggestedAction': 'inspect_closely',
+            'defects': ['AI识别失败'],
+            'estimatedWeight': 150,
+            'ripeness_days': 0,
+            'marketValue': 0,
+            'storageLife': 0
+        }
+
+    def final_safety_check(self, detection_data):
+        """最终安全检查"""
+        # 检查动作与健康状态的一致性
+        action = detection_data.get('actionTaken', '')
+        health = detection_data.get('healthStatus', '')
+        
+        # 如果健康状态有问题但动作是采摘，强制修正
+        if '严重' in health and '采摘' in action:
+            detection_data['actionTaken'] = '拒绝采摘'
+            detection_data['recommendation'] = f'发现严重健康问题，已自动调整为拒绝采摘'
+            self.get_logger().warn(f'最终安全检查：发现逻辑错误，已强制修正')
+        
+        return detection_data
+
+    def log_detection_result(self, detection_data):
+        """详细记录识别结果"""
+        self.get_logger().info(f'=== 水果识别结果详情 ===')
+        self.get_logger().info(f'水果类型: {detection_data["fruitType"]}')
+        self.get_logger().info(f'成熟度: {detection_data["maturity"]}%')
+        self.get_logger().info(f'健康状况: {detection_data["healthStatus"]}')
+        self.get_logger().info(f'品质评分: {detection_data["qualityScore"]}/100')
+        self.get_logger().info(f'操作建议: {detection_data["actionTaken"]}')
+        self.get_logger().info(f'AI建议: {detection_data["recommendation"]}')
+        self.get_logger().info(f'置信度: {detection_data["confidence"]}%')
+        
+        if detection_data["defects"]:
+            self.get_logger().warn(f'发现缺陷: {", ".join(detection_data["defects"])}')
+        
+        # 安全性检查日志
+        if '严重' in detection_data["healthStatus"] and '采摘' in detection_data["actionTaken"]:
+            self.get_logger().error(f'⚠️ 安全警告：健康状态严重但建议采摘，这是逻辑错误！')
+        elif '严重' in detection_data["healthStatus"] and '拒绝' in detection_data["actionTaken"]:
+            self.get_logger().info(f'✅ 安全确认：严重健康问题已正确标记为拒绝采摘')
+        
+        self.get_logger().info(f'=== 识别结果记录完成 ===')
     
     def get_current_location(self):
         """获取当前位置描述"""
