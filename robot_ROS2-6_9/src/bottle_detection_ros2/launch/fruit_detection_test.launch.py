@@ -16,7 +16,7 @@ def generate_launch_description():
     # 声明launch参数
     image_folder_arg = DeclareLaunchArgument(
         'image_folder_path',
-        default_value='/home/robot/fruit_images',
+        default_value='/home/elf/桌面/1',
         description='水果图片文件夹路径'
     )
     
@@ -28,7 +28,7 @@ def generate_launch_description():
     
     loop_images_arg = DeclareLaunchArgument(
         'loop_images',
-        default_value='true',
+        default_value='false',
         description='是否循环发布图片'
     )
     
