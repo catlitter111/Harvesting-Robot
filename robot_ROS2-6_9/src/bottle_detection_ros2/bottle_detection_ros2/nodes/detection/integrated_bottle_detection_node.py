@@ -545,13 +545,23 @@ class IntegratedBottleDetectionNode(Node):
                                 min_distance = filtered_distance
                                 nearest_bottle = detection_dict
                         else:
-                            # 距离超出范围但有值
+                            # 距离超出范围但有值 - 仍然添加到有效检测中，让控制器决定如何处理
                             detection_dict['distance'] = float(distance)
-                            detection_dict['valid_distance'] = False
                             if distance < self.min_distance:
+                                detection_dict['valid_distance'] = False
                                 detection_dict['status'] = 'too_close'
                             else:
-                                detection_dict['status'] = 'too_far'
+                                # 远距离目标：虽然超出正常范围，但仍然视为可控制的目标
+                                detection_dict['valid_distance'] = True  # 改为True，让控制器处理
+                                detection_dict['status'] = 'far_target'
+                                
+                                # 添加到有效检测列表，让控制器能收到信息
+                                valid_detections.append(detection_dict)
+                                
+                                # 更新最近瓶子（如果没有更近的）
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    nearest_bottle = detection_dict
                     else:
                         # 距离无效（无法计算）
                         detection_dict['valid_distance'] = False

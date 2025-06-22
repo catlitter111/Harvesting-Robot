@@ -94,8 +94,8 @@ def generate_launch_description():
             'thread_num': 3,
             'publish_rate': 30.0,
             'min_distance': 0.2,
-            'max_distance': 5.0,
-            'confidence_threshold': 0.1,
+            'max_distance': 15.0,  # 增加最大检测距离到15米
+            'confidence_threshold': 0.05,  # 降低置信度阈值，检测更多目标
             'enable_servo_tracking': True,
         }]
     )

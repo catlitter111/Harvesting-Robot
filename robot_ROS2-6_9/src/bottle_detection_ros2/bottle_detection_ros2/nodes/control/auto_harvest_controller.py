@@ -15,10 +15,11 @@ import time
 import threading
 
 # 距离阈值（米）
-DISTANCE_FAR = 0.6      # 远距离阈值，超过此距离使用电机调整方向
-DISTANCE_NEAR = 0.5    # 近距离阈值，低于此距离使用舵机调整方向
-DISTANCE_HARVEST = 0.35 # 采摘距离阈值，低于此距离开始采摘
-DISTANCE_STOP = 0.5    # 停止距离
+DISTANCE_VERY_FAR = 2.0   # 超远距离阈值，超过此距离只进行大角度调整
+DISTANCE_FAR = 1.0        # 远距离阈值，超过此距离使用电机调整方向
+DISTANCE_NEAR = 0.5       # 近距离阈值，低于此距离使用舵机调整方向
+DISTANCE_HARVEST = 0.35   # 采摘距离阈值，低于此距离开始采摘
+DISTANCE_STOP = 0.5       # 停止距离
 
 # 图像中心死区（像素）
 CENTER_DEADZONE = 80
@@ -28,7 +29,13 @@ MODE_MANUAL = "manual"
 MODE_AUTO = "auto"
 
 # 最大可能距离
-MAX_POSSIBLE_DISTANCE = 10.0  # 米
+MAX_POSSIBLE_DISTANCE = 15.0  # 米，与检测器保持一致
+
+# 默认速度参数（优化后）
+DEFAULT_APPROACH_SPEED = 60.0  # 提高默认接近速度
+DEFAULT_TURN_SPEED = 50.0      # 提高默认转向速度
+DEFAULT_FINE_APPROACH_SPEED = 30.0  # 提高精细接近速度
+DEFAULT_FINE_TURN_SPEED = 40.0      # 提高精细转向速度
 
 
 class AutoHarvestController(Node):
@@ -37,13 +44,13 @@ class AutoHarvestController(Node):
     def __init__(self):
         super().__init__('auto_harvest_controller')
         
-        # 声明参数 - 确保所有参数都是浮点数
+        # 声明参数 - 确保所有参数都是浮点数（优化默认值）
         self.declare_parameter('control_rate', 10.0)  # Hz
         self.declare_parameter('search_timeout', 5.0)  # 秒
-        self.declare_parameter('approach_speed', 30.0)  # 百分比 (0-100)
-        self.declare_parameter('turn_speed', 20.0)  # 百分比 (0-100)
-        self.declare_parameter('fine_approach_speed', 10.0)  # 百分比 (0-100)
-        self.declare_parameter('fine_turn_speed', 15.0)  # 百分比 (0-100)
+        self.declare_parameter('approach_speed', DEFAULT_APPROACH_SPEED)  # 百分比 (0-100)
+        self.declare_parameter('turn_speed', DEFAULT_TURN_SPEED)  # 百分比 (0-100)
+        self.declare_parameter('fine_approach_speed', DEFAULT_FINE_APPROACH_SPEED)  # 百分比 (0-100)
+        self.declare_parameter('fine_turn_speed', DEFAULT_FINE_TURN_SPEED)  # 百分比 (0-100)
         
         # 获取参数
         self.control_rate = self.get_parameter('control_rate').value
@@ -120,8 +127,8 @@ class AutoHarvestController(Node):
             10
         )
         
-        # 创建发布者
-        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel_raw', 10)  # 发布到原始话题，由避障控制器处理
+        # 创建发布者 - 直接发布到cmd_vel话题（修复自动控制不动问题）
+        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)  # 直接发布到cmd_vel，与手动控制一致
         self.harvest_cmd_pub = self.create_publisher(HarvestCommand, 'robot/harvest_command', 10)
         self.servo_cmd_pub = self.create_publisher(ServoCommand, 'servo/command', 10)
         self.tracking_pub = self.create_publisher(Point, 'servo/tracking_target', 10)
@@ -275,9 +282,13 @@ class AutoHarvestController(Node):
         )
         
         # 根据距离选择控制策略
-        if self.nearest_distance > DISTANCE_FAR:
+        if self.nearest_distance > DISTANCE_VERY_FAR:
+            # 超远距离：快速接近，大角度调整
+            self.get_logger().info(f'距离状态: 超远距离 (>{DISTANCE_VERY_FAR}m)')
+            self.approach_very_far(offset_x)
+        elif self.nearest_distance > DISTANCE_FAR:
             # 远距离：使用电机移动
-            self.get_logger().info(f'距离状态: 远距离 (>{DISTANCE_FAR}m)')
+            self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
             self.approach_far(offset_x)
         elif self.nearest_distance > DISTANCE_NEAR:
             # 中等距离：精细控制
@@ -292,6 +303,38 @@ class AutoHarvestController(Node):
             self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
             self.stop_and_harvest(offset_x)
     
+    def approach_very_far(self, offset_x):
+        """超远距离接近策略"""
+        twist = Twist()
+        
+        # 超远距离时，放宽居中要求，使用更大的死区
+        large_deadzone = CENTER_DEADZONE * 3
+        
+        if abs(offset_x) > large_deadzone:
+            # 需要大角度调整
+            if offset_x > 0:
+                # 瓶子在左边，向左转
+                twist.angular.z = 0.8  # rad/s，更快的转向速度
+                self.current_direction = 0x02  # DIR_LEFT
+                self.get_logger().info(f'超远距离：瓶子在左侧，快速向左转（偏移:{offset_x}px）')
+            else:
+                # 瓶子在右边，向右转
+                twist.angular.z = -0.8  # rad/s
+                self.current_direction = 0x03  # DIR_RIGHT
+                self.get_logger().info(f'超远距离：瓶子在右侧，快速向右转（偏移:{offset_x}px）')
+            
+            # 应用转向速度百分比
+            twist.angular.z = twist.angular.z * self.turn_speed / 100.0
+        else:
+            # 瓶子大致居中，快速前进
+            base_speed = 0.6  # m/s，基础速度提高
+            # 应用接近速度百分比
+            twist.linear.x = base_speed * self.approach_speed / 100.0
+            self.current_direction = 0x00  # DIR_FORWARD
+            self.get_logger().info(f'超远距离：瓶子居中，快速前进，速度={twist.linear.x:.2f}m/s（{self.approach_speed}%）')
+        
+        self.cmd_vel_pub.publish(twist)
+
     def approach_far(self, offset_x):
         """远距离接近策略"""
         twist = Twist()
@@ -313,11 +356,11 @@ class AutoHarvestController(Node):
             twist.angular.z = twist.angular.z * self.turn_speed / 100.0
         else:
             # 瓶子基本居中，前进
-            twist.linear.x = 0.3  # m/s
+            base_speed = 0.4  # m/s，基础速度提高
             # 应用接近速度百分比
-            twist.linear.x = twist.linear.x * self.approach_speed / 100.0
+            twist.linear.x = base_speed * self.approach_speed / 100.0
             self.current_direction = 0x00  # DIR_FORWARD
-            self.get_logger().info(f'远距离：瓶子居中，前进，速度={twist.linear.x:.2f}m/s')
+            self.get_logger().info(f'远距离：瓶子居中，前进，速度={twist.linear.x:.2f}m/s（{self.approach_speed}%）')
         
         self.cmd_vel_pub.publish(twist)
     
@@ -339,11 +382,11 @@ class AutoHarvestController(Node):
             # 应用精细转向速度百分比
             twist.angular.z = twist.angular.z * self.fine_turn_speed / 100.0
         else:
-            twist.linear.x = 0.1  # m/s
+            base_speed = 0.15  # m/s，基础速度提高
             # 应用精细接近速度百分比
-            twist.linear.x = twist.linear.x * self.fine_approach_speed / 100.0
+            twist.linear.x = base_speed * self.fine_approach_speed / 100.0
             self.current_direction = 0x00  # DIR_FORWARD
-            self.get_logger().info(f'中等距离：瓶子居中，缓慢前进，速度={twist.linear.x:.2f}m/s')
+            self.get_logger().info(f'中等距离：瓶子居中，缓慢前进，速度={twist.linear.x:.2f}m/s（{self.fine_approach_speed}%）')
         
         self.cmd_vel_pub.publish(twist)
     
