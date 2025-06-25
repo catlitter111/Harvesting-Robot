@@ -1,0 +1,85 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ROS2开发工作流程指南
+
+## 开发环境设置
+
+### 工作空间结构
+ROS2工作空间位于 [robot_ROS2-6_9/](mdc:robot_ROS2-6_9)，包含以下关键目录：
+- `src/` - 源代码包
+- `install/` - 安装的包
+- `build/` - 构建文件
+- `log/` - 构建和运行日志
+
+### 构建和测试工作流程
+```bash
+# 在工作空间根目录执行
+cd robot_ROS2-6_9/
+colcon build --packages-select bottle_detection_ros2
+source install/setup.bash
+```
+
+## 主要ROS2包
+
+### bottle_detection_ros2
+主要功能包，位于 [src/bottle_detection_ros2/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2)
+
+#### 核心模块
+- **视觉检测**: [vision/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/vision) - 瓶子检测算法
+- **硬件抽象**: [core/hardware/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/hardware) - 激光避障等硬件接口
+- **处理核心**: [core/processing/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/processing) - RKNN推理池
+- **GUI工具**: [gui/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/gui) - 调试可视化界面
+
+#### 节点架构
+- **检测节点**:
+  - [bottle_detection_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/detection/bottle_detection_node.py)
+  - [bottle_detection_node_async.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/detection/bottle_detection_node_async.py)
+
+- **控制节点**:
+  - [robot_control_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/robot_control_node.py)
+  - [auto_harvest_controller.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/auto_harvest_controller.py)
+  - [servo_control_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/servo_control_node.py)
+
+- **通信节点**:
+  - [websocket_bridge_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/communication/websocket_bridge_node.py)
+
+- **导航节点**:
+  - [slam_mapping_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/navigation/slam_mapping_node.py)
+
+### bottle_detection_msgs
+自定义消息类型包，位于 [src/bottle_detection_msgs/](mdc:robot_ROS2-6_9/src/bottle_detection_msgs)
+
+#### 关键消息类型
+- [BottleDetection.msg](mdc:robot_ROS2-6_9/src/bottle_detection_msgs/msg/BottleDetection.msg) - 瓶子检测结果
+- [RobotCommand.msg](mdc:robot_ROS2-6_9/src/bottle_detection_msgs/msg/RobotCommand.msg) - 机器人控制命令
+- [HarvestCommand.msg](mdc:robot_ROS2-6_9/src/bottle_detection_msgs/msg/HarvestCommand.msg) - 采收控制命令
+
+## 配置文件
+
+### 参数配置
+- [camera_params.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/camera_params.yaml) - 相机参数
+- [high_performance.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/high_performance.yaml) - 高性能配置
+- [laser_avoidance_params.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/laser_avoidance_params.yaml) - 激光避障参数
+- [qos_profiles.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/qos_profiles.py) - QoS配置
+
+### 启动文件
+- [agrisage_with_lidar.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/agrisage_with_lidar.launch.py) - 主系统启动
+- [bottle_detection_async.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/bottle_detection_async.launch.py) - 异步检测启动
+- [slam_mapping.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/slam_mapping.launch.py) - SLAM映射启动
+
+## 调试和测试
+
+### 测试脚本
+- [test_auto_control_fix.py](mdc:robot_ROS2-6_9/scripts/test_auto_control_fix.py) - 自动控制测试
+- [debug_auto_mode.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/scripts/debug_auto_mode.py) - 自动模式调试
+
+### 启动脚本
+- [start_agrisage_with_lidar.sh](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/scripts/start_agrisage_with_lidar.sh) - 系统启动脚本
+- [start_slam_mapping.sh](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/scripts/start_slam_mapping.sh) - SLAM启动脚本
+
+## AI/ML模型
+- [yolo11n.rknn](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/data/yolo11n.rknn) - YOLO11 RKNN模型
+- [bottle_rknn_pool.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/processing/bottle_rknn_pool.py) - RKNN推理池管理

@@ -1629,11 +1629,11 @@ class WebSocketBridgeNode(Node):
             self.ws.send(json.dumps(status_data))
             
             # 记录日志
-            self.get_logger().info(
-                f'状态更新 - 今日采摘: {self.statistics_data["today_harvested"]}, '
-                f'作业面积: {self.statistics_data["working_area"]:.2f}亩, '
-                f'工作时长: {today_working_hours:.2f}小时'
-            )
+            # self.get_logger().info(
+            #     f'状态更新 - 今日采摘: {self.statistics_data["today_harvested"]}, '
+            #     f'作业面积: {self.statistics_data["working_area"]:.2f}亩, '
+            #     f'工作时长: {today_working_hours:.2f}小时'
+            # )
             
         except Exception as e:
             self.get_logger().error(f'发送状态失败: {e}')

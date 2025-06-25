@@ -1,0 +1,134 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# 故障排除与调试指南
+
+## 系统集成问题
+
+### 激光雷达集成
+参考文档：[LIDAR_INTEGRATION_README.md](mdc:robot_ROS2-6_9/LIDAR_INTEGRATION_README.md)
+- 激光雷达数据不稳定
+- 避障算法参数调整
+- 传感器数据融合问题
+
+### SLAM映射问题
+参考文档：[SLAM_MAPPING_README.md](mdc:robot_ROS2-6_9/SLAM_MAPPING_README.md)
+- 地图构建失败
+- 定位精度问题
+- 回环检测异常
+
+### 自动模式修复
+参考文档：[AUTO_MODE_FIX_README.md](mdc:robot_ROS2-6_9/AUTO_MODE_FIX_README.md)
+- 自动采收逻辑异常
+- 路径规划问题
+- 控制命令执行失败
+
+## 调试工具和脚本
+
+### 系统调试
+- [debug_auto_mode.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/scripts/debug_auto_mode.py) - 自动模式调试脚本
+- [test_auto_control_fix.py](mdc:robot_ROS2-6_9/scripts/test_auto_control_fix.py) - 自动控制修复测试
+
+### PID调试
+- [pid_test_tool.py](mdc:stm32/mytest_ABlun_/pid_test_tool.py) - PID参数调试工具
+- [PID_TEST_README.md](mdc:stm32/mytest_ABlun_/PID_TEST_README.md) - PID测试指南
+
+### 视觉系统调试
+- [debug_visualizer_gui.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/gui/debug_visualizer_gui.py) - 可视化调试界面
+
+## 常见错误解决
+
+### ROS2构建错误
+```bash
+# 清理构建缓存
+cd robot_ROS2-6_9/
+rm -rf build/ install/ log/
+colcon build --packages-select bottle_detection_ros2
+```
+
+### 依赖问题
+检查以下包配置文件：
+- [package.xml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/package.xml) - ROS2包依赖
+- [setup.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/setup.py) - Python包设置
+
+### 权限和实时性问题
+- [set_realtime_priority.sh](mdc:robot_ROS2-6_9/scripts/set_realtime_priority.sh) - 设置实时优先级
+
+## 硬件调试
+
+### STM32固件调试
+- [encoder_520_example.c](mdc:stm32/mytest_ABlun_/hardware/encoder_520_example.c) - 编码器测试示例
+- [ENCODER_520_INTEGRATION_GUIDE.md](mdc:stm32/mytest_ABlun_/ENCODER_520_INTEGRATION_GUIDE.md) - 编码器集成指南
+
+### 通信调试
+- [uart.py](mdc:robot/uart.py) - UART通信调试
+- [websocket_bridge_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/communication/websocket_bridge_node.py) - WebSocket通信调试
+
+### 上位机连接问题
+- [server.py](mdc:上位机与服务端/server.py) - 服务端调试
+- [test_disconnection.py](mdc:上位机与服务端/test_disconnection.py) - 连接断开测试
+
+## 性能优化问题
+
+### 推理性能
+- [high_performance.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/high_performance.yaml) - 高性能配置
+- [bottle_rknn_pool.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/processing/bottle_rknn_pool.py) - RKNN推理池优化
+
+### 内存和CPU使用
+- 监控推理池的内存使用
+- 检查异步处理的线程管理
+- 优化图像缓冲区大小
+
+## 微信小程序问题
+
+### 数据显示问题
+- [水果识别数据修复验证指南.md](mdc:微信小程序/水果识别数据修复验证指南.md) - 数据修复验证
+- [recommendation字段显示问题修复说明.md](mdc:微信小程序/recommendation字段显示问题修复说明.md) - 推荐字段显示修复
+
+### 图片传输问题
+- [图片传输功能实现指南.md](mdc:微信小程序/图片传输功能实现指南.md) - 图片传输故障排除
+- [服务端图片传输方案.md](mdc:微信小程序/服务端图片传输方案.md) - 服务端传输方案
+
+### 测试数据清理
+- [测试数据清除指南.md](mdc:微信小程序/测试数据清除指南.md) - 清理测试数据
+
+## 日志分析
+
+### ROS2日志
+检查以下日志目录：
+- `robot_ROS2-6_9/log/` - ROS2系统日志
+- 使用 `ros2 log` 命令查看实时日志
+
+### 系统监控
+```bash
+# 检查节点状态
+ros2 node list
+ros2 topic list
+ros2 service list
+
+# 监控资源使用
+htop
+ros2 doctor
+```
+
+## 快速修复检查清单
+
+### 系统启动检查
+1. **环境变量**: 确保 `source install/setup.bash` 已执行
+2. **依赖检查**: 验证所有ROS2包依赖已安装
+3. **硬件连接**: 检查相机、激光雷达、STM32连接
+4. **权限设置**: 确保串口和设备权限正确
+
+### 运行时检查
+1. **进程状态**: 检查所有节点是否正常运行
+2. **话题通信**: 验证消息发布和订阅正常
+3. **参数加载**: 确认配置参数正确加载
+4. **资源使用**: 监控CPU和内存使用情况
+
+### 性能检查
+1. **推理速度**: 检查AI推理帧率
+2. **通信延迟**: 监控消息传输延迟
+3. **硬件响应**: 验证控制命令执行速度
+4. **系统稳定性**: 长时间运行稳定性测试

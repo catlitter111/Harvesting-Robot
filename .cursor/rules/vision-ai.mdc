@@ -1,0 +1,123 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# 视觉AI与机器学习系统指南
+
+## 计算机视觉架构
+
+### 核心检测模块
+
+#### 基础检测系统 (`robot/`)
+- [bottle_detector.py](mdc:robot/bottle_detector.py) - 基础瓶子检测算法
+- [stereo_camera.py](mdc:robot/stereo_camera.py) - 双目立体视觉
+- [camera_SGBM.py](mdc:robot/camera_SGBM.py) - SGBM立体匹配算法
+
+#### ROS2视觉系统
+ROS2集成的高级视觉处理模块：
+- [vision/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/vision/) - 视觉处理核心
+
+##### 检测器实现
+- [bottle_detector.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/vision/bottle_detector.py) - 同步检测器
+- [bottle_detector_async.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/vision/bottle_detector_async.py) - 异步检测器
+
+## AI推理系统
+
+### RKNN推理引擎
+基于瑞芯微RKNN的高效推理系统：
+- [bottle_rknn_pool.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/processing/bottle_rknn_pool.py) - RKNN推理池管理
+
+### 模型文件
+- [yolo11n.rknn](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/data/yolo11n.rknn) - YOLO11 RKNN优化模型
+- [yolo11n.rknn](mdc:robot/data/yolo11n.rknn) - 基础版本模型
+- [yolo11n.rknn](mdc:机器臂/yolo11n.rknn) - 机器臂版本模型
+
+## 检测节点系统
+
+### 主要检测节点
+- [bottle_detection_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/detection/bottle_detection_node.py) - 同步检测节点
+- [bottle_detection_node_async.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/detection/bottle_detection_node_async.py) - 异步检测节点
+
+### 测试节点
+- [fruit_image_publisher_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/testing/fruit_image_publisher_node.py) - 水果图像发布测试节点
+
+## 消息类型定义
+
+### 检测结果消息
+- [BottleDetection.msg](mdc:robot_ROS2-6_9/src/bottle_detection_msgs/msg/BottleDetection.msg) - 瓶子检测结果数据结构
+
+### 相关消息类型
+- [RobotCommand.msg](mdc:robot_ROS2-6_9/src/bottle_detection_msgs/msg/RobotCommand.msg) - 机器人控制命令
+- [HarvestCommand.msg](mdc:robot_ROS2-6_9/src/bottle_detection_msgs/msg/HarvestCommand.msg) - 采收控制命令
+
+## 配置和参数
+
+### 相机配置
+- [camera_params.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/camera_params.yaml) - 相机标定参数
+- [camera_configs.py](mdc:robot/camera_configs.py) - 相机配置脚本
+
+### 性能配置
+- [high_performance.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/high_performance.yaml) - 高性能推理配置
+
+### QoS配置
+- [qos_profiles.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/qos_profiles.py) - 服务质量配置
+
+## 启动配置
+
+### 检测系统启动
+- [bottle_detection.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/bottle_detection.launch.py) - 基础检测启动
+- [bottle_detection_async.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/bottle_detection_async.launch.py) - 异步检测启动
+
+### 集成系统启动
+- [agrisage_with_lidar.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/agrisage_with_lidar.launch.py) - 完整系统启动（包含视觉）
+
+## 调试和可视化
+
+### 可视化工具
+- [debug_visualizer_gui.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/gui/debug_visualizer_gui.py) - 调试可视化界面
+
+### 测试脚本
+- [bottle_detector_test.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/test/bottle_detector_test.py) - 检测器测试
+- [bottle_detector_async.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/test/bottle_detector_async.py) - 异步检测器测试
+
+## 数据管理
+
+### 结果数据
+- [out.xls](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/data/out.xls) - 检测结果数据
+- [out.xls](mdc:robot/data/out.xls) - 基础版本数据
+- [out.xls](mdc:机器臂/out.xls) - 机器臂数据
+
+## AI优化文档
+
+### 系统优化指南
+- [README_AI_OPTIMIZATION.md](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/README_AI_OPTIMIZATION.md) - AI系统优化指南
+- [AI识别系统优化总结.md](mdc:AI识别系统优化总结.md) - 识别系统优化总结
+
+## 微信小程序集成
+
+### AI识别功能
+微信小程序端的AI识别相关文档：
+- [AI识别逻辑改进说明.md](mdc:微信小程序/AI识别逻辑改进说明.md) - AI逻辑改进说明
+- [成熟度分析逻辑错误修复说明.md](mdc:微信小程序/成熟度分析逻辑错误修复说明.md) - 成熟度分析修复
+
+### 图像处理
+- [图片传输功能实现指南.md](mdc:微信小程序/图片传输功能实现指南.md) - 图片传输指南
+- [图片显示问题修复指南.md](mdc:微信小程序/图片显示问题修复指南.md) - 图片显示修复
+
+## 性能优化要点
+
+### 推理优化
+1. **RKNN推理池**: 使用多线程推理池提高并发性能
+2. **异步处理**: 采用异步检测节点减少延迟
+3. **内存管理**: 优化图像缓冲区和模型加载
+
+### 实时性保证
+1. **QoS配置**: 配置合适的服务质量参数
+2. **优先级设置**: 使用实时优先级脚本
+3. **硬件加速**: 利用RKNN硬件加速推理
+
+### 准确性提升
+1. **模型优化**: 使用YOLO11n优化模型
+2. **参数调优**: 调整检测阈值和NMS参数
+3. **多帧融合**: 结合多帧结果提高稳定性

@@ -1,0 +1,106 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 硬件集成与STM32开发指南
+
+## STM32固件架构
+
+### 主要目录结构
+STM32项目位于 [stm32/mytest_ABlun_/](mdc:stm32/mytest_ABlun_)
+
+#### 核心文件
+- [Core/Src/main.c](mdc:stm32/mytest_ABlun_/Core/Src/main.c) - 主程序入口
+- [Core/Inc/main.h](mdc:stm32/mytest_ABlun_/Core/Inc/main.h) - 主头文件
+
+#### 硬件抽象层 (`hardware/`)
+关键的硬件控制模块：
+
+##### 机器人控制
+- [robot_control.c](mdc:stm32/mytest_ABlun_/hardware/robot_control.c) - 机器人核心控制逻辑
+- [robot_control.h](mdc:stm32/mytest_ABlun_/hardware/robot_control.h) - 控制接口定义
+
+##### 电机控制
+- [motor.c](mdc:stm32/mytest_ABlun_/hardware/motor.c) - 电机驱动
+- [motor.h](mdc:stm32/mytest_ABlun_/hardware/motor.h) - 电机接口
+- [pid_motor.c](mdc:stm32/mytest_ABlun_/hardware/pid_motor.c) - PID电机控制
+
+##### 编码器
+- [encoder.c](mdc:stm32/mytest_ABlun_/hardware/encoder.c) - 编码器读取
+- [encoder.h](mdc:stm32/mytest_ABlun_/hardware/encoder.h) - 编码器接口
+- [encoder_520.c](mdc:stm32/mytest_ABlun_/hardware/encoder_520.c) - 520编码器专用驱动
+
+##### PID控制
+- [pid_test.c](mdc:stm32/mytest_ABlun_/hardware/pid_test.c) - PID测试和调试
+- [Components/pid/pid.c](mdc:stm32/mytest_ABlun_/Components/pid/pid.c) - PID算法实现
+
+#### 通信模块
+- [uart_app.c](mdc:stm32/mytest_ABlun_/applications/uart_app.c) - UART通信应用
+- [gps_app.c](mdc:stm32/mytest_ABlun_/applications/gps_app.c) - GPS应用
+- [ringbuffer.c](mdc:stm32/mytest_ABlun_/applications/ringbuffer.c) - 环形缓冲区
+
+## 硬件配置和参数
+
+### 关键配置文件
+- [config.h](mdc:stm32/mytest_ABlun_/hardware/config.h) - 硬件配置参数
+- [encoder_520_config.h](mdc:stm32/mytest_ABlun_/hardware/encoder_520_config.h) - 520编码器配置
+- [bsp_system.h](mdc:stm32/mytest_ABlun_/hardware/bsp_system.h) - 系统级配置
+
+### 调度器
+- [scheduler.c](mdc:stm32/mytest_ABlun_/hardware/scheduler.c) - 任务调度器
+- [scheduler.h](mdc:stm32/mytest_ABlun_/hardware/scheduler.h) - 调度器接口
+
+## ROS2与硬件接口
+
+### 机器人控制节点
+ROS2侧的硬件控制接口：
+- [robot_control_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/robot_control_node.py) - 主控制节点
+- [servo_control_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/servo_control_node.py) - 舵机控制节点
+
+### 传感器集成
+- [laser_obstacle_avoidance.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/core/hardware/laser_obstacle_avoidance.py) - 激光雷达避障
+
+### 通信桥接
+- [websocket_bridge_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/communication/websocket_bridge_node.py) - WebSocket通信桥接
+
+## 上位机控制
+
+### 基础机器人控制 (`robot/`)
+- [motor_servo_control.py](mdc:robot/motor_servo_control.py) - 电机舵机控制
+- [servo_controller.py](mdc:robot/servo_controller.py) - 舵机控制器
+- [uart.py](mdc:robot/uart.py) - UART通信接口
+
+### 机器臂控制 (`机器臂/`)
+- [跟随.py](mdc:机器臂/跟随.py) - 机器臂跟随控制
+- [read.py](mdc:机器臂/read.py) - 数据读取
+- [config.yaml](mdc:机器臂/config.yaml) - 机器臂配置
+
+## 开发工具和测试
+
+### STM32开发工具
+- [pid_test_tool.py](mdc:stm32/mytest_ABlun_/pid_test_tool.py) - PID调试工具
+- [MDK-ARM/](mdc:stm32/mytest_ABlun_/MDK-ARM) - Keil MDK项目文件
+
+### 测试和调试
+- **PID测试**: [PID_TEST_README.md](mdc:stm32/mytest_ABlun_/PID_TEST_README.md)
+- **编码器集成**: [ENCODER_520_INTEGRATION_GUIDE.md](mdc:stm32/mytest_ABlun_/ENCODER_520_INTEGRATION_GUIDE.md)
+- **快速入门**: [QUICK_START_520.md](mdc:stm32/mytest_ABlun_/QUICK_START_520.md)
+
+### 上位机服务
+- [server.py](mdc:上位机与服务端/server.py) - 主服务端
+- [client.py](mdc:上位机与服务端/client.py) - 客户端接口
+- [PID.py](mdc:上位机与服务端/PID.py) - PID控制实现
+
+## 硬件参数配置
+
+### 相机参数
+- [camera_configs.py](mdc:robot/camera_configs.py) - 相机配置
+- [camera_params.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/camera_params.yaml) - ROS2相机参数
+
+### 激光雷达参数
+- [laser_avoidance_params.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/laser_avoidance_params.yaml) - 激光避障参数
+
+### 性能优化
+- [high_performance.yaml](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config/high_performance.yaml) - 高性能配置
+- [set_realtime_priority.sh](mdc:robot_ROS2-6_9/scripts/set_realtime_priority.sh) - 实时优先级设置

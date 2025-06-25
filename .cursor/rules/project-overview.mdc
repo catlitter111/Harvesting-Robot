@@ -1,0 +1,54 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 采收机器人项目结构指南
+
+## 项目概述
+这是一个基于ROS2 Humble的智能采收机器人项目，集成了计算机视觉、机器人控制、SLAM导航等功能。
+
+## 主要模块结构
+
+### 1. 核心机器人控制 (`robot/`)
+- [main.py](mdc:robot/main.py) - 主控制程序入口
+- [robot_controller.py](mdc:robot/robot_controller.py) - 机器人控制器
+- [bottle_detector.py](mdc:robot/bottle_detector.py) - 瓶子检测逻辑
+- [motor_servo_control.py](mdc:robot/motor_servo_control.py) - 电机和舵机控制
+- [stereo_camera.py](mdc:robot/stereo_camera.py) - 双目相机处理
+
+### 2. ROS2系统 (`robot_ROS2-6_9/`)
+主要的ROS2工作空间，包含：
+
+#### 核心包
+- [bottle_detection_ros2/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2) - 主要的ROS2包
+- [bottle_detection_msgs/](mdc:robot_ROS2-6_9/src/bottle_detection_msgs) - 自定义消息类型
+
+#### 关键节点
+- **检测节点**: [bottle_detection_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/detection/bottle_detection_node.py)
+- **控制节点**: [robot_control_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/robot_control_node.py)
+- **自动采收**: [auto_harvest_controller.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/control/auto_harvest_controller.py)
+- **SLAM映射**: [slam_mapping_node.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/bottle_detection_ros2/nodes/navigation/slam_mapping_node.py)
+
+### 3. STM32固件 (`stm32/mytest_ABlun_/`)
+- [main.c](mdc:stm32/mytest_ABlun_/Core/Src/main.c) - STM32主程序
+- **硬件抽象层**: [hardware/](mdc:stm32/mytest_ABlun_/hardware) - 电机、编码器、PID控制
+- **机器人控制**: [robot_control.c](mdc:stm32/mytest_ABlun_/hardware/robot_control.c)
+
+### 4. 上位机系统 (`上位机与服务端/`)
+- [server.py](mdc:上位机与服务端/server.py) - 服务端程序
+- [client.py](mdc:上位机与服务端/client.py) - 客户端程序
+
+### 5. 微信小程序 (`微信小程序/miniprogram/`)
+- [app.js](mdc:微信小程序/miniprogram/app.js) - 小程序入口
+- **页面模块**: [pages/](mdc:微信小程序/miniprogram/pages) - 控制、检测、统计等界面
+
+## 启动配置
+- **主启动文件**: [agrisage_with_lidar.launch.py](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/launch/agrisage_with_lidar.launch.py)
+- **配置参数**: [config/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/config) - 各种参数配置文件
+- **RVIZ配置**: [slam_mapping.rviz](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/rviz/slam_mapping.rviz)
+
+## 开发工具脚本
+- **启动脚本**: [scripts/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/scripts)
+- **测试脚本**: [test/](mdc:robot_ROS2-6_9/src/bottle_detection_ros2/test)
+- **调试工具**: [debug_auto_mode.py](mdc:robot_ROS2-6_9/scripts/debug_auto_mode.py)
