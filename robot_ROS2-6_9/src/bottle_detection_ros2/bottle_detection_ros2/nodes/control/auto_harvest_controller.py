@@ -119,12 +119,18 @@ class AutoHarvestController(Node):
             10
         )
         
-        # 采摘状态
+        # 采摘状态 - 修复QoS兼容性问题
+        from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+        harvest_status_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # 使用BEST_EFFORT以提高兼容性
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
         self.harvest_status_sub = self.create_subscription(
             String,
             'harvest/status',
             self.harvest_status_callback,
-            10
+            harvest_status_qos
         )
         
         # 创建发布者 - 直接发布到cmd_vel话题（修复自动控制不动问题）
@@ -210,14 +216,26 @@ class AutoHarvestController(Node):
             data = json.loads(msg.data)
             state = data.get("state", "")
             
+            self.get_logger().debug(f'收到采摘状态: {state}')
+            
             if state == "completed":
                 self.harvest_in_progress = False
                 self.get_logger().info('采摘完成，继续搜索下一个目标')
             elif state == "started":
                 self.harvest_in_progress = True
+                self.get_logger().info('开始采摘操作')
+            elif state == "failed":
+                self.harvest_in_progress = False
+                self.get_logger().warn('采摘失败，继续搜索下一个目标')
+            elif state == "aborted":
+                self.harvest_in_progress = False
+                self.get_logger().warn('采摘被中止')
                 
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f'采摘状态JSON解析错误: {e}')
+            self.get_logger().debug(f'原始消息: {msg.data}')
         except Exception as e:
-            self.get_logger().error(f'解析采摘状态错误: {e}')
+            self.get_logger().error(f'处理采摘状态时发生未知错误: {e}')
     
     def control_loop(self):
         """主控制循环"""

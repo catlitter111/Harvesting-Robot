@@ -115,6 +115,11 @@ class IntegratedBottleDetectionNode(Node):
         
         # 初始化异步瓶子检测器
         try:
+            # 检查模型文件是否存在
+            if not os.path.exists(self.model_path):
+                self.get_logger().error(f'RKNN模型文件不存在: {self.model_path}')
+                raise FileNotFoundError(f'模型文件不存在: {self.model_path}')
+            
             self.bottle_detector_pool = BottleRKNNPoolExecutor(
                 model_path=self.model_path,
                 detector_func=detect_bottle_async,
@@ -122,8 +127,16 @@ class IntegratedBottleDetectionNode(Node):
                 queue_size=self.queue_size
             )
             self.get_logger().info(f'异步检测器初始化成功，线程数: {self.thread_num}')
+            self.get_logger().info(f'使用RKNN模型: {self.model_path}')
+            self.get_logger().info('注意: RKNN动态范围查询警告可以忽略（静态形状模型）')
         except Exception as e:
             self.get_logger().error(f'异步检测器初始化失败: {e}')
+            # 提供更详细的错误信息
+            if "RKNN" in str(e):
+                self.get_logger().error('RKNN相关错误，请检查：')
+                self.get_logger().error('1. RKNN运行时是否正确安装')
+                self.get_logger().error('2. 模型文件是否兼容当前RKNN版本')
+                self.get_logger().error('3. 硬件是否支持RKNN加速')
             raise RuntimeError('异步检测器初始化失败')
         
         # QoS配置

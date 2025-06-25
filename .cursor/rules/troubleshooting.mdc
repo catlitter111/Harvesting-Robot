@@ -40,6 +40,29 @@ alwaysApply: false
 
 ## 常见错误解决
 
+### ROS2 QoS兼容性问题
+**症状**: 警告消息 "New publisher discovered on topic '...', offering incompatible QoS"
+**原因**: 发布者和订阅者的QoS策略不匹配
+**解决方案**:
+```python
+# 使用兼容的QoS配置
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+compatible_qos = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,  # 更宽松的可靠性策略
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10
+)
+```
+
+### RKNN模型警告
+**症状**: "query RKNN_QUERY_INPUT_DYNAMIC_RANGE error, rknn model is static shape type"
+**原因**: 静态形状RKNN模型无法查询动态范围
+**解决方案**: 这是正常警告，可以安全忽略。如需动态形状支持，需要重新导出模型：
+```bash
+# 重新导出动态形状RKNN模型（如果需要）
+# 注意：大多数情况下静态形状模型就足够了
+```
+
 ### ROS2构建错误
 ```bash
 # 清理构建缓存
