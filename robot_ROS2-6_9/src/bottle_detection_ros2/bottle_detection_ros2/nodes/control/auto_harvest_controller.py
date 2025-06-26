@@ -33,12 +33,12 @@ MAX_POSSIBLE_DISTANCE = 15.0  # 米，与检测器保持一致
 
 # 默认速度参数（优化后）
 DEFAULT_APPROACH_SPEED = 60.0  # 提高默认接近速度
-DEFAULT_TURN_SPEED = 50.0      # 提高默认转向速度
-DEFAULT_FINE_APPROACH_SPEED = 30.0  # 提高精细接近速度
-DEFAULT_FINE_TURN_SPEED = 40.0      # 提高精细转向速度
+DEFAULT_TURN_SPEED = 70.0      # 提高默认转向速度
+DEFAULT_FINE_APPROACH_SPEED = 50.0  # 提高精细接近速度
+DEFAULT_FINE_TURN_SPEED = 60.0      # 提高精细转向速度
 
 # 全速前进参数
-FULL_SPEED = 0.6  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
+FULL_SPEED = 0.5  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
 SAFETY_DISTANCE = 0.1  # 安全距离，米
 
 
@@ -463,18 +463,18 @@ class AutoHarvestController(Node):
         # 更精细的控制
         if abs(offset_x) > CENTER_DEADZONE:
             if offset_x > 0:
-                twist.angular.z = 0.3  # rad/s
+                twist.angular.z = 0.5  # rad/s
                 self.current_direction = 0x02  # DIR_LEFT
                 self.get_logger().info('中等距离：瓶子在左侧，向左微调')
             else:
-                twist.angular.z = -0.3  # rad/s
+                twist.angular.z = -0.5  # rad/s
                 self.current_direction = 0x03  # DIR_RIGHT
                 self.get_logger().info('中等距离：瓶子在右侧，向右微调')
             
             # 应用精细转向速度百分比
             twist.angular.z = twist.angular.z * self.fine_turn_speed / 100.0
         else:
-            base_speed = 0.15  # m/s，基础速度提高
+            base_speed = 0.25  # m/s，基础速度提高
             # 应用精细接近速度百分比
             twist.linear.x = base_speed * self.fine_approach_speed / 100.0
             self.current_direction = 0x00  # DIR_FORWARD
