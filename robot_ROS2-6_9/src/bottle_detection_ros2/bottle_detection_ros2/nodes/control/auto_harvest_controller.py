@@ -293,21 +293,21 @@ class AutoHarvestController(Node):
         offset_x = center_x - self.bottle_cx
         
         # 添加调试日志
-        self.get_logger().info(
-            f'瓶子距离: {self.nearest_distance:.3f}m, '
-            f'像素偏移: {offset_x}px, '
-            f'坐标: ({self.bottle_cx}, {self.bottle_cy})'
-        )
+        # self.get_logger().info(
+        #     f'瓶子距离: {self.nearest_distance:.3f}m, '
+        #     f'像素偏移: {offset_x}px, '
+        #     f'坐标: ({self.bottle_cx}, {self.bottle_cy})'
+        # )
         
         # 根据距离选择控制策略
         if self.nearest_distance > DISTANCE_VERY_FAR:
             # 超远距离：快速接近，大角度调整
             self.get_logger().info(f'距离状态: 超远距离 (>{DISTANCE_VERY_FAR}m)')
             self.approach_very_far(offset_x)
-        # elif self.nearest_distance > DISTANCE_FAR:
-        #     # 远距离：使用电机移动
-        #     self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
-        #     self.approach_far(offset_x)
+        elif self.nearest_distance > DISTANCE_FAR:
+            # 远距离：使用电机移动
+            self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
+            self.approach_far(offset_x)
         # elif self.nearest_distance > DISTANCE_NEAR:
         #     # 中等距离：精细控制
         #     self.get_logger().info(f'距离状态: 中等距离 ({DISTANCE_NEAR}m-{DISTANCE_FAR}m)')
