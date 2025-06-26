@@ -308,20 +308,20 @@ class AutoHarvestController(Node):
             # 远距离：使用电机移动
             self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
             self.approach_far(offset_x)
-        # elif self.nearest_distance > DISTANCE_NEAR:
-        #     # 中等距离：精细控制
-        #     self.get_logger().info(f'距离状态: 中等距离 ({DISTANCE_NEAR}m-{DISTANCE_FAR}m)')
-        #     self.approach_medium(offset_x)
-        # elif self.nearest_distance > DISTANCE_HARVEST:
-        #     # 近距离：使用舵机跟踪
-        #     self.get_logger().info(f'距离状态: 近距离 ({DISTANCE_HARVEST}m-{DISTANCE_NEAR}m)')
-        #     self.approach_near(offset_x)
-        # else:
-        #     # 采摘距离：停止并采摘
-        #     self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
-        #     self.stop_and_harvest(offset_x)
+        elif self.nearest_distance > DISTANCE_NEAR:
+            # 中等距离：精细控制
+            self.get_logger().info(f'距离状态: 中等距离 ({DISTANCE_NEAR}m-{DISTANCE_FAR}m)')
+            self.approach_medium(offset_x)
+        elif self.nearest_distance > DISTANCE_HARVEST:
+            # 近距离：使用舵机跟踪
+            self.get_logger().info(f'距离状态: 近距离 ({DISTANCE_HARVEST}m-{DISTANCE_NEAR}m)')
+            self.approach_near(offset_x)
         else:
-            self.stop_robot()
+            # 采摘距离：停止并采摘
+            self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
+            self.stop_and_harvest(offset_x)
+        # else:
+        #     self.stop_robot()
     
     def approach_very_far(self, offset_x):
         """超远距离接近策略"""
