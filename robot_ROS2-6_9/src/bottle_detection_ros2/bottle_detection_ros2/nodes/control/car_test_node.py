@@ -61,7 +61,7 @@ class CarTestNode(Node):
             
             # 等待1秒
             self.get_logger().info('⏱️ 等待1秒...')
-            time.sleep(1.0)
+            time.sleep(2.0)
             
             # 发送停止指令
             self.get_logger().info('🛑 发送停止指令')

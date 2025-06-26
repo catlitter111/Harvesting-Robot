@@ -11,13 +11,14 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Install Python scripts
 install(PROGRAMS
-  bottle_detection_ros2/bottle_detection_node.py
-  bottle_detection_ros2/bottle_detection_node_async.py
-  bottle_detection_ros2/integrated_bottle_detection_node.py
-  bottle_detection_ros2/websocket_bridge_node.py
-  bottle_detection_ros2/robot_control_node.py
-  bottle_detection_ros2/servo_control_node.py
-  bottle_detection_ros2/auto_harvest_controller.py
+  bottle_detection_ros2/nodes/detection/bottle_detection_node.py
+  bottle_detection_ros2/nodes/detection/bottle_detection_node_async.py
+  bottle_detection_ros2/nodes/detection/integrated_bottle_detection_node.py
+  bottle_detection_ros2/nodes/communication/websocket_bridge_node.py
+  bottle_detection_ros2/nodes/control/robot_control_node.py
+  bottle_detection_ros2/nodes/control/servo_control_node.py
+  bottle_detection_ros2/nodes/control/auto_harvest_controller.py
+  bottle_detection_ros2/nodes/control/car_test_node.py
   bottle_detection_ros2/nodes/testing/fruit_image_publisher_node.py
   DESTINATION lib/${PROJECT_NAME}
 )

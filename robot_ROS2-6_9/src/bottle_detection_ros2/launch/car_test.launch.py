@@ -1,4 +1,4 @@
- #!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 小车测试Launch文件
@@ -45,7 +45,7 @@ def generate_launch_description():
     # 1. 机器人控制节点
     robot_control_node = Node(
         package='bottle_detection_ros2',
-        executable='robot_control_node.py',
+        executable='robot_control_node',
         name='robot_control_node',
         parameters=[{
             'serial_port': LaunchConfiguration('serial_port'),
@@ -63,7 +63,7 @@ def generate_launch_description():
     # 2. WebSocket桥接节点
     websocket_bridge_node = Node(
         package='bottle_detection_ros2',
-        executable='websocket_bridge_node.py',
+        executable='websocket_bridge_node',
         name='websocket_bridge_node',
         parameters=[{
             'server_url': LaunchConfiguration('server_url'),
@@ -90,7 +90,7 @@ def generate_launch_description():
             LogInfo(msg="🧪 启动小车测试节点..."),
             Node(
                 package='bottle_detection_ros2',
-                executable='car_test_node.py',
+                executable='car_test_node',
                 name='car_test_node',
                 output='screen',
                 respawn=False  # 测试节点不需要重启
