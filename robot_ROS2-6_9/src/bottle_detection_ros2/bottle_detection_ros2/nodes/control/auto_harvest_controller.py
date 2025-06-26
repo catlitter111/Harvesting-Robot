@@ -15,8 +15,8 @@ import time
 import threading
 
 # 距离阈值（米）
-DISTANCE_VERY_FAR = 2.0   # 超远距离阈值，超过此距离只进行大角度调整
-DISTANCE_FAR = 1.0        # 远距离阈值，超过此距离使用电机调整方向
+DISTANCE_VERY_FAR = 0.7   # 超远距离阈值，超过此距离只进行大角度调整
+DISTANCE_FAR = 0.5        # 远距离阈值，超过此距离使用电机调整方向
 DISTANCE_NEAR = 0.35       # 近距离阈值，低于此距离使用舵机调整方向
 DISTANCE_HARVEST = 0.35   # 采摘距离阈值，低于此距离开始采摘
 
