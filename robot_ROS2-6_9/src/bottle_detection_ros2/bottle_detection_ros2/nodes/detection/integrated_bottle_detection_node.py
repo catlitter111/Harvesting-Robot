@@ -214,6 +214,7 @@ class IntegratedBottleDetectionNode(Node):
         self.declare_parameter('camera_width', 1280)
         self.declare_parameter('camera_height', 480)
         self.declare_parameter('calibration_file', '')
+        self.declare_parameter('camera_params_file', '')
         
         # 模型参数
         self.declare_parameter('model_path', 'yolo11n.rknn')
@@ -247,6 +248,7 @@ class IntegratedBottleDetectionNode(Node):
         self.camera_width = self.get_parameter('camera_width').value
         self.camera_height = self.get_parameter('camera_height').value
         self.calibration_file = self.get_parameter('calibration_file').value
+        self.camera_params_file = self.get_parameter('camera_params_file').value
         
         self.model_path = self.get_parameter('model_path').value
         self.model_size = self.get_parameter('model_size').value
@@ -267,6 +269,7 @@ class IntegratedBottleDetectionNode(Node):
         self.enable_servo_tracking = self.get_parameter('enable_servo_tracking').value
         
         logger.debug(f"参数: camera_id={self.camera_id}, model_path={self.model_path}, "
+                    f"camera_params_file={self.camera_params_file}, "
                     f"confidence_threshold={self.confidence_threshold}")
     
     @trace_errors
@@ -331,11 +334,18 @@ class IntegratedBottleDetectionNode(Node):
             self.get_logger().error('无法打开相机，节点将退出')
             raise RuntimeError('相机初始化失败')
         
-        # 加载相机参数
-        if self.calibration_file:
-            self.stereo_camera.load_camera_params(self.calibration_file)
+        # 加载相机参数 - 优先使用camera_params_file，然后是calibration_file
+        camera_params_path = None
+        if self.camera_params_file:
+            camera_params_path = self.camera_params_file
+            self.get_logger().info(f'使用Excel相机参数文件: {camera_params_path}')
+        elif self.calibration_file:
+            camera_params_path = self.calibration_file
+            self.get_logger().info(f'使用标定文件: {camera_params_path}')
         else:
-            self.stereo_camera.load_camera_params()
+            self.get_logger().info('使用默认相机参数')
+        
+        self.stereo_camera.load_camera_params(camera_params_path)
         
         # 设置双目校正
         self.stereo_camera.setup_stereo_rectification()

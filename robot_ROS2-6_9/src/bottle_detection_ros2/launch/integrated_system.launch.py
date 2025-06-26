@@ -29,6 +29,13 @@ def generate_launch_description():
         description='双目相机设备ID'
     )
     
+    # 相机参数Excel文件路径
+    camera_params_file_arg = DeclareLaunchArgument(
+        'camera_params_file',
+        default_value='',
+        description='相机参数Excel文件路径，留空则使用默认参数'
+    )
+    
     # 模型参数
     model_path_arg = DeclareLaunchArgument(
         'model_path',
@@ -86,6 +93,7 @@ def generate_launch_description():
         emulate_tty=True,
         parameters=[{
             'camera_id': LaunchConfiguration('camera_id'),
+            'camera_params_file': LaunchConfiguration('camera_params_file'),
             'model_path': LaunchConfiguration('model_path'),
             'show_display': LaunchConfiguration('show_display'),
             'camera_width': 1280,
@@ -168,6 +176,7 @@ def generate_launch_description():
             '机器人ID: ', LaunchConfiguration('robot_id'), '\n',
             'WebSocket服务器: ', LaunchConfiguration('ws_server_url'), '\n',
             '相机ID: ', LaunchConfiguration('camera_id'), '\n',
+            '相机参数文件: ', LaunchConfiguration('camera_params_file'), '\n',
             '模型路径: ', LaunchConfiguration('model_path'), '\n',
             '显示窗口: ', LaunchConfiguration('show_display'), '\n',
             '========================================\n'
@@ -177,6 +186,7 @@ def generate_launch_description():
     return LaunchDescription([
         # 参数声明
         camera_id_arg,
+        camera_params_file_arg,
         model_path_arg,
         ws_server_arg,
         robot_id_arg,
