@@ -37,6 +37,10 @@ DEFAULT_TURN_SPEED = 50.0      # 提高默认转向速度
 DEFAULT_FINE_APPROACH_SPEED = 30.0  # 提高精细接近速度
 DEFAULT_FINE_TURN_SPEED = 40.0      # 提高精细转向速度
 
+# 全速前进参数
+FULL_SPEED = 0.6  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
+SAFETY_DISTANCE = 0.1  # 安全距离，米
+
 
 class AutoHarvestController(Node):
     """自动采摘控制器节点"""
@@ -152,6 +156,13 @@ class AutoHarvestController(Node):
         self.last_detection_time = time.time()
         self.searching = False
         
+        # 全速前进状态变量
+        self.full_speed_mode = False  # 是否启用全速前进模式
+        self.full_speed_started = False  # 是否已开始全速前进
+        self.full_speed_start_time = 0.0  # 全速前进开始时间
+        self.full_speed_duration = 0.0  # 计算出的前进时间
+        self.initial_target_distance = None  # 首次检测到的目标距离
+        
         # 当前运动状态
         self.current_direction = 0x04  # DIR_STOP
         self.current_speed = 50
@@ -179,9 +190,10 @@ class AutoHarvestController(Node):
                 f'自动采摘: {self.auto_harvest_active}'
             )
             
-            # 切换模式时停止运动
+            # 切换模式时停止运动并重置全速前进状态
             if self.current_mode == MODE_MANUAL or not self.auto_harvest_active:
                 self.stop_robot()
+                self.reset_full_speed_mode()
                 
         except Exception as e:
             self.get_logger().error(f'解析模式数据错误: {e}')
@@ -270,7 +282,12 @@ class AutoHarvestController(Node):
                 if self.nearest_distance > MAX_POSSIBLE_DISTANCE:
                     self.get_logger().warn(f'检测到异常距离值: {self.nearest_distance}m, 忽略此次控制')
                     return
-                self.approach_bottle()
+                
+                # 全速前进控制逻辑
+                if self.full_speed_mode:
+                    self.full_speed_control()
+                else:
+                    self.approach_bottle()
             else:
                 # 没有检测到瓶子，停止
                 self.stop_robot()
@@ -288,16 +305,27 @@ class AutoHarvestController(Node):
     
     def approach_bottle(self):
         """接近瓶子的控制逻辑"""
+        # 首次检测到有效距离时启动全速前进模式
+        if self.initial_target_distance is None and self.nearest_distance > 0:
+            self.initial_target_distance = self.nearest_distance
+            self.full_speed_mode = True
+            self.full_speed_started = False
+            
+            # 计算前进时间（预留安全距离）
+            effective_distance = max(0.1, self.nearest_distance - SAFETY_DISTANCE)
+            self.full_speed_duration = effective_distance / FULL_SPEED
+            
+            self.get_logger().info(
+                f'首次检测到目标距离: {self.nearest_distance:.3f}m, '
+                f'计算前进时间: {self.full_speed_duration:.2f}秒 '
+                f'(有效距离: {effective_distance:.3f}m, 安全距离: {SAFETY_DISTANCE}m)'
+            )
+            return
+        
+        # 原有的分距离控制逻辑（作为备用）
         # 计算偏移
         center_x = self.frame_width // 2
         offset_x = center_x - self.bottle_cx
-        
-        # 添加调试日志
-        # self.get_logger().info(
-        #     f'瓶子距离: {self.nearest_distance:.3f}m, '
-        #     f'像素偏移: {offset_x}px, '
-        #     f'坐标: ({self.bottle_cx}, {self.bottle_cy})'
-        # )
         
         # 根据距离选择控制策略
         if self.nearest_distance > DISTANCE_VERY_FAR:
@@ -320,9 +348,53 @@ class AutoHarvestController(Node):
             # 采摘距离：停止并采摘
             self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
             self.stop_and_harvest(offset_x)
-        # else:
-        #     self.stop_robot()
     
+    def full_speed_control(self):
+        """全速前进控制方法"""
+        current_time = time.time()
+        
+        # 如果还没开始全速前进，开始计时
+        if not self.full_speed_started:
+            self.full_speed_started = True
+            self.full_speed_start_time = current_time
+            
+            # 开始全速前进
+            twist = Twist()
+            twist.linear.x = FULL_SPEED
+            twist.angular.z = 0.0
+            self.cmd_vel_pub.publish(twist)
+            
+            self.get_logger().info(f'开始全速前进: 速度={FULL_SPEED}m/s, 持续时间={self.full_speed_duration:.2f}秒')
+            return
+        
+        # 检查是否到达预定时间
+        elapsed_time = current_time - self.full_speed_start_time
+        if elapsed_time >= self.full_speed_duration:
+            # 时间到达，立即停止
+            self.stop_robot()
+            self.full_speed_mode = False
+            self.full_speed_started = False
+            
+            self.get_logger().info(
+                f'全速前进完成: 实际用时={elapsed_time:.2f}秒, '
+                f'预计前进距离={elapsed_time * FULL_SPEED:.3f}m'
+            )
+            
+            # 可以选择继续后续控制逻辑或者直接停止
+            # 这里选择停止，等待下一次目标检测
+            return
+        
+        # 继续全速前进
+        twist = Twist()
+        twist.linear.x = FULL_SPEED
+        twist.angular.z = 0.0
+        self.cmd_vel_pub.publish(twist)
+        
+        # 定期输出进度信息
+        if int(elapsed_time * 10) % 5 == 0:  # 每0.5秒输出一次
+            remaining_time = self.full_speed_duration - elapsed_time
+            self.get_logger().info(f'全速前进中: 已用时={elapsed_time:.1f}s, 剩余={remaining_time:.1f}s')
+
     def approach_very_far(self, offset_x):
         """超远距离接近策略"""
         twist = Twist()
@@ -455,6 +527,15 @@ class AutoHarvestController(Node):
         twist.angular.z = 0.25  # 慢速旋转
         self.cmd_vel_pub.publish(twist)
         self.get_logger().debug('搜索模式：旋转寻找目标')
+    
+    def reset_full_speed_mode(self):
+        """重置全速前进模式状态"""
+        self.full_speed_mode = False
+        self.full_speed_started = False
+        self.full_speed_start_time = 0.0
+        self.full_speed_duration = 0.0
+        self.initial_target_distance = None
+        self.get_logger().debug('全速前进模式状态已重置')
     
     def stop_robot(self):
         """停止机器人"""
