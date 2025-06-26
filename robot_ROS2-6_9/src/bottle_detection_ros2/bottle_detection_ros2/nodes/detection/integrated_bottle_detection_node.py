@@ -166,7 +166,7 @@ class IntegratedBottleDetectionNode(Node):
         self.frame_count = 0
         self.last_fps_time = time.time()
         self.current_fps = 0.0
-        self.current_mode = "manual"
+        self.current_mode = "auto"  # 默认启动为自动模式
         self.auto_harvest_active = False
         
         # 帧数据缓存

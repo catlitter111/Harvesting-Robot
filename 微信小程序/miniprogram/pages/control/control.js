@@ -1,7 +1,7 @@
 // pages/control/control.js
 Page({
-    data: {
-      operationMode: 'manual', // 'manual' 或 'auto'
+      data: {
+    operationMode: 'auto', // 'manual' 或 'auto' - 默认启动为自动模式
       connected: false,        // 小程序与服务器的连接状态
       connecting: false,       // 正在连接中
       robotConnected: false,   // 机器人与服务器的连接状态
@@ -82,6 +82,9 @@ Page({
       availableHeight: 0,
       windowHeight: 0
     },
+    
+    // 模式同步标志（不在data中，避免频繁setData）
+    modeSynced: false,
   
     onLoad: function(options) {
       // 生成唯一的客户端ID
@@ -127,22 +130,27 @@ Page({
       this.checkGlobalConnectionState();
     },
   
-    onShow: function() {
-      // 页面显示时重新注册
-      const app = getApp();
-      app.globalData.controlPage = this;
-      
-      // 更新连接状态
-      this.checkGlobalConnectionState();
-      
-      // 如果之前收到过视频帧但现在已经过期，请求重新开始视频流
-      const now = Date.now();
-      if (this.data.lastFrameReceived > 0 && 
-          now - this.data.lastFrameReceived > this.data.videoExpireTimeout && 
-          this.data.connected && this.data.robotConnected) {
-        this.requestVideoStream();
-      }
-    },
+      onShow: function() {
+    // 页面显示时重新注册
+    const app = getApp();
+    app.globalData.controlPage = this;
+    
+    // 更新连接状态
+    this.checkGlobalConnectionState();
+    
+    // 如果连接成功且是自动模式，发送模式设置到后端
+    if (this.data.connected && this.data.operationMode === 'auto') {
+      this.syncModeToBackend();
+    }
+    
+    // 如果之前收到过视频帧但现在已经过期，请求重新开始视频流
+    const now = Date.now();
+    if (this.data.lastFrameReceived > 0 && 
+        now - this.data.lastFrameReceived > this.data.videoExpireTimeout && 
+        this.data.connected && this.data.robotConnected) {
+      this.requestVideoStream();
+    }
+  },
     
     onHide: function() {
       // 页面隐藏时暂时不断开，保持后台连接
@@ -179,6 +187,19 @@ Page({
       // 如果未连接，通过全局方法重连
       if (!app.globalData.connected && !app.globalData.connecting) {
         app.connectWebSocket();
+      }
+      
+      // 如果刚刚建立连接且是自动模式，同步模式到后端
+      if (app.globalData.connected && this.data.operationMode === 'auto' && !this.modeSynced) {
+        setTimeout(() => {
+          this.syncModeToBackend();
+          this.modeSynced = true;
+        }, 1000); // 延迟1秒确保连接稳定
+      }
+      
+      // 如果连接断开，重置同步标志
+      if (!app.globalData.connected) {
+        this.modeSynced = false;
       }
     },
   
@@ -514,6 +535,27 @@ Page({
       app.sendSocketMessage(msg);
     },
     
+    // 处理模式状态更新
+    handleModeStatusUpdate: function(data) {
+      const mode = data.mode;
+      const autoHarvest = data.auto_harvest;
+      
+      console.log('收到模式状态更新:', mode, '自动采摘:', autoHarvest);
+      
+      // 更新本地状态，确保与后端同步
+      this.setData({
+        operationMode: mode,
+        autoStatus: mode === 'auto' ? (autoHarvest ? '自动模式已启用' : '自动模式（未启用采摘）') : '手动模式'
+      });
+      
+      // 显示同步确认
+      wx.showToast({
+        title: mode === 'auto' ? '已同步至自动模式' : '已同步至手动模式',
+        icon: 'none',
+        duration: 1500
+      });
+    },
+
     // 更新机器人状态
     updateRobotStatus: function(statusData) {
       if (!statusData) return;
@@ -698,6 +740,27 @@ Page({
       });
     },
   
+    // 同步模式到后端（页面加载时使用）
+    syncModeToBackend: function() {
+      if (this.data.operationMode === 'auto') {
+        // 发送自动模式和自动采摘设置
+        this.sendSocketMessage({
+          type: 'mode_control',
+          robot_id: this.data.robotId,
+          mode: 'auto',
+          harvest: true,  // 默认启用自动采摘
+          timestamp: Date.now()
+        });
+        
+        console.log('已同步自动模式到后端');
+        
+        // 更新自动状态
+        this.setData({
+          autoStatus: '自动模式已启用'
+        });
+      }
+    },
+
     // 切换操作模式
     switchMode: function(e) {
       const mode = e.detail.value ? 'auto' : 'manual';
@@ -706,12 +769,29 @@ Page({
       });
       
       // 发送模式切换命令
-      this.sendCommand(mode === 'auto' ? 'switch_to_auto' : 'switch_to_manual');
+      this.sendSocketMessage({
+        type: 'mode_control',
+        robot_id: this.data.robotId,
+        mode: mode,
+        harvest: mode === 'auto' ? true : false,  // 自动模式时启用采摘
+        timestamp: Date.now()
+      });
       
       wx.showToast({
         title: mode === 'auto' ? '已切换至自动模式' : '已切换至手动模式',
         icon: 'none'
       });
+      
+      // 更新自动状态
+      if (mode === 'auto') {
+        this.setData({
+          autoStatus: '自动模式已启用'
+        });
+      } else {
+        this.setData({
+          autoStatus: '手动模式'
+        });
+      }
     },
   
     // 切换视频质量设置面板
