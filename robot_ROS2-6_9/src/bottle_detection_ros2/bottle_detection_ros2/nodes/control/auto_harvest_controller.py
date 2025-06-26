@@ -32,9 +32,9 @@ MODE_AUTO = "auto"
 MAX_POSSIBLE_DISTANCE = 15.0  # 米，与检测器保持一致
 
 # 默认速度参数（优化后）
-DEFAULT_APPROACH_SPEED = 70.0  # 提高默认接近速度
+DEFAULT_APPROACH_SPEED = 60.0  # 提高默认接近速度
 DEFAULT_TURN_SPEED = 70.0      # 提高默认转向速度
-DEFAULT_FINE_APPROACH_SPEED = 60.0  # 提高精细接近速度
+DEFAULT_FINE_APPROACH_SPEED = 50.0  # 提高精细接近速度
 DEFAULT_FINE_TURN_SPEED = 60.0      # 提高精细转向速度
 
 # 全速前进参数
@@ -144,8 +144,8 @@ class AutoHarvestController(Node):
         self.tracking_pub = self.create_publisher(Point, 'servo/tracking_target', 10)
         
         # 状态变量
-        self.current_mode = MODE_AUTO  # 默认启动为自动模式
-        self.auto_harvest_active = True  # 默认启用自动采摘
+        self.current_mode = MODE_MANUAL
+        self.auto_harvest_active = False
         self.bottle_visible = False
         self.nearest_distance = None
         self.bottle_cx = 0
@@ -448,7 +448,7 @@ class AutoHarvestController(Node):
             twist.angular.z = twist.angular.z * self.turn_speed / 100.0
         else:
             # 瓶子基本居中，前进
-            base_speed = 0.5  # m/s，基础速度提高
+            base_speed = 0.4  # m/s，基础速度提高
             # 应用接近速度百分比
             twist.linear.x = base_speed * self.approach_speed / 100.0
             self.current_direction = 0x00  # DIR_FORWARD
@@ -474,7 +474,7 @@ class AutoHarvestController(Node):
             # 应用精细转向速度百分比
             twist.angular.z = twist.angular.z * self.fine_turn_speed / 100.0
         else:
-            base_speed = 0.35  # m/s，基础速度提高
+            base_speed = 0.25  # m/s，基础速度提高
             # 应用精细接近速度百分比
             twist.linear.x = base_speed * self.fine_approach_speed / 100.0
             self.current_direction = 0x00  # DIR_FORWARD

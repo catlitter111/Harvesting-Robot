@@ -72,7 +72,7 @@ class MotorServoController:
         self.thread = None
         
         # 控制状态
-        self.current_mode = "auto"  # 当前模式: manual或auto - 默认启动为自动模式
+        self.current_mode = "manual"  # 当前模式: manual或auto
         self.auto_harvest_active = False  # 自动采摘是否激活
         self.current_speed = 50  # 当前速度百分比
         self.current_direction = DIR_STOP  # 当前方向

@@ -166,8 +166,8 @@ class WebSocketBridgeNode(Node):
         self.status_queue = queue.Queue(maxsize=10)
         
         # 状态变量
-        self.current_mode = "auto"  # 默认启动为自动模式
-        self.auto_harvest_active = True  # 默认启用自动采摘
+        self.current_mode = "manual"
+        self.auto_harvest_active = False
         
         # 机器人状态（用于function calling）
         self.robot_status = {
@@ -207,36 +207,7 @@ class WebSocketBridgeNode(Node):
         # 启动WebSocket连接
         self.connect_to_server()
         
-        # 发布初始模式状态到ROS2系统
-        self.publish_initial_mode()
-        
         self.get_logger().info(f'WebSocket桥接节点已启动，连接到: {self.server_url}')
-        self.get_logger().info(f'机器人默认启动模式: {self.current_mode}, 自动采摘: {self.auto_harvest_active}')
-    
-    def publish_initial_mode(self):
-        """发布初始模式状态到ROS2系统"""
-        try:
-            # 延迟一秒发布，确保其他节点已启动
-            timer = threading.Timer(1.0, self._do_publish_initial_mode)
-            timer.daemon = True
-            timer.start()
-        except Exception as e:
-            self.get_logger().error(f'发布初始模式状态失败: {e}')
-    
-    def _do_publish_initial_mode(self):
-        """实际执行发布初始模式状态"""
-        try:
-            mode_msg = String()
-            mode_data = {
-                "mode": self.current_mode,
-                "auto_harvest": self.auto_harvest_active
-            }
-            mode_msg.data = json.dumps(mode_data)
-            self.mode_pub.publish(mode_msg)
-            
-            self.get_logger().info(f'已发布初始模式到ROS2: {self.current_mode}模式, 自动采摘: {self.auto_harvest_active}')
-        except Exception as e:
-            self.get_logger().error(f'发布初始模式失败: {e}')
     
     # ===================== Function Calling 功能定义 =====================
     
@@ -644,15 +615,6 @@ class WebSocketBridgeNode(Node):
             "timestamp": int(time.time() * 1000)
         }
         ws.send(json.dumps(init_msg))
-        
-        # 发送初始模式状态（自动模式）
-        mode_status_msg = {
-            "type": "mode_status_update",
-            "mode": self.current_mode,
-            "auto_harvest": self.auto_harvest_active,
-            "timestamp": int(time.time() * 1000)
-        }
-        ws.send(json.dumps(mode_status_msg))
         
         # 发送心跳
         self.start_heartbeat()

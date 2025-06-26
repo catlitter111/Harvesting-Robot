@@ -245,13 +245,6 @@ App({
               }
               break;
               
-            case 'mode_status_update':
-              // 处理模式状态更新消息
-              if (that.globalData.controlPage) {
-                that.globalData.controlPage.handleModeStatusUpdate(data);
-              }
-              break;
-              
             case 'fruit_detection_result':
               // 处理水果识别结果，转发给检测页面
               if (that.globalData.detectionPage) {
