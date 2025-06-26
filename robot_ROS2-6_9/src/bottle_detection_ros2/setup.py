@@ -52,6 +52,7 @@ setup(
             'robot_control_node = bottle_detection_ros2.nodes.control.robot_control_node:main',
             'servo_control_node = bottle_detection_ros2.nodes.control.servo_control_node:main',
             'auto_harvest_controller = bottle_detection_ros2.nodes.control.auto_harvest_controller:main',
+            'car_test_node = bottle_detection_ros2.nodes.control.car_test_node:main',
             
             # 通信节点
             'websocket_bridge_node = bottle_detection_ros2.nodes.communication.websocket_bridge_node:main',

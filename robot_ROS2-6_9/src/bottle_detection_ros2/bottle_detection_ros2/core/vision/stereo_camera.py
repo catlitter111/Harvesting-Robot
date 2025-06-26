@@ -254,14 +254,16 @@ class StereoCamera:
                 R2, P2, size, cv2.CV_16SC2
             )
             
-            numberOfDisparities = 96
-            self.stereo = cv2.StereoBM_create(numDisparities=18, blockSize=5)
+            # 设置立体匹配算法（StereoBM）
+            self.stereo = cv2.StereoBM_create(numDisparities=96, blockSize=15)
+            
+            # 设置StereoBM参数
             self.stereo.setROI1(self.valid_roi1)
             self.stereo.setROI2(self.valid_roi2)
             self.stereo.setPreFilterCap(31)
             self.stereo.setBlockSize(15)
             self.stereo.setMinDisparity(18)
-            self.stereo.setNumDisparities(numberOfDisparities)
+            self.stereo.setNumDisparities(96)
             self.stereo.setTextureThreshold(50)
             self.stereo.setUniquenessRatio(18)
             self.stereo.setSpeckleWindowSize(83)
