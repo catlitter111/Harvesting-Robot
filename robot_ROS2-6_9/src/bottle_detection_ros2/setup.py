@@ -68,6 +68,7 @@ setup(
             
             # GUI和调试工具
             'debug_visualizer_gui = bottle_detection_ros2.gui.debug_visualizer_gui:main',
+            'local_control_gui = bottle_detection_ros2.gui.local_control_gui:main',
             
             # 测试脚本（如果存在main函数）
             'test_lidar_integration = bottle_detection_ros2.test_lidar_integration:main',
