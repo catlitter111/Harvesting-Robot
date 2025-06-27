@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 智慧农业采摘系统本地控制界面 - 优化版本
-基于PySide6实现的图形用户界面
+基于PySide6实现的图形用户界面，集成ROS2实时图像显示
 """
 
 import sys
@@ -10,13 +10,121 @@ import traceback
 import threading
 import time
 from datetime import datetime
+
+# 安全导入OpenCV和NumPy
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+except ImportError:
+    print("OpenCV未安装，图像处理功能将被禁用")
+    CV2_AVAILABLE = False
+    # 创建占位符
+    class np:
+        ndarray = object
+
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QGridLayout, QLabel, QPushButton, QFrame, QProgressBar, QButtonGroup,
     QSizePolicy, QSpacerItem, QScrollArea
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QThread
-from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon, QKeySequence, QShortcut, QImage
+
+# ROS2相关导入
+try:
+    import rclpy
+    from rclpy.node import Node
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+    from sensor_msgs.msg import CompressedImage
+    from std_msgs.msg import String
+    ROS2_AVAILABLE = True
+except ImportError:
+    print("ROS2未安装，将在模拟模式下运行")
+    ROS2_AVAILABLE = False
+
+
+class ROS2ImageSubscriber(QThread):
+    """ROS2图像订阅线程"""
+    imageReceived = Signal(np.ndarray)  # 发送numpy数组图像信号
+    
+    def __init__(self):
+        super().__init__()
+        self.node = None
+        self.running = False
+        
+    def run(self):
+        """在独立线程中运行ROS2节点"""
+        if not ROS2_AVAILABLE:
+            print("ROS2不可用，跳过图像订阅")
+            return
+            
+        if not CV2_AVAILABLE:
+            print("OpenCV不可用，跳过图像订阅")
+            return
+            
+        try:
+            rclpy.init()
+            self.node = ImageSubscriberNode(self.imageReceived)
+            self.running = True
+            
+            while self.running:
+                rclpy.spin_once(self.node, timeout_sec=0.1)
+                
+        except Exception as e:
+            print(f"ROS2节点运行错误: {e}")
+        finally:
+            if self.node:
+                self.node.destroy_node()
+            if rclpy.ok():
+                rclpy.shutdown()
+    
+    def stop(self):
+        """停止ROS2节点"""
+        self.running = False
+
+
+class ImageSubscriberNode(Node):
+    """ROS2图像订阅节点"""
+    
+    def __init__(self, image_signal):
+        super().__init__('agriculture_ui_image_subscriber')
+        self.image_signal = image_signal
+        
+        # 创建QoS配置
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        
+        # 订阅压缩图像
+        self.image_sub = self.create_subscription(
+            CompressedImage,
+            'bottle_detection/compressed_image',
+            self.image_callback,
+            qos
+        )
+        
+        self.get_logger().info('图像订阅节点已启动，订阅话题: bottle_detection/compressed_image')
+    
+    def image_callback(self, msg):
+        """图像回调函数"""
+        try:
+            if not CV2_AVAILABLE:
+                self.get_logger().error('OpenCV不可用，无法处理图像')
+                return
+                
+            # 将压缩图像数据转换为OpenCV格式
+            np_arr = np.frombuffer(msg.data, np.uint8)
+            cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            
+            if cv_image is not None:
+                # 发送图像信号
+                self.image_signal.emit(cv_image)
+            
+        except Exception as e:
+            self.get_logger().error(f'图像处理错误: {e}')
 
 
 class SmartAgricultureInterface(QMainWindow):
@@ -30,9 +138,37 @@ class SmartAgricultureInterface(QMainWindow):
             self.setup_ui()
             self.setup_timers()
             self.setup_data()
+            self.setup_ros2()  # 添加ROS2设置
         except Exception as e:
             print(f"初始化界面失败: {e}")
             traceback.print_exc()
+    
+    def setup_ros2(self):
+        """设置ROS2图像订阅"""
+        try:
+            if ROS2_AVAILABLE and CV2_AVAILABLE:
+                # 启动ROS2图像订阅线程
+                self.ros2_thread = ROS2ImageSubscriber()
+                self.ros2_thread.imageReceived.connect(self.update_camera_display)
+                self.ros2_thread.start()
+                print("ROS2图像订阅已启动")
+            else:
+                if not ROS2_AVAILABLE:
+                    print("ROS2不可用，使用模拟模式")
+                if not CV2_AVAILABLE:
+                    print("OpenCV不可用，使用简单模拟模式")
+                # 启动模拟图像更新
+                self.setup_simulation_mode()
+                
+        except Exception as e:
+            print(f"设置ROS2失败: {e}")
+            self.setup_simulation_mode()
+    
+    def setup_simulation_mode(self):
+        """设置模拟模式（当ROS2不可用时）"""
+        self.simulation_timer = QTimer()
+        self.simulation_timer.timeout.connect(self.update_simulation_display)
+        self.simulation_timer.start(100)  # 每100ms更新一次模拟画面
     
     def setup_window(self):
         """设置窗口属性"""
@@ -394,34 +530,22 @@ class SmartAgricultureInterface(QMainWindow):
             monitor_layout.addLayout(monitor_header)
             
             # 摄像头画面区域
-            self.camera_frame = QFrame()
-            self.camera_frame.setMinimumSize(800, 600)  # 全屏时增大摄像头画面
-            self.camera_frame.setStyleSheet("""
-                QFrame {
+            self.camera_display = QLabel()
+            self.camera_display.setMinimumSize(800, 600)  # 全屏时增大摄像头画面
+            self.camera_display.setStyleSheet("""
+                QLabel {
                     background-color: #1a1a1a;
                     border-radius: 10px;
                     border: 2px solid #4CAF50;
-                }
-            """)
-            
-            # 在摄像头画面上添加一些模拟检测框
-            camera_layout = QVBoxLayout(self.camera_frame)
-            camera_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            
-            # 模拟画面标签
-            camera_placeholder = QLabel("摄像头画面区域\n（检测到的水果将在此显示）")
-            camera_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            camera_placeholder.setStyleSheet("""
-                QLabel {
                     color: #666;
-                    font-size: 13px;
-                    background-color: transparent;
-                    border: none;
+                    font-size: 16px;
                 }
             """)
-            camera_layout.addWidget(camera_placeholder)
+            self.camera_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.camera_display.setText("正在连接摄像头...\n等待ROS2图像数据")
+            self.camera_display.setScaledContents(True)  # 允许图像缩放
             
-            monitor_layout.addWidget(self.camera_frame)
+            monitor_layout.addWidget(self.camera_display)
             
             # 检测信息
             self.detection_info = QLabel("检测到 4 个目标 | 最近距离: 0.65m | 准确率: 96.5%")
@@ -727,6 +851,9 @@ class SmartAgricultureInterface(QMainWindow):
             self.temperature = 28
             self.fps = 29
             
+            # 摄像头状态
+            self.camera_status_shown = False
+            
         except Exception as e:
             print(f"初始化数据失败: {e}")
             traceback.print_exc()
@@ -769,7 +896,137 @@ class SmartAgricultureInterface(QMainWindow):
             print(f"更新数据失败: {e}")
             traceback.print_exc()
     
+    def update_camera_display(self, cv_image):
+        """更新摄像头显示（接收OpenCV图像）"""
+        try:
+            if not CV2_AVAILABLE:
+                self.camera_display.setText("OpenCV不可用\n无法显示图像")
+                return
+                
+            # 转换颜色格式 BGR -> RGB
+            rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+            
+            # 获取图像尺寸
+            height, width, channel = rgb_image.shape
+            bytes_per_line = 3 * width
+            
+            # 转换为Qt图像格式
+            qt_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            
+            # 缩放图像以适应显示区域
+            display_size = self.camera_display.size()
+            scaled_pixmap = QPixmap.fromImage(qt_image).scaled(
+                display_size.width() - 4,  # 减去边框宽度
+                display_size.height() - 4,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            
+            # 显示图像
+            self.camera_display.setPixmap(scaled_pixmap)
+            
+            # 更新状态
+            if hasattr(self, 'camera_status_shown') and not self.camera_status_shown:
+                print("ROS2图像数据接收成功，摄像头画面已连接")
+                self.camera_status_shown = True
+                
+        except Exception as e:
+            print(f"更新摄像头显示失败: {e}")
+    
+    def update_simulation_display(self):
+        """更新模拟显示（当ROS2不可用时）"""
+        try:
+            if not CV2_AVAILABLE:
+                # 简单文本模拟
+                timestamp = time.strftime("%H:%M:%S")
+                simulation_text = f"""模拟摄像头画面
+时间: {timestamp}
+
+检测状态: 运行中
+检测目标: 4个苹果
+检测精度: 96.5%
+
+OpenCV不可用
+显示简化模拟信息"""
+                self.camera_display.setText(simulation_text)
+                return
+                
+            # 创建一个模拟的图像（彩色渐变）
+            import random
+            
+            # 创建640x480的模拟图像
+            width, height = 640, 480
+            image = np.zeros((height, width, 3), dtype=np.uint8)
+            
+            # 添加渐变背景
+            for y in range(height):
+                for x in range(width):
+                    image[y, x] = [
+                        int(128 + 64 * np.sin(x * 0.01 + time.time())),
+                        int(128 + 64 * np.sin(y * 0.01 + time.time() * 1.1)),
+                        int(128 + 64 * np.sin((x + y) * 0.005 + time.time() * 0.8))
+                    ]
+            
+            # 添加一些模拟的检测框
+            cv2.rectangle(image, (100, 100), (200, 200), (0, 255, 0), 2)
+            cv2.putText(image, "Apple - 85%", (105, 95), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            
+            cv2.rectangle(image, (300, 150), (400, 250), (255, 255, 0), 2)
+            cv2.putText(image, "Apple - 78%", (305, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            
+            # 添加时间戳
+            timestamp = time.strftime("%H:%M:%S")
+            cv2.putText(image, f"SIMULATION MODE - {timestamp}", (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            # 显示模拟图像
+            self.update_camera_display(image)
+            
+        except Exception as e:
+            print(f"更新模拟显示失败: {e}")
+            # 降级到文本显示
+            self.camera_display.setText(f"模拟模式\n时间: {time.strftime('%H:%M:%S')}\n图像处理出错")
+    
     def toggle_fullscreen(self):
+        """切换全屏模式"""
+        try:
+            if self.is_fullscreen:
+                # 退出全屏，显示为普通窗口
+                self.setWindowFlags(Qt.WindowType.Window)
+                self.setGeometry(100, 100, 1440, 960)
+                self.show()
+                self.is_fullscreen = False
+                print("退出全屏模式 (按F11或Esc可重新进入全屏)")
+            else:
+                # 进入全屏
+                self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+                screen = QApplication.primaryScreen().geometry()
+                self.setGeometry(screen)
+                self.show()
+                self.is_fullscreen = True
+                print("进入全屏模式")
+        except Exception as e:
+            print(f"切换全屏模式失败: {e}")
+            traceback.print_exc()
+
+    def closeEvent(self, event):
+        """窗口关闭事件"""
+        try:
+            # 停止ROS2线程
+            if hasattr(self, 'ros2_thread'):
+                self.ros2_thread.stop()
+                self.ros2_thread.wait(3000)  # 等待最多3秒
+            
+            # 停止定时器
+            if hasattr(self, 'simulation_timer'):
+                self.simulation_timer.stop()
+                
+            print("应用程序已安全关闭")
+            event.accept()
+            
+        except Exception as e:
+            print(f"关闭应用程序时出错: {e}")
+            event.accept()
         """切换全屏模式"""
         try:
             if self.is_fullscreen:
@@ -890,6 +1147,7 @@ class SmartAgricultureInterface(QMainWindow):
 def main():
     """主函数"""
     try:
+        # 初始化Qt应用
         app = QApplication(sys.argv)
         
         # 设置应用样式
@@ -904,8 +1162,25 @@ def main():
         print("智慧农业采摘系统已启动 (全屏模式)")
         print("按 Esc 或 F11 键可以切换全屏模式")
         
+        # 显示系统状态
+        if ROS2_AVAILABLE and CV2_AVAILABLE:
+            print("✅ 完整模式：ROS2功能已启用，正在订阅图像话题: bottle_detection/compressed_image")
+        elif ROS2_AVAILABLE and not CV2_AVAILABLE:
+            print("⚠️  部分功能模式：ROS2可用但OpenCV不可用")
+        elif not ROS2_AVAILABLE and CV2_AVAILABLE:
+            print("🔄 模拟模式：ROS2不可用，使用OpenCV模拟图像")
+        else:
+            print("📝 简化模式：ROS2和OpenCV都不可用，使用文本模拟")
+        
         # 运行应用
-        sys.exit(app.exec())
+        result = app.exec()
+        
+        # 确保ROS2线程正确关闭
+        if hasattr(window, 'ros2_thread'):
+            window.ros2_thread.stop()
+            window.ros2_thread.wait(3000)
+        
+        sys.exit(result)
         
     except Exception as e:
         print(f"启动应用失败: {e}")
