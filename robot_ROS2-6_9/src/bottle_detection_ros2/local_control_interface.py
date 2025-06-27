@@ -196,6 +196,10 @@ class SmartAgricultureInterface(QMainWindow):
             self.f11_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F11), self)
             self.f11_shortcut.activated.connect(self.toggle_fullscreen)
             
+            # 添加退出程序的快捷键（Ctrl+Q）
+            self.quit_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Q | Qt.KeyboardModifier.ControlModifier), self)
+            self.quit_shortcut.activated.connect(self.close_application)
+            
             # 全屏标志
             self.is_fullscreen = True
             
@@ -284,10 +288,10 @@ class SmartAgricultureInterface(QMainWindow):
             header_layout.addStretch()
             
             # 全屏提示
-            fullscreen_hint = QLabel("🖵 全屏模式 (Esc/F11退出)")
-            fullscreen_hint.setFont(QFont("SimHei", 9))
-            fullscreen_hint.setStyleSheet("color: #E8F5E8; margin-right: 15px;")
-            header_layout.addWidget(fullscreen_hint)
+            self.fullscreen_hint = QLabel("🖵 全屏模式 (Esc/F11退出)")
+            self.fullscreen_hint.setFont(QFont("SimHei", 9))
+            self.fullscreen_hint.setStyleSheet("color: #E8F5E8; margin-right: 15px;")
+            header_layout.addWidget(self.fullscreen_hint)
             
             # 状态指示器
             self.status_indicator = QLabel("● 运行中")
@@ -299,6 +303,29 @@ class SmartAgricultureInterface(QMainWindow):
             self.time_label = QLabel("12:34")
             self.time_label.setFont(QFont("Arial", 15, QFont.Weight.Bold))
             header_layout.addWidget(self.time_label)
+            
+            # 添加关闭按钮
+            self.close_button = QPushButton("✕")
+            self.close_button.setFixedSize(35, 35)
+            self.close_button.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+            self.close_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #F44336;
+                    color: white;
+                    border-radius: 17px;
+                    font-weight: bold;
+                    margin-left: 15px;
+                }
+                QPushButton:hover {
+                    background-color: #D32F2F;
+                }
+                QPushButton:pressed {
+                    background-color: #B71C1C;
+                }
+            """)
+            self.close_button.clicked.connect(self.close_application)
+            self.close_button.setToolTip("关闭程序 (Ctrl+Q)")
+            header_layout.addWidget(self.close_button)
             
             parent_layout.addWidget(header_frame)
             
@@ -457,6 +484,57 @@ class SmartAgricultureInterface(QMainWindow):
             """)
             self.emergency_btn.clicked.connect(self.emergency_stop)
             control_layout.addWidget(self.emergency_btn)
+            
+            # 系统控制按钮
+            system_control_layout = QHBoxLayout()
+            
+            # 退出系统按钮
+            self.exit_system_btn = QPushButton("🚪 退出系统")
+            self.exit_system_btn.setFixedHeight(32)
+            self.exit_system_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #9E9E9E;
+                    color: white;
+                    border-radius: 16px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 6px;
+                    margin-top: 8px;
+                }
+                QPushButton:hover {
+                    background-color: #757575;
+                }
+                QPushButton:pressed {
+                    background-color: #424242;
+                }
+            """)
+            self.exit_system_btn.clicked.connect(self.close_application)
+            system_control_layout.addWidget(self.exit_system_btn)
+            
+            # 重启系统按钮
+            self.restart_btn = QPushButton("🔄 重启")
+            self.restart_btn.setFixedHeight(32)
+            self.restart_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #FF9800;
+                    color: white;
+                    border-radius: 16px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 6px;
+                    margin-top: 8px;
+                }
+                QPushButton:hover {
+                    background-color: #F57C00;
+                }
+                QPushButton:pressed {
+                    background-color: #E65100;
+                }
+            """)
+            self.restart_btn.clicked.connect(self.restart_application)
+            system_control_layout.addWidget(self.restart_btn)
+            
+            control_layout.addLayout(system_control_layout)
             
             # 今日成果
             result_frame = QFrame()
@@ -987,6 +1065,34 @@ OpenCV不可用
             # 降级到文本显示
             self.camera_display.setText(f"模拟模式\n时间: {time.strftime('%H:%M:%S')}\n图像处理出错")
     
+    def close_application(self):
+        """关闭应用程序"""
+        try:
+            print("用户请求关闭程序...")
+            self.close()
+        except Exception as e:
+            print(f"关闭程序时出错: {e}")
+            traceback.print_exc()
+    
+    def restart_application(self):
+        """重启应用程序"""
+        try:
+            print("用户请求重启程序...")
+            # 这里可以添加重启逻辑，比如重新连接ROS2等
+            # 暂时显示信息
+            print("重启功能预留接口，当前仅重置统计数据")
+            
+            # 重置一些数据作为示例
+            if hasattr(self, 'result_number'):
+                import random
+                new_count = random.randint(100, 200)
+                self.result_number.setText(str(new_count))
+                print(f"已重置今日采摘数量为: {new_count}")
+                
+        except Exception as e:
+            print(f"重启程序时出错: {e}")
+            traceback.print_exc()
+
     def toggle_fullscreen(self):
         """切换全屏模式"""
         try:
@@ -996,6 +1102,11 @@ OpenCV不可用
                 self.setGeometry(100, 100, 1440, 960)
                 self.show()
                 self.is_fullscreen = False
+                
+                # 更新界面提示
+                if hasattr(self, 'fullscreen_hint'):
+                    self.fullscreen_hint.setText("🖼️ 窗口模式 (F11进入全屏)")
+                
                 print("退出全屏模式 (按F11或Esc可重新进入全屏)")
             else:
                 # 进入全屏
@@ -1004,6 +1115,11 @@ OpenCV不可用
                 self.setGeometry(screen)
                 self.show()
                 self.is_fullscreen = True
+                
+                # 更新界面提示
+                if hasattr(self, 'fullscreen_hint'):
+                    self.fullscreen_hint.setText("🖵 全屏模式 (Esc/F11退出)")
+                
                 print("进入全屏模式")
         except Exception as e:
             print(f"切换全屏模式失败: {e}")
