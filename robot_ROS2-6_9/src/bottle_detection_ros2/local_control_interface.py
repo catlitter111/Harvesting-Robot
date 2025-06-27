@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-智慧农业采摘系统本地控制界面
+智慧农业采摘系统本地控制界面 - 优化版本
 基于PySide6实现的图形用户界面
 """
 
@@ -13,10 +13,10 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QGridLayout, QLabel, QPushButton, QFrame, QProgressBar, QButtonGroup,
-    QSizePolicy, QSpacerItem
+    QSizePolicy, QSpacerItem, QScrollArea
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QThread
-from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon
+from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QIcon, QKeySequence, QShortcut
 
 
 class SmartAgricultureInterface(QMainWindow):
@@ -38,8 +38,13 @@ class SmartAgricultureInterface(QMainWindow):
         """设置窗口属性"""
         try:
             self.setWindowTitle("智慧农业采摘系统")
-            self.setGeometry(100, 100, 1400, 900)
-            self.setMinimumSize(1200, 800)
+            
+            # 设置全屏模式
+            self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+            
+            # 获取屏幕尺寸并设置为全屏
+            screen = QApplication.primaryScreen().geometry()
+            self.setGeometry(screen)
             
             # 设置窗口样式
             self.setStyleSheet("""
@@ -47,6 +52,16 @@ class SmartAgricultureInterface(QMainWindow):
                     background-color: #E8F5E8;
                 }
             """)
+            
+            # 添加退出全屏的快捷键（Esc键或F11键）
+            self.escape_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+            self.escape_shortcut.activated.connect(self.toggle_fullscreen)
+            
+            self.f11_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F11), self)
+            self.f11_shortcut.activated.connect(self.toggle_fullscreen)
+            
+            # 全屏标志
+            self.is_fullscreen = True
             
         except Exception as e:
             print(f"设置窗口属性失败: {e}")
@@ -59,9 +74,9 @@ class SmartAgricultureInterface(QMainWindow):
             central_widget = QWidget()
             self.setCentralWidget(central_widget)
             
-            # 创建主布局
+            # 创建主布局 - 为全屏显示优化边距
             main_layout = QVBoxLayout(central_widget)
-            main_layout.setContentsMargins(10, 10, 10, 10)
+            main_layout.setContentsMargins(15, 10, 15, 10)  # 全屏时增加边距
             main_layout.setSpacing(10)
             
             # 创建顶部标题栏
@@ -69,6 +84,7 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 创建主要内容区域
             content_layout = QHBoxLayout()
+            content_layout.setSpacing(12)  # 全屏时适当增加间距
             main_layout.addLayout(content_layout)
             
             # 创建左侧控制面板
@@ -91,12 +107,12 @@ class SmartAgricultureInterface(QMainWindow):
         """创建顶部标题栏"""
         try:
             header_frame = QFrame()
-            header_frame.setFixedHeight(80)
+            header_frame.setFixedHeight(75)  # 减少高度
             header_frame.setStyleSheet("""
                 QFrame {
                     background-color: #4CAF50;
                     border-radius: 10px;
-                    margin: 5px;
+                    margin: 3px;
                 }
                 QLabel {
                     color: white;
@@ -105,38 +121,47 @@ class SmartAgricultureInterface(QMainWindow):
             """)
             
             header_layout = QHBoxLayout(header_frame)
-            header_layout.setContentsMargins(20, 10, 20, 10)
+            header_layout.setContentsMargins(15, 8, 15, 8)  # 减少内边距
             
             # 系统图标和标题
             icon_label = QLabel("🌾")
-            icon_label.setFont(QFont("Arial", 24))
+            icon_label.setFont(QFont("Arial", 20))  # 稍微减小图标
             header_layout.addWidget(icon_label)
             
+            # 标题垂直布局
+            title_layout = QVBoxLayout()
+            title_layout.setSpacing(1)
+            
             title_label = QLabel("智慧农业采摘系统")
-            title_label.setFont(QFont("SimHei", 18, QFont.Weight.Bold))
-            header_layout.addWidget(title_label)
+            title_label.setFont(QFont("SimHei", 18, QFont.Weight.Bold))  # 稍微减小字体
+            title_label.setStyleSheet("color: white;")
+            title_layout.addWidget(title_label)
             
             subtitle_label = QLabel("Smart Agricultural Harvesting Robot")
             subtitle_label.setFont(QFont("Arial", 10))
             subtitle_label.setStyleSheet("color: #E8F5E8;")
-            
-            title_layout = QVBoxLayout()
-            title_layout.addWidget(title_label)
             title_layout.addWidget(subtitle_label)
+            
             header_layout.addLayout(title_layout)
             
             # 弹性空间
             header_layout.addStretch()
             
+            # 全屏提示
+            fullscreen_hint = QLabel("🖵 全屏模式 (Esc/F11退出)")
+            fullscreen_hint.setFont(QFont("SimHei", 9))
+            fullscreen_hint.setStyleSheet("color: #E8F5E8; margin-right: 15px;")
+            header_layout.addWidget(fullscreen_hint)
+            
             # 状态指示器
             self.status_indicator = QLabel("● 运行中")
-            self.status_indicator.setFont(QFont("SimHei", 12))
+            self.status_indicator.setFont(QFont("SimHei", 11))
             self.status_indicator.setStyleSheet("color: #90EE90;")
             header_layout.addWidget(self.status_indicator)
             
             # 时间显示
             self.time_label = QLabel("12:34")
-            self.time_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+            self.time_label.setFont(QFont("Arial", 15, QFont.Weight.Bold))
             header_layout.addWidget(self.time_label)
             
             parent_layout.addWidget(header_frame)
@@ -149,23 +174,23 @@ class SmartAgricultureInterface(QMainWindow):
         """创建左侧控制面板"""
         try:
             control_frame = QFrame()
-            control_frame.setFixedWidth(300)
+            control_frame.setFixedWidth(290)  # 稍微减少宽度
             control_frame.setStyleSheet("""
                 QFrame {
                     background-color: white;
                     border-radius: 15px;
-                    margin: 5px;
+                    margin: 3px;
                 }
             """)
             
             control_layout = QVBoxLayout(control_frame)
-            control_layout.setContentsMargins(20, 20, 20, 20)
-            control_layout.setSpacing(15)
+            control_layout.setContentsMargins(15, 15, 15, 15)  # 减少内边距
+            control_layout.setSpacing(12)  # 减少间距
             
             # 控制中心标题
             control_title = QLabel("🎛️ 控制中心")
-            control_title.setFont(QFont("SimHei", 14, QFont.Weight.Bold))
-            control_title.setStyleSheet("color: #2E7D32; margin-bottom: 10px;")
+            control_title.setFont(QFont("SimHei", 13, QFont.Weight.Bold))
+            control_title.setStyleSheet("color: #2E7D32; margin-bottom: 8px;")
             control_layout.addWidget(control_title)
             
             # 系统运行开关
@@ -174,13 +199,13 @@ class SmartAgricultureInterface(QMainWindow):
                 QFrame {
                     background-color: #4CAF50;
                     border-radius: 25px;
-                    padding: 10px;
+                    padding: 8px;
                 }
             """)
             system_layout = QHBoxLayout(system_frame)
             
             system_label = QLabel("系统运行中")
-            system_label.setFont(QFont("SimHei", 12, QFont.Weight.Bold))
+            system_label.setFont(QFont("SimHei", 11, QFont.Weight.Bold))
             system_label.setStyleSheet("color: white;")
             system_layout.addWidget(system_label)
             
@@ -188,12 +213,12 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 开关按钮（用圆形表示）
             self.system_switch = QPushButton("●")
-            self.system_switch.setFixedSize(30, 30)
+            self.system_switch.setFixedSize(28, 28)
             self.system_switch.setStyleSheet("""
                 QPushButton {
                     background-color: white;
-                    border-radius: 15px;
-                    font-size: 16px;
+                    border-radius: 14px;
+                    font-size: 14px;
                     color: #4CAF50;
                 }
                 QPushButton:pressed {
@@ -207,8 +232,8 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 工作模式选择
             mode_label = QLabel("工作模式")
-            mode_label.setFont(QFont("SimHei", 10))
-            mode_label.setStyleSheet("color: #666; margin-top: 10px;")
+            mode_label.setFont(QFont("SimHei", 9))
+            mode_label.setStyleSheet("color: #666; margin-top: 8px;")
             control_layout.addWidget(mode_label)
             
             mode_layout = QHBoxLayout()
@@ -219,9 +244,9 @@ class SmartAgricultureInterface(QMainWindow):
             # 按钮样式
             button_style = """
                 QPushButton {
-                    padding: 8px 16px;
-                    border-radius: 20px;
-                    font-size: 12px;
+                    padding: 6px 14px;
+                    border-radius: 18px;
+                    font-size: 11px;
                     font-weight: bold;
                     border: 2px solid #4CAF50;
                 }
@@ -255,20 +280,20 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 采摘控制
             harvest_label = QLabel("采摘控制")
-            harvest_label.setFont(QFont("SimHei", 10))
-            harvest_label.setStyleSheet("color: #666; margin-top: 15px;")
+            harvest_label.setFont(QFont("SimHei", 9))
+            harvest_label.setStyleSheet("color: #666; margin-top: 10px;")
             control_layout.addWidget(harvest_label)
             
             self.harvest_btn = QPushButton("🍎 自动采摘中")
-            self.harvest_btn.setFixedHeight(40)
+            self.harvest_btn.setFixedHeight(36)
             self.harvest_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #4CAF50;
                     color: white;
-                    border-radius: 20px;
-                    font-size: 12px;
+                    border-radius: 18px;
+                    font-size: 11px;
                     font-weight: bold;
-                    padding: 10px;
+                    padding: 8px;
                 }
                 QPushButton:pressed {
                     background-color: #388E3C;
@@ -279,16 +304,16 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 紧急停止按钮
             self.emergency_btn = QPushButton("⭕ 紧急停止")
-            self.emergency_btn.setFixedHeight(40)
+            self.emergency_btn.setFixedHeight(36)
             self.emergency_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #F44336;
                     color: white;
-                    border-radius: 20px;
-                    font-size: 12px;
+                    border-radius: 18px;
+                    font-size: 11px;
                     font-weight: bold;
-                    padding: 10px;
-                    margin-top: 10px;
+                    padding: 8px;
+                    margin-top: 8px;
                 }
                 QPushButton:pressed {
                     background-color: #D32F2F;
@@ -299,24 +324,27 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 今日成果
             result_frame = QFrame()
+            result_frame.setMinimumHeight(100)  # 减少高度
             result_frame.setStyleSheet("""
                 QFrame {
                     background-color: #E8F5E8;
                     border-radius: 15px;
-                    padding: 15px;
-                    margin-top: 20px;
+                    margin-top: 15px;
                 }
             """)
             result_layout = QVBoxLayout(result_frame)
+            result_layout.setContentsMargins(12, 12, 12, 12)
+            result_layout.setSpacing(6)
             
             result_title = QLabel("📊 今日成果")
-            result_title.setFont(QFont("SimHei", 12, QFont.Weight.Bold))
+            result_title.setFont(QFont("SimHei", 11, QFont.Weight.Bold))
             result_title.setStyleSheet("color: #2E7D32;")
+            result_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
             result_layout.addWidget(result_title)
             
             self.result_number = QLabel("127")
-            self.result_number.setFont(QFont("Arial", 32, QFont.Weight.Bold))
-            self.result_number.setStyleSheet("color: #4CAF50;")
+            self.result_number.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+            self.result_number.setStyleSheet("color: #4CAF50; margin-top: 3px;")
             self.result_number.setAlignment(Qt.AlignmentFlag.AlignCenter)
             result_layout.addWidget(self.result_number)
             
@@ -339,19 +367,19 @@ class SmartAgricultureInterface(QMainWindow):
                 QFrame {
                     background-color: white;
                     border-radius: 15px;
-                    margin: 5px;
+                    margin: 3px;
                 }
             """)
             
             monitor_layout = QVBoxLayout(monitor_frame)
-            monitor_layout.setContentsMargins(20, 20, 20, 20)
-            monitor_layout.setSpacing(15)
+            monitor_layout.setContentsMargins(15, 15, 15, 15)
+            monitor_layout.setSpacing(12)
             
             # 监控标题
             monitor_header = QHBoxLayout()
             
             monitor_title = QLabel("📺 实时监控")
-            monitor_title.setFont(QFont("SimHei", 14, QFont.Weight.Bold))
+            monitor_title.setFont(QFont("SimHei", 13, QFont.Weight.Bold))
             monitor_title.setStyleSheet("color: #2E7D32;")
             monitor_header.addWidget(monitor_title)
             
@@ -359,7 +387,7 @@ class SmartAgricultureInterface(QMainWindow):
             
             # FPS显示
             self.fps_label = QLabel("FPS: 29")
-            self.fps_label.setFont(QFont("Arial", 12))
+            self.fps_label.setFont(QFont("Arial", 11))
             self.fps_label.setStyleSheet("color: #666;")
             monitor_header.addWidget(self.fps_label)
             
@@ -367,7 +395,7 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 摄像头画面区域
             self.camera_frame = QFrame()
-            self.camera_frame.setMinimumSize(640, 480)
+            self.camera_frame.setMinimumSize(800, 600)  # 全屏时增大摄像头画面
             self.camera_frame.setStyleSheet("""
                 QFrame {
                     background-color: #1a1a1a;
@@ -386,7 +414,7 @@ class SmartAgricultureInterface(QMainWindow):
             camera_placeholder.setStyleSheet("""
                 QLabel {
                     color: #666;
-                    font-size: 14px;
+                    font-size: 13px;
                     background-color: transparent;
                     border: none;
                 }
@@ -397,8 +425,8 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 检测信息
             self.detection_info = QLabel("检测到 4 个目标 | 最近距离: 0.65m | 准确率: 96.5%")
-            self.detection_info.setFont(QFont("SimHei", 11))
-            self.detection_info.setStyleSheet("color: #2E7D32; margin-top: 10px;")
+            self.detection_info.setFont(QFont("SimHei", 10))
+            self.detection_info.setStyleSheet("color: #2E7D32; margin-top: 8px;")
             self.detection_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
             monitor_layout.addWidget(self.detection_info)
             
@@ -412,34 +440,62 @@ class SmartAgricultureInterface(QMainWindow):
         """创建右侧状态面板"""
         try:
             status_frame = QFrame()
-            status_frame.setFixedWidth(280)
+            status_frame.setFixedWidth(270)  # 稍微减少宽度
             status_frame.setStyleSheet("""
                 QFrame {
                     background-color: white;
                     border-radius: 15px;
-                    margin: 5px;
+                    margin: 3px;
                 }
             """)
             
-            status_layout = QVBoxLayout(status_frame)
-            status_layout.setContentsMargins(20, 20, 20, 20)
-            status_layout.setSpacing(20)
+            # 使用滚动区域确保内容都能显示
+            scroll_area = QScrollArea(status_frame)
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setStyleSheet("""
+                QScrollArea {
+                    border: none;
+                    background-color: transparent;
+                }
+                QScrollBar:vertical {
+                    background-color: #F0F0F0;
+                    width: 8px;
+                    border-radius: 4px;
+                }
+                QScrollBar::handle:vertical {
+                    background-color: #C0C0C0;
+                    border-radius: 4px;
+                }
+            """)
+            
+            scroll_widget = QWidget()
+            scroll_area.setWidget(scroll_widget)
+            
+            status_layout = QVBoxLayout(scroll_widget)
+            status_layout.setContentsMargins(15, 15, 15, 15)
+            status_layout.setSpacing(15)  # 减少间距
+            
+            # 为状态面板创建布局
+            main_status_layout = QVBoxLayout(status_frame)
+            main_status_layout.setContentsMargins(0, 0, 0, 0)
+            main_status_layout.addWidget(scroll_area)
             
             # 系统状态标题
             status_title = QLabel("📊 系统状态")
-            status_title.setFont(QFont("SimHei", 14, QFont.Weight.Bold))
-            status_title.setStyleSheet("color: #2E7D32; margin-bottom: 10px;")
+            status_title.setFont(QFont("SimHei", 13, QFont.Weight.Bold))
+            status_title.setStyleSheet("color: #2E7D32; margin-bottom: 8px;")
             status_layout.addWidget(status_title)
             
             # 电池电量
             battery_label = QLabel("电池电量")
-            battery_label.setFont(QFont("SimHei", 10))
+            battery_label.setFont(QFont("SimHei", 9))
             battery_label.setStyleSheet("color: #666;")
             status_layout.addWidget(battery_label)
             
             battery_layout = QHBoxLayout()
             self.battery_bar = QProgressBar()
             self.battery_bar.setValue(75)
+            self.battery_bar.setFixedHeight(20)  # 设置固定高度
             self.battery_bar.setStyleSheet("""
                 QProgressBar {
                     border: 2px solid #E0E0E0;
@@ -447,6 +503,7 @@ class SmartAgricultureInterface(QMainWindow):
                     text-align: center;
                     font-weight: bold;
                     background-color: #F5F5F5;
+                    font-size: 9px;
                 }
                 QProgressBar::chunk {
                     background-color: #4CAF50;
@@ -456,7 +513,7 @@ class SmartAgricultureInterface(QMainWindow):
             battery_layout.addWidget(self.battery_bar)
             
             self.battery_percent = QLabel("75%")
-            self.battery_percent.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            self.battery_percent.setFont(QFont("Arial", 9, QFont.Weight.Bold))
             self.battery_percent.setStyleSheet("color: #4CAF50;")
             battery_layout.addWidget(self.battery_percent)
             
@@ -464,13 +521,14 @@ class SmartAgricultureInterface(QMainWindow):
             
             # CPU使用率
             cpu_label = QLabel("CPU使用率")
-            cpu_label.setFont(QFont("SimHei", 10))
+            cpu_label.setFont(QFont("SimHei", 9))
             cpu_label.setStyleSheet("color: #666;")
             status_layout.addWidget(cpu_label)
             
             cpu_layout = QHBoxLayout()
             self.cpu_bar = QProgressBar()
             self.cpu_bar.setValue(52)
+            self.cpu_bar.setFixedHeight(20)
             self.cpu_bar.setStyleSheet("""
                 QProgressBar {
                     border: 2px solid #E0E0E0;
@@ -478,6 +536,7 @@ class SmartAgricultureInterface(QMainWindow):
                     text-align: center;
                     font-weight: bold;
                     background-color: #F5F5F5;
+                    font-size: 9px;
                 }
                 QProgressBar::chunk {
                     background-color: #FF9800;
@@ -487,7 +546,7 @@ class SmartAgricultureInterface(QMainWindow):
             cpu_layout.addWidget(self.cpu_bar)
             
             self.cpu_percent = QLabel("52%")
-            self.cpu_percent.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            self.cpu_percent.setFont(QFont("Arial", 9, QFont.Weight.Bold))
             self.cpu_percent.setStyleSheet("color: #FF9800;")
             cpu_layout.addWidget(self.cpu_percent)
             
@@ -495,50 +554,51 @@ class SmartAgricultureInterface(QMainWindow):
             
             # 系统温度
             temp_label = QLabel("系统温度")
-            temp_label.setFont(QFont("SimHei", 10))
+            temp_label.setFont(QFont("SimHei", 9))
             temp_label.setStyleSheet("color: #666;")
             status_layout.addWidget(temp_label)
             
             self.temp_value = QLabel("28°C")
-            self.temp_value.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+            self.temp_value.setFont(QFont("Arial", 16, QFont.Weight.Bold))
             self.temp_value.setStyleSheet("color: #4CAF50;")
             status_layout.addWidget(self.temp_value)
             
             temp_status = QLabel("正常工作温度")
-            temp_status.setFont(QFont("SimHei", 9))
+            temp_status.setFont(QFont("SimHei", 8))
             temp_status.setStyleSheet("color: #999;")
             status_layout.addWidget(temp_status)
             
-            # 位置信息
+            # 位置信息 - 优化布局
             position_frame = QFrame()
             position_frame.setStyleSheet("""
                 QFrame {
                     background-color: #E8F5E8;
                     border-radius: 10px;
-                    padding: 15px;
-                    margin-top: 10px;
+                    padding: 12px;
+                    margin-top: 8px;
                 }
             """)
             position_layout = QVBoxLayout(position_frame)
+            position_layout.setSpacing(6)  # 减少间距
             
             position_title = QLabel("📍 位置信息")
-            position_title.setFont(QFont("SimHei", 12, QFont.Weight.Bold))
+            position_title.setFont(QFont("SimHei", 11, QFont.Weight.Bold))
             position_title.setStyleSheet("color: #2E7D32;")
             position_layout.addWidget(position_title)
             
             self.position_text = QLabel("当前位置\n纬度: 34.938500°\n经度: 108.241500°\n区域: 苹果园3号地块")
-            self.position_text.setFont(QFont("SimHei", 9))
-            self.position_text.setStyleSheet("color: #666; line-height: 1.4;")
+            self.position_text.setFont(QFont("SimHei", 8))
+            self.position_text.setStyleSheet("color: #666; line-height: 1.2;")
             position_layout.addWidget(self.position_text)
             
             work_status_title = QLabel("工作状态")
-            work_status_title.setFont(QFont("SimHei", 10, QFont.Weight.Bold))
-            work_status_title.setStyleSheet("color: #2E7D32; margin-top: 10px;")
+            work_status_title.setFont(QFont("SimHei", 9, QFont.Weight.Bold))
+            work_status_title.setStyleSheet("color: #2E7D32; margin-top: 8px;")
             position_layout.addWidget(work_status_title)
             
             self.work_status_text = QLabel("正在采摘作业\n工作时长: 5小时23分\n移动速度: 0.3 m/s")
-            self.work_status_text.setFont(QFont("SimHei", 9))
-            self.work_status_text.setStyleSheet("color: #666; line-height: 1.4;")
+            self.work_status_text.setFont(QFont("SimHei", 8))
+            self.work_status_text.setStyleSheet("color: #666; line-height: 1.2;")
             position_layout.addWidget(self.work_status_text)
             
             status_layout.addWidget(position_frame)
@@ -556,27 +616,28 @@ class SmartAgricultureInterface(QMainWindow):
         """创建底部数据总览"""
         try:
             overview_frame = QFrame()
-            overview_frame.setFixedHeight(120)
+            overview_frame.setFixedHeight(160)  # 全屏时恢复较大高度
             overview_frame.setStyleSheet("""
                 QFrame {
                     background-color: white;
                     border-radius: 15px;
-                    margin: 5px;
+                    margin: 3px;
                 }
             """)
             
             overview_layout = QVBoxLayout(overview_frame)
-            overview_layout.setContentsMargins(20, 15, 20, 15)
-            overview_layout.setSpacing(10)
+            overview_layout.setContentsMargins(15, 15, 15, 15)
+            overview_layout.setSpacing(10)  # 减少间距
             
             # 标题
             overview_title = QLabel("🌾 农场数据总览")
-            overview_title.setFont(QFont("SimHei", 14, QFont.Weight.Bold))
-            overview_title.setStyleSheet("color: #2E7D32;")
+            overview_title.setFont(QFont("SimHei", 13, QFont.Weight.Bold))
+            overview_title.setStyleSheet("color: #2E7D32; margin-bottom: 3px;")
             overview_layout.addWidget(overview_title)
             
             # 数据指标
             metrics_layout = QHBoxLayout()
+            metrics_layout.setSpacing(12)  # 减少间距
             
             # 创建指标卡片
             metrics_data = [
@@ -591,26 +652,36 @@ class SmartAgricultureInterface(QMainWindow):
             
             for title, value, color in metrics_data:
                 metric_frame = QFrame()
+                metric_frame.setMinimumWidth(180)  # 减少宽度
+                metric_frame.setFixedHeight(70)  # 减少高度
                 metric_frame.setStyleSheet(f"""
                     QFrame {{
-                        background-color: #F8F9FA;
+                        background-color: white;
                         border-radius: 10px;
-                        border-left: 4px solid {color};
-                        padding: 10px;
+                        border: 1px solid #E0E0E0;
+                        margin: 1px;
+                    }}
+                    QFrame:hover {{
+                        border: 2px solid {color};
+                        background-color: #FAFAFA;
                     }}
                 """)
                 
                 metric_layout = QVBoxLayout(metric_frame)
-                metric_layout.setContentsMargins(10, 5, 10, 5)
+                metric_layout.setContentsMargins(12, 8, 12, 8)  # 减少边距
+                metric_layout.setSpacing(4)  # 减少间距
+                metric_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 
                 metric_title = QLabel(title)
                 metric_title.setFont(QFont("SimHei", 9))
                 metric_title.setStyleSheet("color: #666;")
+                metric_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 metric_layout.addWidget(metric_title)
                 
                 metric_value = QLabel(value)
-                metric_value.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+                metric_value.setFont(QFont("Arial", 16, QFont.Weight.Bold))  # 减少字体大小
                 metric_value.setStyleSheet(f"color: {color};")
+                metric_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 metric_layout.addWidget(metric_value)
                 
                 # 保存引用以便后续更新
@@ -698,6 +769,28 @@ class SmartAgricultureInterface(QMainWindow):
             print(f"更新数据失败: {e}")
             traceback.print_exc()
     
+    def toggle_fullscreen(self):
+        """切换全屏模式"""
+        try:
+            if self.is_fullscreen:
+                # 退出全屏，显示为普通窗口
+                self.setWindowFlags(Qt.WindowType.Window)
+                self.setGeometry(100, 100, 1440, 960)
+                self.show()
+                self.is_fullscreen = False
+                print("退出全屏模式 (按F11或Esc可重新进入全屏)")
+            else:
+                # 进入全屏
+                self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+                screen = QApplication.primaryScreen().geometry()
+                self.setGeometry(screen)
+                self.show()
+                self.is_fullscreen = True
+                print("进入全屏模式")
+        except Exception as e:
+            print(f"切换全屏模式失败: {e}")
+            traceback.print_exc()
+
     # 控制按钮回调函数
     def toggle_system(self):
         """切换系统状态"""
@@ -742,10 +835,10 @@ class SmartAgricultureInterface(QMainWindow):
                     QPushButton {
                         background-color: #4CAF50;
                         color: white;
-                        border-radius: 20px;
-                        font-size: 12px;
+                        border-radius: 18px;
+                        font-size: 11px;
                         font-weight: bold;
-                        padding: 10px;
+                        padding: 8px;
                     }
                 """)
             else:
@@ -754,10 +847,10 @@ class SmartAgricultureInterface(QMainWindow):
                     QPushButton {
                         background-color: #FF9800;
                         color: white;
-                        border-radius: 20px;
-                        font-size: 12px;
+                        border-radius: 18px;
+                        font-size: 11px;
                         font-weight: bold;
-                        padding: 10px;
+                        padding: 8px;
                     }
                 """)
             print(f"采摘状态切换: {'活动中' if self.harvest_active else '暂停'}")
@@ -780,10 +873,10 @@ class SmartAgricultureInterface(QMainWindow):
                 QPushButton {
                     background-color: #FF9800;
                     color: white;
-                    border-radius: 20px;
-                    font-size: 12px;
+                    border-radius: 18px;
+                    font-size: 11px;
                     font-weight: bold;
-                    padding: 10px;
+                    padding: 8px;
                 }
             """)
             
@@ -804,7 +897,12 @@ def main():
         
         # 创建主窗口
         window = SmartAgricultureInterface()
-        window.show()
+        
+        # 直接显示为全屏
+        window.showFullScreen()
+        
+        print("智慧农业采摘系统已启动 (全屏模式)")
+        print("按 Esc 或 F11 键可以切换全屏模式")
         
         # 运行应用
         sys.exit(app.exec())
@@ -815,4 +913,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
