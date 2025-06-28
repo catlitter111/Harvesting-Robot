@@ -103,6 +103,11 @@ class IntegratedBottleDetectionNode(Node):
         self._declare_parameters()
         self._get_parameters()
         
+        # 创建图像保存目录 - 🆕 添加调试图像保存功能
+        self.debug_save_images = False  # 是否保存调试图像
+        self.save_directory = os.path.expanduser("~/bottle_detection_debug_images")
+        self._create_save_directory()
+        
         # 初始化CV Bridge
         self.cv_bridge = CvBridge()
         
@@ -561,6 +566,12 @@ class IntegratedBottleDetectionNode(Node):
                         except Exception as e:
                             logger.error(f"  获取3D位置失败: {e}")
                     
+                    # 🆕 调试：记录坐标变换过程
+                    logger.debug(f"  检测 {idx} 坐标信息:")
+                    logger.debug(f"    原始边界框: ({left},{top},{right},{bottom})")
+                    logger.debug(f"    中心点: ({cx},{cy})")
+                    logger.debug(f"    边界框尺寸: {right-left}x{bottom-top}")
+                    
                     # 创建检测字典
                     detection_dict = {
                         'detection': (int(left), int(top), int(right), int(bottom), 
@@ -899,6 +910,16 @@ class IntegratedBottleDetectionNode(Node):
                         logger.error(f"处理3D位置时出错: {e}")
                         logger.error(f"position_3d详情: type={type(position_3d)}, value={position_3d}")
                 
+                # 🆕 调试：发布前记录坐标信息
+                # self.get_logger().info(
+                #     f'发布检测结果 - 最近瓶子:\n'
+                #     f'  中心点: ({int(cx)},{int(cy)})\n'
+                #     f'  边界框: [{int(left)},{int(top)},{int(right)},{int(bottom)}]\n'
+                #     f'  边界框尺寸: {int(right)-int(left)}x{int(bottom)-int(top)}\n'
+                #     f'  置信度: {float(score):.3f}\n'
+                #     f'  距离: {float(distance):.3f}m'
+                # )
+                
                 # 发布详细信息
                 info = {
                     'bottle_detected': True,
@@ -1089,8 +1110,30 @@ class IntegratedBottleDetectionNode(Node):
             logger.error(traceback.format_exc())
     
     @trace_errors
+    def _create_save_directory(self):
+        """创建图像保存目录"""
+        try:
+            if not os.path.exists(self.save_directory):
+                os.makedirs(self.save_directory, exist_ok=True)
+                self.get_logger().info(f'创建调试图像保存目录: {self.save_directory}')
+            else:
+                self.get_logger().info(f'使用现有调试图像保存目录: {self.save_directory}')
+                
+            # 创建子目录
+            subdirs = ['cropped_bottles', 'full_frames', 'annotated_frames']
+            for subdir in subdirs:
+                subdir_path = os.path.join(self.save_directory, subdir)
+                os.makedirs(subdir_path, exist_ok=True)
+                
+            self.get_logger().info('调试图像保存目录结构创建完成')
+            
+        except Exception as e:
+            self.get_logger().error(f'创建保存目录失败: {e}')
+            self.debug_save_images = False  # 禁用保存功能
+
+    @trace_errors
     def _crop_and_publish_bottle_image(self, request_data):
-        """截取瓶子图像并发布给AI识别系统"""
+        """截取瓶子图像并发布给AI识别系统 - 🆕 增加坐标验证和修正功能"""
         try:
             # 检查是否有可用的图像
             if self.current_frame_left is None:
@@ -1102,7 +1145,13 @@ class IntegratedBottleDetectionNode(Node):
             
             # 获取边界框信息
             bbox = request_data.get('bbox', {})
+            center = request_data.get('center', {})
             request_id = request_data.get('request_id', f'bottle_{int(time.time()*1000)}')
+            
+            # 生成时间戳用于文件命名
+            timestamp_str = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+            milliseconds = int((time.time() % 1) * 1000)
+            full_timestamp = f"{timestamp_str}_{milliseconds:03d}"
             
             # 原始边界框坐标
             orig_xmin = bbox.get('xmin', 0)
@@ -1110,12 +1159,60 @@ class IntegratedBottleDetectionNode(Node):
             orig_xmax = bbox.get('xmax', w)
             orig_ymax = bbox.get('ymax', h)
             
+            # 🆕 获取中心点信息（用于坐标验证）
+            center_x = center.get('x', (orig_xmin + orig_xmax) // 2)
+            center_y = center.get('y', (orig_ymin + orig_ymax) // 2)
+            
+            # 🆕 坐标一致性检查
+            calc_center_x = (orig_xmin + orig_xmax) // 2
+            calc_center_y = (orig_ymin + orig_ymax) // 2
+            center_offset_x = abs(center_x - calc_center_x)
+            center_offset_y = abs(center_y - calc_center_y)
+            
+            self.get_logger().info(
+                f'🔍 坐标验证 - 请求ID: {request_id}\n'
+                f'  原始边界框: ({orig_xmin},{orig_ymin},{orig_xmax},{orig_ymax})\n'
+                f'  请求中心点: ({center_x},{center_y})\n'
+                f'  计算中心点: ({calc_center_x},{calc_center_y})\n'
+                f'  中心偏移: X={center_offset_x}px, Y={center_offset_y}px'
+            )
+            
+            # 🆕 如果中心偏移过大，可能存在坐标错误，尝试修正
+            if center_offset_x > 50 or center_offset_y > 50:
+                self.get_logger().warn(
+                    f'⚠️  检测到较大的坐标偏移！可能存在坐标系统不一致问题\n'
+                    f'   建议检查检测算法的坐标映射逻辑'
+                )
+                
+                # 提供基于中心点的修正边界框（可选）
+                bbox_width = orig_xmax - orig_xmin
+                bbox_height = orig_ymax - orig_ymin
+                
+                # 使用请求的中心点重新计算边界框
+                corrected_xmin = center_x - bbox_width // 2
+                corrected_ymin = center_y - bbox_height // 2
+                corrected_xmax = center_x + bbox_width // 2
+                corrected_ymax = center_y + bbox_height // 2
+                
+                self.get_logger().info(
+                    f'🔧 提供修正建议:\n'
+                    f'  修正边界框: ({corrected_xmin},{corrected_ymin},{corrected_xmax},{corrected_ymax})\n'
+                    f'  注意：当前仍使用原始边界框进行截取'
+                )
+            
             self.get_logger().info(
                 f'收到截取请求 {request_id}:\n'
                 f'  原始图像尺寸: {w}x{h}\n'
                 f'  请求边界框: ({orig_xmin},{orig_ymin},{orig_xmax},{orig_ymax})\n'
                 f'  边界框尺寸: {orig_xmax-orig_xmin}x{orig_ymax-orig_ymin}'
             )
+            
+            # 🆕 保存完整的原始图像（用于调试对比）
+            if self.debug_save_images:
+                full_frame_filename = f"full_frame_{full_timestamp}_{request_id}.jpg"
+                full_frame_path = os.path.join(self.save_directory, 'full_frames', full_frame_filename)
+                cv2.imwrite(full_frame_path, self.current_frame_left)
+                self.get_logger().info(f'保存完整原始图像: {full_frame_path}')
             
             # 确保坐标在图像范围内
             xmin = max(0, orig_xmin)
@@ -1164,6 +1261,76 @@ class IntegratedBottleDetectionNode(Node):
                 f'  数据类型: {bottle_image.dtype}'
             )
             
+            # 🆕 保存截取的瓶子图像到本地（原始版本）
+            if self.debug_save_images:
+                cropped_filename = f"bottle_crop_{full_timestamp}_{request_id}.jpg"
+                cropped_path = os.path.join(self.save_directory, 'cropped_bottles', cropped_filename)
+                cv2.imwrite(cropped_path, bottle_image)
+                self.get_logger().info(f'保存截取瓶子图像: {cropped_path}')
+                
+                # 🆕 创建带标注的版本（显示边界框和信息）
+                annotated_full_frame = self.current_frame_left.copy()
+                # 绘制原始边界框（红色）
+                cv2.rectangle(annotated_full_frame, (orig_xmin, orig_ymin), (orig_xmax, orig_ymax), (0, 0, 255), 2)
+                cv2.putText(annotated_full_frame, "Original BBox", (orig_xmin, orig_ymin-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                
+                # 绘制实际截取区域（绿色）
+                cv2.rectangle(annotated_full_frame, (xmin_margin, ymin_margin), (xmax_margin, ymax_margin), (0, 255, 0), 2)
+                cv2.putText(annotated_full_frame, "Crop Region", (xmin_margin, ymin_margin-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                
+                # 添加文本信息
+                info_text = [
+                    f"Request ID: {request_id}",
+                    f"Timestamp: {full_timestamp}",
+                    f"Original: {orig_xmax-orig_xmin}x{orig_ymax-orig_ymin}",
+                    f"Cropped: {xmax_margin-xmin_margin}x{ymax_margin-ymin_margin}",
+                    f"Margin: {margin}px"
+                ]
+                
+                for i, text in enumerate(info_text):
+                    cv2.putText(annotated_full_frame, text, (10, 30 + i * 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                
+                # 保存标注版本
+                annotated_filename = f"annotated_{full_timestamp}_{request_id}.jpg"
+                annotated_path = os.path.join(self.save_directory, 'annotated_frames', annotated_filename)
+                cv2.imwrite(annotated_path, annotated_full_frame)
+                self.get_logger().info(f'保存标注图像: {annotated_path}')
+                
+                # 🆕 保存裁剪信息到文本文件（包含坐标验证信息）
+                info_filename = f"crop_info_{full_timestamp}_{request_id}.txt"
+                info_path = os.path.join(self.save_directory, 'cropped_bottles', info_filename)
+                with open(info_path, 'w', encoding='utf-8') as f:
+                    f.write(f"瓶子截取信息\n")
+                    f.write(f"==================\n")
+                    f.write(f"请求ID: {request_id}\n")
+                    f.write(f"时间戳: {full_timestamp}\n")
+                    f.write(f"原始图像尺寸: {w}x{h}\n")
+                    f.write(f"\n🔍 坐标验证结果:\n")
+                    f.write(f"原始边界框: ({orig_xmin},{orig_ymin},{orig_xmax},{orig_ymax})\n")
+                    f.write(f"请求中心点: ({center_x},{center_y})\n")
+                    f.write(f"计算中心点: ({calc_center_x},{calc_center_y})\n")
+                    f.write(f"中心偏移: X={center_offset_x}px, Y={center_offset_y}px\n")
+                    if center_offset_x > 50 or center_offset_y > 50:
+                        f.write(f"⚠️ 坐标偏移警告: 检测到较大偏移，可能存在坐标系统不一致\n")
+                    f.write(f"\n📏 截取处理:\n")
+                    f.write(f"边界框尺寸: {orig_xmax-orig_xmin}x{orig_ymax-orig_ymin}\n")
+                    f.write(f"约束后边界框: ({xmin},{ymin},{xmax},{ymax})\n")
+                    f.write(f"边距: {margin}px\n")
+                    f.write(f"最终截取区域: ({xmin_margin},{ymin_margin},{xmax_margin},{ymax_margin})\n")
+                    f.write(f"截取尺寸: {xmax_margin-xmin_margin}x{ymax_margin-ymin_margin}\n")
+                    f.write(f"截取图像形状: {bottle_image.shape}\n")
+                    f.write(f"\n📁 相关文件:\n")
+                    f.write(f"  - 完整图像: {full_frame_filename}\n")
+                    f.write(f"  - 截取图像: {cropped_filename}\n")
+                    f.write(f"  - 标注图像: {annotated_filename}\n")
+                    f.write(f"\n💡 调试建议:\n")
+                    f.write(f"1. 查看标注图像中的红色框（原始检测）和绿色框（截取区域）\n")
+                    f.write(f"2. 如果红色框位置不准确，请检查检测算法的坐标映射逻辑\n")
+                    f.write(f"3. 关注letter_box变换的padding和缩放处理\n")
+                    f.write(f"4. 确认检测时使用的目标类别是否正确匹配实际物体\n")
+                
+                self.get_logger().info(f'保存截取信息: {info_path}')
+            
             # 压缩图像 - 参考fruit_image_publisher_node的压缩方式
             encode_param = [cv2.IMWRITE_JPEG_QUALITY, 80]  # 80%质量
             success, encoded_image = cv2.imencode('.jpg', bottle_image, encode_param)
@@ -1190,6 +1357,16 @@ class IntegratedBottleDetectionNode(Node):
                 f'  发布话题: fruit_detection/raw_image\n'
                 f'  帧ID: {msg.header.frame_id}'
             )
+            
+            # 🆕 打印保存目录信息（便于用户查找）
+            if self.debug_save_images:
+                self.get_logger().info(
+                    f'调试图像已保存到目录: {self.save_directory}\n'
+                    f'  - 完整图像: full_frames/{full_frame_filename}\n'
+                    f'  - 截取图像: cropped_bottles/{cropped_filename}\n'
+                    f'  - 标注图像: annotated_frames/{annotated_filename}\n'
+                    f'  - 详细信息: cropped_bottles/{info_filename}'
+                )
             
             return True
             

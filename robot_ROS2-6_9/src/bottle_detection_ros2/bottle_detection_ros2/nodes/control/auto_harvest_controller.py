@@ -56,13 +56,13 @@ class AutoHarvestController(Node):
         self.declare_parameter('fine_approach_speed', DEFAULT_FINE_APPROACH_SPEED)  # 百分比 (0-100)
         self.declare_parameter('fine_turn_speed', DEFAULT_FINE_TURN_SPEED)  # 百分比 (0-100)
         
-        # 获取参数
-        self.control_rate = self.get_parameter('control_rate').value
-        self.search_timeout = self.get_parameter('search_timeout').value
-        self.approach_speed = self.get_parameter('approach_speed').value
-        self.turn_speed = self.get_parameter('turn_speed').value
-        self.fine_approach_speed = self.get_parameter('fine_approach_speed').value
-        self.fine_turn_speed = self.get_parameter('fine_turn_speed').value
+        # 获取参数，提供默认值避免None
+        self.control_rate = float(self.get_parameter('control_rate').value or 10.0)
+        self.search_timeout = float(self.get_parameter('search_timeout').value or 5.0)
+        self.approach_speed = float(self.get_parameter('approach_speed').value or DEFAULT_APPROACH_SPEED)
+        self.turn_speed = float(self.get_parameter('turn_speed').value or DEFAULT_TURN_SPEED)
+        self.fine_approach_speed = float(self.get_parameter('fine_approach_speed').value or DEFAULT_FINE_APPROACH_SPEED)
+        self.fine_turn_speed = float(self.get_parameter('fine_turn_speed').value or DEFAULT_FINE_TURN_SPEED)
         
 
         
@@ -401,13 +401,13 @@ class AutoHarvestController(Node):
     def approach_bottle(self):
         """接近瓶子的控制逻辑"""
         # 首次检测到有效距离时启动全速前进模式
-        if self.initial_target_distance is None and self.nearest_distance > 0:
+        if self.initial_target_distance is None and self.nearest_distance is not None and self.nearest_distance > 0:
             self.initial_target_distance = self.nearest_distance
             self.full_speed_mode = True
             self.full_speed_started = False
             
             # 根据距离范围计算前进时间
-            if self.nearest_distance > DISTANCE_VERY_FAR:
+            if self.nearest_distance is not None and self.nearest_distance > DISTANCE_VERY_FAR:
                 # 如果距离大于超远距离阈值，前进到远距离阈值处
                 effective_distance = max(0.1, self.nearest_distance - DISTANCE_FAR)
                 self.full_speed_duration = effective_distance / FULL_SPEED
@@ -433,34 +433,35 @@ class AutoHarvestController(Node):
         offset_x = center_x - self.bottle_cx
         
         # 根据距离选择控制策略
-        if self.nearest_distance > DISTANCE_VERY_FAR:
-            # 超远距离：快速接近，大角度调整
-            self.get_logger().info(f'距离状态: 超远距离 (>{DISTANCE_VERY_FAR}m)')
-            self._last_distance_state = "very_far"
-            self.approach_very_far(offset_x)
-        elif self.nearest_distance > DISTANCE_FAR:
-            # 远距离：使用电机移动
-            self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
-            self._last_distance_state = "far"
-            self.approach_far(offset_x)
-        elif self.nearest_distance > DISTANCE_NEAR:
-            # 中等距离：精细控制
-            self.get_logger().info(f'距离状态: 中等距离 ({DISTANCE_NEAR}m-{DISTANCE_FAR}m)')
-            self._last_distance_state = "medium"
-            self.approach_medium(offset_x)
-        elif self.nearest_distance > DISTANCE_HARVEST:
-            # 近距离：使用舵机跟踪
-            self.get_logger().info(f'距离状态: 近距离 ({DISTANCE_HARVEST}m-{DISTANCE_NEAR}m)')
-            # 确保首次进入近距离时重置状态
-            if hasattr(self, '_last_distance_state') and self._last_distance_state != "near":
-                self.reset_near_distance_state()
-            self._last_distance_state = "near"
-            self.approach_near(offset_x)
-        else:
-            # 采摘距离：停止并采摘
-            self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
-            self._last_distance_state = "harvest"
-            self.stop_and_harvest(offset_x)
+        if self.nearest_distance is not None:
+            if self.nearest_distance > DISTANCE_VERY_FAR:
+                # 超远距离：快速接近，大角度调整
+                self.get_logger().info(f'距离状态: 超远距离 (>{DISTANCE_VERY_FAR}m)')
+                self._last_distance_state = "very_far"
+                self.approach_very_far(offset_x)
+            elif self.nearest_distance > DISTANCE_FAR:
+                # 远距离：使用电机移动
+                self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
+                self._last_distance_state = "far"
+                self.approach_far(offset_x)
+            elif self.nearest_distance > DISTANCE_NEAR:
+                # 中等距离：精细控制
+                self.get_logger().info(f'距离状态: 中等距离 ({DISTANCE_NEAR}m-{DISTANCE_FAR}m)')
+                self._last_distance_state = "medium"
+                self.approach_medium(offset_x)
+            elif self.nearest_distance > DISTANCE_HARVEST:
+                # 近距离：使用舵机跟踪
+                self.get_logger().info(f'距离状态: 近距离 ({DISTANCE_HARVEST}m-{DISTANCE_NEAR}m)')
+                # 确保首次进入近距离时重置状态
+                if hasattr(self, '_last_distance_state') and self._last_distance_state != "near":
+                    self.reset_near_distance_state()
+                self._last_distance_state = "near"
+                self.approach_near(offset_x)
+            else:
+                # 采摘距离：停止并采摘
+                self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
+                self._last_distance_state = "harvest"
+                self.stop_and_harvest(offset_x)
     
     def full_speed_control(self):
         """全速前进控制方法"""
