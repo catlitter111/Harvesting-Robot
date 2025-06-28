@@ -1097,40 +1097,72 @@ class IntegratedBottleDetectionNode(Node):
                 self.get_logger().warn('没有可用的图像进行截取')
                 return False
             
+            # 获取图像尺寸
+            h, w = self.current_frame_left.shape[:2]
+            
             # 获取边界框信息
             bbox = request_data.get('bbox', {})
             request_id = request_data.get('request_id', f'bottle_{int(time.time()*1000)}')
             
-            xmin = max(0, bbox.get('xmin', 0))
-            ymin = max(0, bbox.get('ymin', 0))
-            xmax = min(self.current_frame_left.shape[1], bbox.get('xmax', self.current_frame_left.shape[1]))
-            ymax = min(self.current_frame_left.shape[0], bbox.get('ymax', self.current_frame_left.shape[0]))
+            # 原始边界框坐标
+            orig_xmin = bbox.get('xmin', 0)
+            orig_ymin = bbox.get('ymin', 0)
+            orig_xmax = bbox.get('xmax', w)
+            orig_ymax = bbox.get('ymax', h)
+            
+            self.get_logger().info(
+                f'收到截取请求 {request_id}:\n'
+                f'  原始图像尺寸: {w}x{h}\n'
+                f'  请求边界框: ({orig_xmin},{orig_ymin},{orig_xmax},{orig_ymax})\n'
+                f'  边界框尺寸: {orig_xmax-orig_xmin}x{orig_ymax-orig_ymin}'
+            )
+            
+            # 确保坐标在图像范围内
+            xmin = max(0, orig_xmin)
+            ymin = max(0, orig_ymin)
+            xmax = min(w, orig_xmax)
+            ymax = min(h, orig_ymax)
             
             # 检查边界框是否有效
             if xmin >= xmax or ymin >= ymax:
-                self.get_logger().error(f'无效的边界框: ({xmin},{ymin},{xmax},{ymax})')
+                self.get_logger().error(
+                    f'边界框无效:\n'
+                    f'  约束后坐标: ({xmin},{ymin},{xmax},{ymax})\n'
+                    f'  宽度: {xmax-xmin}, 高度: {ymax-ymin}'
+                )
                 return False
             
             # 添加一些边距（让截取的图像更完整）
             margin = 20
-            h, w = self.current_frame_left.shape[:2]
-            xmin = max(0, xmin - margin)
-            ymin = max(0, ymin - margin)
-            xmax = min(w, xmax + margin)
-            ymax = min(h, ymax + margin)
-            
-            # 截取瓶子区域
-            bottle_image = self.current_frame_left[ymin:ymax, xmin:xmax]
+            xmin_margin = max(0, xmin - margin)
+            ymin_margin = max(0, ymin - margin)
+            xmax_margin = min(w, xmax + margin)
+            ymax_margin = min(h, ymax + margin)
             
             self.get_logger().info(
-                f'截取瓶子图像: 边界框({xmin},{ymin},{xmax},{ymax}), '
-                f'截取尺寸: {bottle_image.shape[1]}x{bottle_image.shape[0]}'
+                f'  约束后边界框: ({xmin},{ymin},{xmax},{ymax})\n'
+                f'  添加边距({margin}px)后: ({xmin_margin},{ymin_margin},{xmax_margin},{ymax_margin})\n'
+                f'  最终截取区域: {xmax_margin-xmin_margin}x{ymax_margin-ymin_margin}'
             )
             
-            # 确保截取的图像不为空
+            # 截取瓶子区域
+            bottle_image = self.current_frame_left[ymin_margin:ymax_margin, xmin_margin:xmax_margin]
+            
+            # 验证截取结果
             if bottle_image.size == 0:
-                self.get_logger().error('截取的图像为空')
+                self.get_logger().error(
+                    f'截取的图像为空!\n'
+                    f'  截取坐标: [{ymin_margin}:{ymax_margin}, {xmin_margin}:{xmax_margin}]\n'
+                    f'  图像尺寸: {bottle_image.shape}'
+                )
                 return False
+            
+            self.get_logger().info(
+                f'瓶子图像截取成功:\n'
+                f'  截取坐标: [{ymin_margin}:{ymax_margin}, {xmin_margin}:{xmax_margin}]\n'
+                f'  截取尺寸: {bottle_image.shape[1]}x{bottle_image.shape[0]}\n'
+                f'  数据类型: {bottle_image.dtype}'
+            )
             
             # 压缩图像 - 参考fruit_image_publisher_node的压缩方式
             encode_param = [cv2.IMWRITE_JPEG_QUALITY, 80]  # 80%质量
@@ -1153,8 +1185,10 @@ class IntegratedBottleDetectionNode(Node):
             # 计算文件大小
             file_size_kb = len(encoded_image) / 1024
             self.get_logger().info(
-                f'瓶子图像发布成功: 尺寸={bottle_image.shape[1]}x{bottle_image.shape[0]}, '
-                f'大小={file_size_kb:.1f}KB, 已发送给AI识别系统'
+                f'瓶子图像发布成功:\n'
+                f'  压缩后大小: {file_size_kb:.1f}KB\n'
+                f'  发布话题: fruit_detection/raw_image\n'
+                f'  帧ID: {msg.header.frame_id}'
             )
             
             return True

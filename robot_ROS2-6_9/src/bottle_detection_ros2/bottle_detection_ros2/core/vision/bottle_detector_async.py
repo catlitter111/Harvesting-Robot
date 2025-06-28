@@ -219,7 +219,33 @@ def detect_bottle_async(rknn_lite, image, frame_id):
     (frame_id, image, detections) -- 帧ID、原图像、检测结果
     """
     try:
-        # 图像预处理
+        # 获取原始图像尺寸
+        img_h, img_w = image.shape[:2]
+        
+        # 图像预处理 - 计算letter_box的变换参数
+        target_h, target_w = MODEL_SIZE  # (640, 640)
+        
+        # 计算缩放比例（保持宽高比）
+        scale = min(target_w / img_w, target_h / img_h)
+        
+        # 计算缩放后的尺寸（不含padding）
+        new_w = int(img_w * scale)
+        new_h = int(img_h * scale)
+        
+        # 计算padding偏移
+        pad_w = (target_w - new_w) / 2
+        pad_h = (target_h - new_h) / 2
+        
+        # 调试信息：每100帧输出一次变换参数
+        if frame_id % 100 == 0:
+            logger.debug(f"帧{frame_id} 坐标变换参数:")
+            logger.debug(f"  原始图像: {img_w}x{img_h}")
+            logger.debug(f"  目标尺寸: {target_w}x{target_h}")
+            logger.debug(f"  缩放比例: {scale:.4f}")
+            logger.debug(f"  缩放后尺寸: {new_w}x{new_h}")
+            logger.debug(f"  Padding偏移: ({pad_w:.1f}, {pad_h:.1f})")
+        
+        # 应用letter_box预处理
         img = letter_box(image, MODEL_SIZE)
         input_tensor = np.expand_dims(img, axis=0)
         
@@ -231,28 +257,44 @@ def detect_bottle_async(rknn_lite, image, frame_id):
         
         bottle_detections = []
         if boxes is not None:
-            # 获取原始图像尺寸
-            img_h, img_w = image.shape[:2]
-            # 计算缩放因子
-            x_factor = img_w / MODEL_SIZE[0]
-            y_factor = img_h / MODEL_SIZE[1]
-            
             # 筛选出瓶子类别的检测结果
-            for box, score, cl in zip(boxes, scores, classes):
+            for i, (box, score, cl) in enumerate(zip(boxes, scores, classes)):
                 if CLASSES[cl] == 'sports ball' or CLASSES[cl] == 'apple' or CLASSES[cl] == 'orange':  # 只保留瓶子类别
-                    x1, y1, x2, y2 = [int(_b) for _b in box]
+                    x1, y1, x2, y2 = [float(_b) for _b in box]
                     
-                    # 将坐标映射回原始图像尺寸
-                    left = int(x1 * x_factor)
-                    top = int(y1 * y_factor)
-                    right = int(x2 * x_factor)
-                    bottom = int(y2 * y_factor)
+                    # 修正坐标映射：先减去padding，再缩放回原始图像
+                    # 步骤1：减去padding偏移
+                    x1_corrected = x1 - pad_w
+                    y1_corrected = y1 - pad_h
+                    x2_corrected = x2 - pad_w
+                    y2_corrected = y2 - pad_h
                     
-                    # 计算瓶子中心点
-                    center_x = (left + right) // 2
-                    center_y = (top + bottom) // 2
+                    # 步骤2：从缩放后尺寸映射回原始图像尺寸
+                    left = int(x1_corrected / scale)
+                    top = int(y1_corrected / scale)
+                    right = int(x2_corrected / scale)
+                    bottom = int(y2_corrected / scale)
                     
-                    bottle_detections.append((left, top, right, bottom, score, center_x, center_y))
+                    # 调试信息：输出第一个检测结果的坐标映射过程
+                    if frame_id % 100 == 0 and i == 0:
+                        logger.debug(f"  检测{i} 坐标映射:")
+                        logger.debug(f"    模型输出: ({x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f})")
+                        logger.debug(f"    减去padding: ({x1_corrected:.1f},{y1_corrected:.1f},{x2_corrected:.1f},{y2_corrected:.1f})")
+                        logger.debug(f"    映射到原图: ({left},{top},{right},{bottom})")
+                    
+                    # 确保坐标在图像范围内
+                    left = max(0, min(left, img_w - 1))
+                    top = max(0, min(top, img_h - 1))
+                    right = max(0, min(right, img_w - 1))
+                    bottom = max(0, min(bottom, img_h - 1))
+                    
+                    # 确保边界框有效
+                    if right > left and bottom > top:
+                        # 计算瓶子中心点
+                        center_x = (left + right) // 2
+                        center_y = (top + bottom) // 2
+                        
+                        bottle_detections.append((left, top, right, bottom, score, center_x, center_y))
         
         return frame_id, image, bottle_detections
     
