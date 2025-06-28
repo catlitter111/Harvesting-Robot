@@ -8,6 +8,7 @@
 import rclpy
 from rclpy.node import Node
 from bottle_detection_msgs.msg import ServoCommand, ServoStatus, HarvestCommand
+from std_msgs.msg import String
 import sys
 import select
 import termios
@@ -27,8 +28,10 @@ class ServoDebugNode(Node):
         self.declare_parameter('time_ms', 200)   # 移动时间（毫秒）
         
         # 获取参数
-        self.step_size = self.get_parameter('step_size').value
-        self.time_ms = self.get_parameter('time_ms').value
+        step_size_value = self.get_parameter('step_size').value
+        self.step_size = int(step_size_value) if step_size_value is not None else 50
+        time_ms_value = self.get_parameter('time_ms').value
+        self.time_ms = int(time_ms_value) if time_ms_value is not None else 200
         
         # 舵机ID定义
         self.HORIZONTAL_SERVO_ID = 0  # 水平舵机
@@ -69,17 +72,70 @@ class ServoDebugNode(Node):
         self.advanced_mode = False
         
         # 键盘输入设置
-        self.settings = termios.tcgetattr(sys.stdin)
+        try:
+            self.settings = termios.tcgetattr(sys.stdin)
+            self.keyboard_enabled = True
+        except Exception as e:
+            self.get_logger().warn(f'无法初始化键盘输入: {e}')
+            self.get_logger().info('将使用ROS话题控制模式')
+            self.keyboard_enabled = False
+            self.settings = None
         
         # 控制说明
         self.print_help()
         
-        # 创建键盘监听线程
+        # 创建键盘监听线程（仅在键盘可用时）
         self.running = True
-        self.keyboard_thread = threading.Thread(target=self.keyboard_listener)
-        self.keyboard_thread.start()
+        if self.keyboard_enabled:
+            self.keyboard_thread = threading.Thread(target=self.keyboard_listener)
+            self.keyboard_thread.start()
+        else:
+            # 创建话题控制接口
+            self.create_topic_control_interface()
         
         self.get_logger().info('机械臂调试节点已启动')
+    
+    def create_topic_control_interface(self):
+        """创建话题控制接口（当键盘不可用时）"""
+        # 创建控制命令订阅者
+        self.debug_cmd_sub = self.create_subscription(
+            String,
+            'servo/debug_command',
+            self.debug_command_callback,
+            REALTIME_CONTROL_QOS
+        )
+        
+        self.get_logger().info('话题控制接口已创建')
+        self.get_logger().info('可以通过发布到 /servo/debug_command 话题来控制舵机')
+        self.get_logger().info('可用命令: center, up, down, left, right, preset_1-9, harvest_test')
+    
+    def debug_command_callback(self, msg):
+        """调试命令回调"""
+        command = msg.data.strip().lower()
+        
+        if command == 'center':
+            self.move_to_center()
+        elif command == 'up':
+            self.move_vertical(self.step_size)
+        elif command == 'down':
+            self.move_vertical(-self.step_size)
+        elif command == 'left':
+            self.move_horizontal(self.step_size)
+        elif command == 'right':
+            self.move_horizontal(-self.step_size)
+        elif command.startswith('preset_') and len(command) == 8:
+            try:
+                preset_num = int(command[-1])
+                if 1 <= preset_num <= 9:
+                    self.move_to_preset(preset_num)
+            except ValueError:
+                pass
+        elif command == 'harvest_test':
+            self.test_harvest_sequence()
+        elif command == 'info':
+            self.print_servo_info()
+        else:
+            self.get_logger().warn(f'未知命令: {command}')
     
     def print_help(self):
         """打印控制说明"""
@@ -144,7 +200,8 @@ class ServoDebugNode(Node):
         except Exception as e:
             self.get_logger().error(f'键盘监听错误: {e}')
         finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+            if self.settings is not None:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
     
     def process_key(self, key):
         """处理键盘输入"""
@@ -225,15 +282,15 @@ class ServoDebugNode(Node):
         """移动到预设位置"""
         # 定义9个预设位置（3x3网格）
         presets = {
-            1: (500, 500),      # 左上
-            2: (1500, 500),     # 中上
-            3: (2500, 500),     # 右上
-            4: (500, 1000),     # 左中
-            5: (1500, 600),     # 中心（特殊的垂直中心位置）
-            6: (2500, 1000),    # 右中
-            7: (500, 1500),     # 左下
-            8: (1500, 1500),    # 中下
-            9: (2500, 1500),    # 右下
+            1: (2500, 1500),      # 左上
+            2: (1450, 1500),     # 中上
+            3: (500, 1500),     # 右上
+            4: (2500, 1000),     # 左中
+            5: (1450, 600),     # 中心（特殊的垂直中心位置）
+            6: (500, 1000),    # 右中
+            7: (2500, 500),     # 左下
+            8: (1450, 500),    # 中下
+            9: (500, 500),    # 右下
         }
         
         if preset in presets:
@@ -340,7 +397,8 @@ class ServoDebugNode(Node):
             self.keyboard_thread.join()
         
         # 恢复终端设置
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+        if self.settings is not None:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
         
         super().destroy_node()
 

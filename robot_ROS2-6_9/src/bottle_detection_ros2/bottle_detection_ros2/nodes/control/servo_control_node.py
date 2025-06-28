@@ -112,13 +112,15 @@ class ServoControlNode(Node):
         self.declare_parameter('tracking_frequency', 50.0)  # 跟踪频率50Hz
         
         # 获取参数
-        self.serial_port = self.get_parameter('serial_port').value
-        self.baudrate = self.get_parameter('baudrate').value
-        self.timeout = self.get_parameter('timeout').value
-        self.tracking_deadzone = self.get_parameter('tracking_deadzone').value
-        self.tracking_speed = self.get_parameter('tracking_speed').value
-        self.enable_tracking = self.get_parameter('enable_tracking').value
-        self.tracking_frequency = self.get_parameter('tracking_frequency').value
+        self.serial_port = str(self.get_parameter('serial_port').value or '/dev/ttyS9')
+        baudrate_value = self.get_parameter('baudrate').value
+        self.baudrate = int(baudrate_value) if baudrate_value is not None else 115200
+        timeout_value = self.get_parameter('timeout').value
+        self.timeout = float(timeout_value) if timeout_value is not None else 1.0
+        self.tracking_deadzone = int(self.get_parameter('tracking_deadzone').value or 30)
+        self.tracking_speed = float(self.get_parameter('tracking_speed').value or 7.5)
+        self.enable_tracking = bool(self.get_parameter('enable_tracking').value)
+        self.tracking_frequency = float(self.get_parameter('tracking_frequency').value or 50.0)
         
         # 初始化串口
         self.serial = None
@@ -300,6 +302,9 @@ class ServoControlNode(Node):
         """非阻塞方式接收舵机数据"""
         try:
             with self.serial_lock:
+                if not self.serial or not self.serial.is_open:
+                    return None
+                    
                 # 保存原始超时设置
                 original_timeout = self.serial.timeout
                 
@@ -566,7 +571,7 @@ class ServoControlNode(Node):
         command = f"#{servo_id:03d}PRAD!"
         response = self.send_command(command, wait_for_response=True)
         
-        if response and response.startswith(f"#{servo_id:03d}P") and response.endswith("!"):
+        if response and isinstance(response, str) and response.startswith(f"#{servo_id:03d}P") and response.endswith("!"):
             try:
                 position_str = response[5:-1]
                 position = int(position_str)

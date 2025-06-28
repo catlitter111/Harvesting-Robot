@@ -17,7 +17,7 @@ servo_control_node:
     # 舵机范围参数（PWM值）
     horizontal_servo_min: 500         # 水平舵机最小值
     horizontal_servo_max: 2500        # 水平舵机最大值  
-    horizontal_servo_center: 1500     # 水平舵机中心位置
+    horizontal_servo_center: 1450     # 水平舵机中心位置
     
     vertical_servo_min: 500           # 垂直舵机最小值
     vertical_servo_max: 1500          # 垂直舵机最大值
@@ -48,60 +48,10 @@ servo_debug_node:
     step_size: 50                     # 每次移动的PWM步长
     time_ms: 200                      # 舵机移动时间（毫秒）
     
-    # 快捷位置配置（PWM值）
-    preset_positions:
-      "1": [500, 500]                 # 左上角
-      "2": [1500, 500]               # 正上方
-      "3": [2500, 500]               # 右上角
-      "4": [500, 1000]               # 左边
-      "5": [1500, 600]               # 中心
-      "6": [2500, 1000]              # 右边
-      "7": [500, 1500]               # 左下角
-      "8": [1500, 1500]              # 正下方
-      "9": [2500, 1500]              # 右下角
-    
     # 安全限制
     max_step_size: 200                # 最大步长限制
     min_step_size: 10                 # 最小步长限制
     
     # 调试选项
     enable_debug_output: true         # 启用调试输出
-    show_position_feedback: true      # 显示位置反馈
-    
-# 机械臂采摘动作序列配置
-harvest_sequence:
-  # 动作指令字符串（与servo_control_node中的ARM_COMMANDS对应）
-  commands:
-    rt_catch1: "#002P1650T2000!#003P1300T2000!#005P1700T2000!"
-    rt_catch2: "#002P1650T2000!#003P1300T2000!#005P1950T2000!"
-    rt_catch3: "#000P2200T2000!#001P1600T2000!#002P1850T2000!#003P2300T2000!#005P1950T2000!"
-    rt_catch4: "#000P2200T2000!#001P1600T2000!#002P1850T2000!#003P2300T2000!#005P1700T0500!"
-    rt_catch5: "#000P1380T1500!#001P0650T1500!#002P2150T1500!#003P0750T1500!#004P1970T1500!#005P1700T1500!"
-  
-  # 动作时间间隔（秒）
-  step_delays:
-    step1_delay: 2.0                  # 步骤1完成等待时间
-    step2_delay: 2.0                  # 步骤2完成等待时间
-    step3_delay: 2.0                  # 步骤3完成等待时间
-    step4_delay: 2.0                  # 步骤4完成等待时间
-    step5_delay: 2.0                  # 步骤5完成等待时间
-
-# QoS配置
-qos_settings:
-  # 实时控制QoS（低延迟，可能丢包）
-  realtime_control:
-    reliability: "best_effort"
-    history: "keep_last"
-    depth: 5
-    
-  # 状态更新QoS（可靠性优先）
-  status_update:
-    reliability: "reliable"
-    history: "keep_last"
-    depth: 10
-    
-  # 高频率QoS（检测数据）
-  high_frequency:
-    reliability: "best_effort"
-    history: "keep_last" 
-    depth: 1 
+    show_position_feedback: true      # 显示位置反馈 

@@ -22,6 +22,10 @@ def generate_launch_description():
     # 配置文件路径
     config_file = os.path.join(pkg_share, 'config', 'servo_debug_params.yaml')
     
+    # 检查配置文件是否存在
+    if not os.path.exists(config_file):
+        config_file = None
+    
     # 声明launch参数
     serial_port_arg = DeclareLaunchArgument(
         'serial_port',
@@ -53,20 +57,31 @@ def generate_launch_description():
         description='是否启用自动跟踪功能（调试时建议设为false）'
     )
     
+    # 构建参数列表
+    servo_control_params = []
+    if config_file:
+        servo_control_params.append(config_file)
+    servo_control_params.append({
+        'serial_port': LaunchConfiguration('serial_port'),
+        'baudrate': LaunchConfiguration('baudrate'),
+        'enable_tracking': LaunchConfiguration('enable_tracking'),
+    })
+    
+    servo_debug_params = []
+    if config_file:
+        servo_debug_params.append(config_file)
+    servo_debug_params.append({
+        'step_size': LaunchConfiguration('step_size'),
+        'time_ms': LaunchConfiguration('time_ms'),
+    })
+    
     # 舵机控制节点
     servo_control_node = Node(
         package='bottle_detection_ros2',
         executable='servo_control_node',
         name='servo_control_node',
         output='screen',
-        parameters=[
-            config_file,
-            {
-                'serial_port': LaunchConfiguration('serial_port'),
-                'baudrate': LaunchConfiguration('baudrate'),
-                'enable_tracking': LaunchConfiguration('enable_tracking'),
-            }
-        ],
+        parameters=servo_control_params,
         remappings=[
             ('servo/command', 'servo/command'),
             ('servo/status', 'servo/status'),
@@ -82,13 +97,7 @@ def generate_launch_description():
         executable='servo_debug_node',
         name='servo_debug_node',
         output='screen',
-        parameters=[
-            config_file,
-            {
-                'step_size': LaunchConfiguration('step_size'),
-                'time_ms': LaunchConfiguration('time_ms'),
-            }
-        ],
+        parameters=servo_debug_params,
         remappings=[
             ('servo/command', 'servo/command'),
             ('servo/status', 'servo/status'),
