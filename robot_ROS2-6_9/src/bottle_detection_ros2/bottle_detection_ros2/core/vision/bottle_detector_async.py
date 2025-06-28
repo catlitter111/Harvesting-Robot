@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("bottle_detector_async")
 
 # YOLO检测参数
-OBJ_THRESH = 0.2  # 目标置信度阈值
+OBJ_THRESH = 0.05  # 目标置信度阈值
 NMS_THRESH = 0.5  # 非极大值抑制阈值
 MODEL_SIZE = (640, 640)  # 模型输入尺寸
 
@@ -239,7 +239,7 @@ def detect_bottle_async(rknn_lite, image, frame_id):
             
             # 筛选出瓶子类别的检测结果
             for box, score, cl in zip(boxes, scores, classes):
-                if CLASSES[cl] == 'bottle':  # 只保留瓶子类别
+                if CLASSES[cl] == 'sports ball' or CLASSES[cl] == 'apple' or CLASSES[cl] == 'orange':  # 只保留瓶子类别
                     x1, y1, x2, y2 = [int(_b) for _b in box]
                     
                     # 将坐标映射回原始图像尺寸
@@ -272,7 +272,7 @@ def draw_detections(image, detections):
         cv2.rectangle(image, (int(left), int(top)), (int(right), int(bottom)), color, 2)
         
         # 添加标签
-        label = f"bottle: {score:.2f}"
+        label = f"orange: {score:.2f}"
         
         # 计算文本尺寸
         (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
@@ -393,18 +393,18 @@ def test_video_async(model_path, video_path, thread_num=3):
             cv2.putText(display_frame, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             
             # 显示检测数量
-            detection_text = f"Bottles: {len(detections)}"
+            detection_text = f"orange: {len(detections)}"
             cv2.putText(display_frame, detection_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             
             # 显示结果
-            cv2.imshow("Bottle Detection (Async)", display_frame)
+            cv2.imshow("orange Detection (Async)", display_frame)
         else:
             # 如果没有获取到结果，显示最新的原始帧
             if len(frame_dict) > 0:
                 latest_frame_id = max(frame_dict.keys())
                 display_frame = frame_dict[latest_frame_id].copy()
                 cv2.putText(display_frame, "Processing...", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                cv2.imshow("Bottle Detection (Async)", display_frame)
+                cv2.imshow("orange Detection (Async)", display_frame)
         
         # 检查退出键
         if cv2.waitKey(1) & 0xFF == ord('q'):
