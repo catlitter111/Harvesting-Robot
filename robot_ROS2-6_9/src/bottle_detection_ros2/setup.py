@@ -51,6 +51,7 @@ setup(
             # 控制节点
             'robot_control_node = bottle_detection_ros2.nodes.control.robot_control_node:main',
             'servo_control_node = bottle_detection_ros2.nodes.control.servo_control_node:main',
+            'servo_debug_node = bottle_detection_ros2.nodes.control.servo_debug_node:main',
             'auto_harvest_controller = bottle_detection_ros2.nodes.control.auto_harvest_controller:main',
             'car_test_node = bottle_detection_ros2.nodes.control.car_test_node:main',
             
