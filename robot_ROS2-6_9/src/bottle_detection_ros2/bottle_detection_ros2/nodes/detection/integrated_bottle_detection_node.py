@@ -194,6 +194,11 @@ class IntegratedBottleDetectionNode(Node):
         self.enable_servo_tracking = True
         self.servo_tracking_active = False
         
+        # 当前图像帧存储 - 用于瓶子截取
+        self.current_frame_left = None
+        self.current_frame_right = None
+        self.frame_timestamp = None
+        
         # 预填充处理管道
         self._prefill_pipeline()
         
@@ -304,6 +309,13 @@ class IntegratedBottleDetectionNode(Node):
         from bottle_detection_ros2.core.qos_profiles import HIGH_FREQUENCY_QOS
         self.tracking_target_pub = self.create_publisher(
             Point, 'servo/tracking_target', HIGH_FREQUENCY_QOS)
+        
+        # 瓶子图像发布者 - 用于发布截取的瓶子图像给AI识别系统
+        self.fruit_image_pub = self.create_publisher(
+            CompressedImage,
+            'fruit_detection/raw_image',
+            10
+        )
     
     @trace_errors
     def _create_subscribers(self):
@@ -322,6 +334,14 @@ class IntegratedBottleDetectionNode(Node):
             String,
             'video/quality_preset',
             self.quality_callback,
+            10
+        )
+        
+        # 瓶子截取请求订阅
+        self.crop_request_sub = self.create_subscription(
+            String,
+            'bottle_detection/crop_request',
+            self.crop_request_callback,
             10
         )
     
@@ -384,6 +404,11 @@ class IntegratedBottleDetectionNode(Node):
                     return
                 
                 timestamp = self.get_clock().now().to_msg()
+                
+                # 保存当前帧用于瓶子截取
+                self.current_frame_left = frame_left.copy()
+                self.current_frame_right = frame_right.copy()
+                self.frame_timestamp = timestamp
                 
                 # 提交新帧到异步处理队列
                 if not self.bottle_detector_pool.is_full():
@@ -1039,6 +1064,105 @@ class IntegratedBottleDetectionNode(Node):
             self.get_logger().info(f'视频质量设置为: {quality}')
         else:
             self.get_logger().warn(f'未知的质量预设: {quality}')
+    
+    @trace_errors
+    def crop_request_callback(self, msg):
+        """瓶子截取请求回调"""
+        try:
+            request_data = json.loads(msg.data)
+            action = request_data.get('action')
+            
+            if action == 'crop_bottle':
+                self.get_logger().info('收到瓶子截取请求，开始处理...')
+                success = self._crop_and_publish_bottle_image(request_data)
+                if success:
+                    self.get_logger().info('瓶子图像截取并发布成功')
+                else:
+                    self.get_logger().warn('瓶子图像截取失败')
+            else:
+                self.get_logger().warn(f'未知的截取请求动作: {action}')
+                
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f'解析截取请求JSON失败: {e}')
+        except Exception as e:
+            self.get_logger().error(f'处理截取请求时出错: {e}')
+            logger.error(traceback.format_exc())
+    
+    @trace_errors
+    def _crop_and_publish_bottle_image(self, request_data):
+        """截取瓶子图像并发布给AI识别系统"""
+        try:
+            # 检查是否有可用的图像
+            if self.current_frame_left is None:
+                self.get_logger().warn('没有可用的图像进行截取')
+                return False
+            
+            # 获取边界框信息
+            bbox = request_data.get('bbox', {})
+            request_id = request_data.get('request_id', f'bottle_{int(time.time()*1000)}')
+            
+            xmin = max(0, bbox.get('xmin', 0))
+            ymin = max(0, bbox.get('ymin', 0))
+            xmax = min(self.current_frame_left.shape[1], bbox.get('xmax', self.current_frame_left.shape[1]))
+            ymax = min(self.current_frame_left.shape[0], bbox.get('ymax', self.current_frame_left.shape[0]))
+            
+            # 检查边界框是否有效
+            if xmin >= xmax or ymin >= ymax:
+                self.get_logger().error(f'无效的边界框: ({xmin},{ymin},{xmax},{ymax})')
+                return False
+            
+            # 添加一些边距（让截取的图像更完整）
+            margin = 20
+            h, w = self.current_frame_left.shape[:2]
+            xmin = max(0, xmin - margin)
+            ymin = max(0, ymin - margin)
+            xmax = min(w, xmax + margin)
+            ymax = min(h, ymax + margin)
+            
+            # 截取瓶子区域
+            bottle_image = self.current_frame_left[ymin:ymax, xmin:xmax]
+            
+            self.get_logger().info(
+                f'截取瓶子图像: 边界框({xmin},{ymin},{xmax},{ymax}), '
+                f'截取尺寸: {bottle_image.shape[1]}x{bottle_image.shape[0]}'
+            )
+            
+            # 确保截取的图像不为空
+            if bottle_image.size == 0:
+                self.get_logger().error('截取的图像为空')
+                return False
+            
+            # 压缩图像 - 参考fruit_image_publisher_node的压缩方式
+            encode_param = [cv2.IMWRITE_JPEG_QUALITY, 80]  # 80%质量
+            success, encoded_image = cv2.imencode('.jpg', bottle_image, encode_param)
+            
+            if not success:
+                self.get_logger().error('图像压缩失败')
+                return False
+            
+            # 创建CompressedImage消息 - 参考fruit_image_publisher_node的格式
+            msg = CompressedImage()
+            msg.header.stamp = self.frame_timestamp if self.frame_timestamp else self.get_clock().now().to_msg()
+            msg.header.frame_id = f'harvest_bottle|{request_id}.jpg'  # 包含文件名信息
+            msg.format = 'jpeg'
+            msg.data = encoded_image.tobytes()
+            
+            # 发布截取的瓶子图像
+            self.fruit_image_pub.publish(msg)
+            
+            # 计算文件大小
+            file_size_kb = len(encoded_image) / 1024
+            self.get_logger().info(
+                f'瓶子图像发布成功: 尺寸={bottle_image.shape[1]}x{bottle_image.shape[0]}, '
+                f'大小={file_size_kb:.1f}KB, 已发送给AI识别系统'
+            )
+            
+            return True
+            
+        except Exception as e:
+            self.get_logger().error(f'截取和发布瓶子图像时出错: {e}')
+            logger.error(traceback.format_exc())
+            return False
     
     @trace_errors
     def destroy_node(self):
