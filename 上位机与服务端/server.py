@@ -444,6 +444,40 @@ async def wechat_websocket_endpoint(websocket: WebSocket, client_id: str):
                             "result": "success",
                             "message": "模式切换命令已发送"
                         })
+                    elif command in ["switch_control_type"]:
+                        # 处理控制类型切换命令
+                        control_type = params.get("control_type", "motor")
+                        await forward_command_to_robot(robot_id, command, params)
+                        await websocket.send_json({
+                            "type": "command_result",
+                            "result": "success",
+                            "message": f"已切换到{control_type}控制模式"
+                        })
+                        logger.info(f"机器人 {robot_id} 切换控制类型为: {control_type}")
+                    elif command.startswith("arm_rotate_"):
+                        # 处理机械臂旋转控制命令
+                        direction_map = {
+                            "arm_rotate_up": "向上转",
+                            "arm_rotate_down": "向下转", 
+                            "arm_rotate_left": "向左转",
+                            "arm_rotate_right": "向右转"
+                        }
+                        direction_name = direction_map.get(command, command)
+                        
+                        if robot_id in robots:
+                            await forward_command_to_robot(robot_id, command, params)
+                            await websocket.send_json({
+                                "type": "command_result",
+                                "result": "success",
+                                "message": f"机械臂{direction_name}命令已发送"
+                            })
+                            logger.info(f"机器人 {robot_id} 机械臂控制命令: {direction_name}")
+                        else:
+                            await websocket.send_json({
+                                "type": "command_result",
+                                "result": "error",
+                                "message": "机器人不在线"
+                            })
                     elif robot_id in robots:
                         # 转发其他命令
                         await forward_command_to_robot(robot_id, command, params)

@@ -135,29 +135,47 @@
     </view>
 
     <view class="control-panel" wx:if="{{operationMode === 'manual'}}">
+      <!-- 控制类型切换 -->
+      <view class="control-type-switch">
+        <text class="control-type-title">控制类型</text>
+        <view class="control-type-selector">
+          <text class="{{controlType === 'motor' ? 'active' : ''}}">电机控制</text>
+          <switch checked="{{controlType === 'arm'}}" bindchange="switchControlType" color="#FF6B35" />
+          <text class="{{controlType === 'arm' ? 'active' : ''}}">机械臂控制</text>
+        </view>
+        <view class="control-type-description">
+          <text class="description-text">{{controlType === 'arm' ? '控制机械臂旋转：上下左右转动进行精确定位' : '控制机器人底盘移动：前进后退左转右转'}}</text>
+        </view>
+      </view>
+      
       <view class="direction-controls">
         <view class="btn-row">
           <button class="btn-control btn-transparent"></button>
-          <button class="btn-control btn-direction" bindtap="moveForward">
+          <button class="btn-control btn-direction {{controlType === 'arm' ? 'btn-arm-control' : ''}}" bindtap="moveForward">
             <text class="iconfont icon-up">↑</text>
+            <text class="btn-label" wx:if="{{controlType === 'arm'}}">上转</text>
           </button>
           <button class="btn-control btn-transparent"></button>
         </view>
         <view class="btn-row">
-          <button class="btn-control btn-direction" bindtap="moveLeft">
+          <button class="btn-control btn-direction {{controlType === 'arm' ? 'btn-arm-control' : ''}}" bindtap="moveLeft">
             <text class="iconfont icon-left">←</text>
+            <text class="btn-label" wx:if="{{controlType === 'arm'}}">左转</text>
           </button>
           <button class="btn-control btn-stop" bindtap="stopMovement">
             <text class="iconfont icon-stop">■</text>
+            <text class="btn-label">停止</text>
           </button>
-          <button class="btn-control btn-direction" bindtap="moveRight">
+          <button class="btn-control btn-direction {{controlType === 'arm' ? 'btn-arm-control' : ''}}" bindtap="moveRight">
             <text class="iconfont icon-right">→</text>
+            <text class="btn-label" wx:if="{{controlType === 'arm'}}">右转</text>
           </button>
         </view>
         <view class="btn-row">
           <button class="btn-control btn-transparent"></button>
-          <button class="btn-control btn-direction" bindtap="moveBackward">
+          <button class="btn-control btn-direction {{controlType === 'arm' ? 'btn-arm-control' : ''}}" bindtap="moveBackward">
             <text class="iconfont icon-down">↓</text>
+            <text class="btn-label" wx:if="{{controlType === 'arm'}}">下转</text>
           </button>
           <button class="btn-control btn-transparent"></button>
         </view>

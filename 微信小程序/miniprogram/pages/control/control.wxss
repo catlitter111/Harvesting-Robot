@@ -325,6 +325,59 @@
     flex-direction: column;
     align-items: center;
   }
+
+  /* 控制类型切换样式 */
+  .control-type-switch {
+    width: 90%;
+    background-color: #fff;
+    border-radius: 20rpx;
+    padding: 30rpx;
+    margin-bottom: 30rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+    border: 2rpx solid #f0f0f0;
+  }
+  
+  .control-type-title {
+    display: block;
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20rpx;
+    text-align: center;
+  }
+  
+  .control-type-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28rpx;
+    margin-bottom: 20rpx;
+  }
+  
+  .control-type-selector text {
+    margin: 0 20rpx;
+    transition: all 0.3s ease;
+    color: #666;
+  }
+  
+  .control-type-selector text.active {
+    color: #FF6B35;
+    font-weight: 600;
+  }
+  
+  .control-type-description {
+    text-align: center;
+    padding: 15rpx 20rpx;
+    background-color: #f8f9fa;
+    border-radius: 12rpx;
+    border-left: 6rpx solid #FF6B35;
+  }
+  
+  .description-text {
+    font-size: 26rpx;
+    color: #666;
+    line-height: 1.4;
+  }
   
   .direction-controls {
     width: 100%;
@@ -343,10 +396,12 @@
     margin: 0 20rpx;
     padding: 0;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     border-radius: 50%;
     font-size: 60rpx;
+    position: relative;
   }
   
   .btn-direction {
@@ -364,6 +419,34 @@
   .btn-transparent {
     background-color: transparent;
     box-shadow: none;
+  }
+
+  /* 机械臂控制按钮样式 */
+  .btn-arm-control {
+    background-color: #FF6B35 !important;
+    box-shadow: 0 4rpx 8rpx rgba(255, 107, 53, 0.3) !important;
+    border: 3rpx solid #FF8C42;
+  }
+
+  .btn-arm-control:active {
+    background-color: #E55A2B !important;
+    transform: scale(0.95);
+  }
+
+  /* 按钮标签样式 */
+  .btn-label {
+    font-size: 20rpx;
+    color: white;
+    margin-top: 4rpx;
+    line-height: 1;
+    font-weight: 500;
+    text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
+  }
+
+  /* 调整机械臂控制按钮中图标的大小 */
+  .btn-arm-control .iconfont {
+    font-size: 45rpx;
+    margin-bottom: 2rpx;
   }
   
   /* 速度控制样式 */

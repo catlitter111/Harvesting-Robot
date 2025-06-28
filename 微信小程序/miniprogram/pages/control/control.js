@@ -70,6 +70,9 @@ Page({
       // 电机速度控制
       motorSpeed: 50,              // 电机速度，默认值50%
       
+      // 控制类型：'motor' 电机控制，'arm' 机械臂控制
+      controlType: 'motor',        // 默认为电机控制
+      
       // 新增：图像更新控制
       lastImageUpdateTime: 0,
       minImageUpdateInterval: 100,  // 最小更新间隔(毫秒)
@@ -785,6 +788,28 @@ Page({
       
       console.log('电机速度已设置为:', speed);
     },
+
+    // 切换控制类型：电机控制 / 机械臂控制
+    switchControlType: function(e) {
+      const newType = e.detail.value ? 'arm' : 'motor';
+      
+      this.setData({
+        controlType: newType
+      });
+      
+      // 发送控制类型切换命令
+      this.sendCommand('switch_control_type', {
+        control_type: newType
+      });
+      
+      wx.showToast({
+        title: newType === 'arm' ? '已切换至机械臂控制' : '已切换至电机控制',
+        icon: 'none',
+        duration: 1500
+      });
+      
+      console.log('控制类型已切换为:', newType === 'arm' ? '机械臂控制' : '电机控制');
+    },
   
     // 发送控制命令（带冷却时间限制）
     sendCommand: function(command, params = {}) {
@@ -801,9 +826,22 @@ Page({
         lastCommandTime: now
       });
       
-      // 为移动相关命令添加速度参数
+      // 为移动相关命令添加速度参数和控制类型
       if (['forward', 'backward', 'left', 'right'].includes(command)) {
         params.speed = this.data.motorSpeed;
+        params.control_type = this.data.controlType;
+        
+        // 根据控制类型修改命令名称
+        if (this.data.controlType === 'arm') {
+          // 机械臂控制命令映射
+          const armCommandMap = {
+            'forward': 'arm_rotate_up',     // 向上转
+            'backward': 'arm_rotate_down',  // 向下转
+            'left': 'arm_rotate_left',      // 向左转
+            'right': 'arm_rotate_right'     // 向右转
+          };
+          command = armCommandMap[command] || command;
+        }
       }
       
       // 通过WebSocket发送命令
