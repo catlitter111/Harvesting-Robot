@@ -354,7 +354,7 @@ class ServoControlNode(Node):
             
             # 计算图像中心
             frame_center_x = frame_width // 2 + 80
-            frame_center_y = frame_height // 2
+            frame_center_y = frame_height // 2 - 40
             
             # 计算像素误差
             pixel_error_x = center_x - frame_center_x
