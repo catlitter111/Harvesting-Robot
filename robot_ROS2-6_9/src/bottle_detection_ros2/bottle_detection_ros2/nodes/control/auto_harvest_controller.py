@@ -15,9 +15,9 @@ import time
 import threading
 
 # 距离阈值（米）
-DISTANCE_VERY_FAR = 0.7   # 超远距离阈值，超过此距离只进行大角度调整
-DISTANCE_FAR = 0.5        # 远距离阈值，超过此距离使用电机调整方向
-DISTANCE_NEAR = 0.3       # 近距离阈值，低于此距离使用舵机调整方向
+DISTANCE_VERY_FAR = 0.6   # 超远距离阈值，超过此距离只进行大角度调整
+DISTANCE_FAR = 0.5       # 远距离阈值，超过此距离使用电机调整方向
+DISTANCE_NEAR = 0.35       # 近距离阈值，低于此距离使用舵机调整方向
 DISTANCE_HARVEST = 0.3   # 采摘距离阈值，低于此距离开始采摘
 
 
@@ -34,11 +34,11 @@ MAX_POSSIBLE_DISTANCE = 15.0  # 米，与检测器保持一致
 # 默认速度参数（优化后）
 DEFAULT_APPROACH_SPEED = 60.0  # 提高默认接近速度
 DEFAULT_TURN_SPEED = 50.0      # 提高默认转向速度
-DEFAULT_FINE_APPROACH_SPEED = 50.0  # 提高精细接近速度
+DEFAULT_FINE_APPROACH_SPEED =50.0  # 提高精细接近速度
 DEFAULT_FINE_TURN_SPEED = 50.0      # 提高精细转向速度
 
 # 全速前进参数
-FULL_SPEED = 0.5  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
+FULL_SPEED = 0.6  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
 SAFETY_DISTANCE = 0.1  # 安全距离，米
 
 
@@ -162,6 +162,14 @@ class AutoHarvestController(Node):
         self.full_speed_start_time = 0.0  # 全速前进开始时间
         self.full_speed_duration = 0.0  # 计算出的前进时间
         self.initial_target_distance = None  # 首次检测到的目标距离
+        
+        # 添加近距离接近状态机变量
+        self.near_approach_state = "waiting"  # waiting, aligning, approaching
+        self.near_approach_start_time = 0.0
+        self.alignment_wait_time = 1.5  # 等待舵机对准的时间（秒）
+        self.alignment_confirmed = False
+        self.alignment_check_count = 0
+        self.max_alignment_checks = 10  # 最大对准检查次数
         
         # 当前运动状态
         self.current_direction = 0x04  # DIR_STOP
@@ -311,15 +319,25 @@ class AutoHarvestController(Node):
             self.full_speed_mode = True
             self.full_speed_started = False
             
-            # 计算前进时间（预留安全距离）
-            effective_distance = max(0.1, self.nearest_distance - SAFETY_DISTANCE)
-            self.full_speed_duration = effective_distance / FULL_SPEED
-            
-            self.get_logger().info(
-                f'首次检测到目标距离: {self.nearest_distance:.3f}m, '
-                f'计算前进时间: {self.full_speed_duration:.2f}秒 '
-                f'(有效距离: {effective_distance:.3f}m, 安全距离: {SAFETY_DISTANCE}m)'
-            )
+            # 根据距离范围计算前进时间
+            if self.nearest_distance > DISTANCE_VERY_FAR:
+                # 如果距离大于超远距离阈值，前进到远距离阈值处
+                effective_distance = max(0.1, self.nearest_distance - DISTANCE_FAR)
+                self.full_speed_duration = effective_distance / FULL_SPEED
+                self.get_logger().info(
+                    f'超远距离模式: 目标距离={self.nearest_distance:.3f}m > {DISTANCE_VERY_FAR}m, '
+                    f'前进到{DISTANCE_FAR}m处, 有效距离={effective_distance:.3f}m, '
+                    f'计算前进时间: {self.full_speed_duration:.2f}秒'
+                )
+            else:
+                # 在DISTANCE_FAR范围内，执行原来的逻辑
+                effective_distance = max(0.1, self.nearest_distance - SAFETY_DISTANCE)
+                self.full_speed_duration = effective_distance / FULL_SPEED
+                self.get_logger().info(
+                    f'常规距离模式: 目标距离={self.nearest_distance:.3f}m <= {DISTANCE_VERY_FAR}m, '
+                    f'计算前进时间: {self.full_speed_duration:.2f}秒 '
+                    f'(有效距离: {effective_distance:.3f}m, 安全距离: {SAFETY_DISTANCE}m)'
+                )
             return
         
         # 原有的分距离控制逻辑（作为备用）
@@ -329,22 +347,34 @@ class AutoHarvestController(Node):
         
         # 根据距离选择控制策略
         if self.nearest_distance > DISTANCE_VERY_FAR:
+            # 离开近距离模式，重置状态
+            if self.near_approach_state != "waiting":
+                self.near_approach_state = "waiting"
+                self.alignment_confirmed = False
             # 超远距离：快速接近，大角度调整
             self.get_logger().info(f'距离状态: 超远距离 (>{DISTANCE_VERY_FAR}m)')
             self.approach_very_far(offset_x)
         elif self.nearest_distance > DISTANCE_FAR:
+            if self.near_approach_state != "waiting":
+                self.near_approach_state = "waiting"
+                self.alignment_confirmed = False
             # 远距离：使用电机移动
             self.get_logger().info(f'距离状态: 远距离 ({DISTANCE_FAR}m-{DISTANCE_VERY_FAR}m)')
             self.approach_far(offset_x)
         elif self.nearest_distance > DISTANCE_NEAR:
+            if self.near_approach_state != "waiting":
+                self.near_approach_state = "waiting"
+                self.alignment_confirmed = False
             # 中等距离：精细控制
             self.get_logger().info(f'距离状态: 中等距离 ({DISTANCE_NEAR}m-{DISTANCE_FAR}m)')
             self.approach_medium(offset_x)
         elif self.nearest_distance > DISTANCE_HARVEST:
+            # 近距离模式
             # 近距离：使用舵机跟踪
             self.get_logger().info(f'距离状态: 近距离 ({DISTANCE_HARVEST}m-{DISTANCE_NEAR}m)')
             self.approach_near(offset_x)
         else:
+            # 采摘距离
             # 采摘距离：停止并采摘
             self.get_logger().info(f'距离状态: 采摘距离 (<{DISTANCE_HARVEST}m)')
             self.stop_and_harvest(offset_x)
@@ -483,48 +513,151 @@ class AutoHarvestController(Node):
         self.cmd_vel_pub.publish(twist)
     
     def approach_near(self, offset_x):
-        """近距离接近策略"""
-        # 停止移动
-        self.stop_robot()
-        self.current_direction = 0x04  # DIR_STOP
-        self.get_logger().info('近距离：停止车辆，使用舵机微调')
+        """近距离接近策略 - 先停止对准，再缓慢前进"""
+        current_time = time.time()
         
-        # 使用舵机进行跟踪
+        # 状态机控制
+        if self.near_approach_state == "waiting":
+            # 第一次进入近距离模式
+            self.near_approach_state = "aligning"
+            self.near_approach_start_time = current_time
+            self.alignment_confirmed = False
+            self.alignment_check_count = 0
+            self.get_logger().info(f'进入近距离模式，开始舵机对准（当前距离: {self.nearest_distance:.3f}m）')
+        
+        # 始终发布舵机跟踪命令
         tracking_msg = Point()
         tracking_msg.x = float(self.bottle_cx)
         tracking_msg.y = float(self.bottle_cy)
-        tracking_msg.z = float(self.frame_width)  # 传递图像宽度
-        
+        tracking_msg.z = float(self.frame_width)
         self.tracking_pub.publish(tracking_msg)
+        
+        if self.near_approach_state == "aligning":
+            # 对准阶段：停止移动，等待舵机调整
+            self.stop_robot()
+            self.current_direction = 0x04  # DIR_STOP
+            
+            # 检查是否已经对准
+            if abs(offset_x) < CENTER_DEADZONE // 2:  # 使用更严格的对准标准
+                self.alignment_check_count += 1
+                if self.alignment_check_count >= 3:  # 连续3次检查都对准
+                    self.alignment_confirmed = True
+                    self.get_logger().info(f'舵机对准确认（偏移:{offset_x}px），准备前进')
+            else:
+                self.alignment_check_count = 0  # 重置计数
+            
+            # 检查是否可以进入下一阶段
+            elapsed_time = current_time - self.near_approach_start_time
+            if self.alignment_confirmed or elapsed_time > self.alignment_wait_time:
+                if self.alignment_confirmed:
+                    self.near_approach_state = "approaching"
+                    self.get_logger().info('舵机对准完成，开始缓慢前进')
+                else:
+                    # 超时但未对准，根据偏移量决定策略
+                    if abs(offset_x) < CENTER_DEADZONE:
+                        self.near_approach_state = "approaching"
+                        self.get_logger().warn(f'对准超时但偏差可接受（{offset_x}px），开始前进')
+                    else:
+                        self.get_logger().warn(f'对准超时且偏差较大（{offset_x}px），继续等待')
+                        # 可以选择重置计时器或采取其他策略
+            else:
+                # 仍在等待对准
+                remaining_time = self.alignment_wait_time - elapsed_time
+                if int(elapsed_time * 10) % 5 == 0:  # 每0.5秒输出一次
+                    self.get_logger().debug(
+                        f'等待舵机对准中... 剩余时间:{remaining_time:.1f}s, '
+                        f'偏移:{offset_x}px, 对准检查:{self.alignment_check_count}/3'
+                    )
+        
+        elif self.near_approach_state == "approaching":
+            # 前进阶段：确认对准后缓慢前进
+            twist = Twist()
+            
+            # 动态调整前进策略
+            if abs(offset_x) < CENTER_DEADZONE:
+                # 保持对准，缓慢前进
+                base_speed = 0.08  # m/s，非常慢的速度
+                twist.linear.x = base_speed
+                self.current_direction = 0x00  # DIR_FORWARD
+                
+                # 根据当前距离动态调整速度
+                if self.nearest_distance < DISTANCE_HARVEST + 0.05:  # 接近采摘距离
+                    twist.linear.x = base_speed * 0.5  # 进一步减速
+                    self.get_logger().info(
+                        f'接近采摘位置，减速前进（距离:{self.nearest_distance:.3f}m, '
+                        f'速度:{twist.linear.x:.3f}m/s）'
+                    )
+                else:
+                    self.get_logger().debug(
+                        f'近距离缓慢前进（距离:{self.nearest_distance:.3f}m, '
+                        f'速度:{twist.linear.x:.3f}m/s, 偏移:{offset_x}px）'
+                    )
+            else:
+                # 前进过程中偏离了，停下来重新对准
+                self.near_approach_state = "aligning"
+                self.near_approach_start_time = current_time
+                self.alignment_confirmed = False
+                self.alignment_check_count = 0
+                self.get_logger().warn(f'前进过程中偏离目标（偏移:{offset_x}px），重新对准')
+                return
+            
+            self.cmd_vel_pub.publish(twist)
     
     def stop_and_harvest(self, offset_x):
-        """停止并执行采摘"""
+        """停止并执行采摘 - 优化版"""
+        # 重置近距离接近状态
+        self.near_approach_state = "waiting"
+        self.alignment_confirmed = False
+        
         # 停止移动
         self.stop_robot()
         self.current_direction = 0x04  # DIR_STOP
         
-        # 检查是否对准
-        if abs(offset_x) < CENTER_DEADZONE:
+        # 最后的对准检查
+        final_alignment_deadzone = CENTER_DEADZONE * 1.2  # 采摘时稍微放宽要求
+        
+        if abs(offset_x) < final_alignment_deadzone:
             if not self.harvest_in_progress:
-                self.get_logger().info('开始采摘')
+                self.get_logger().info(
+                    f'到达采摘距离 {self.nearest_distance:.3f}m，'
+                    f'最终对准检查通过（偏移:{offset_x}px），开始采摘'
+                )
+                
+                # 最后一次舵机对准命令
+                tracking_msg = Point()
+                tracking_msg.x = float(self.bottle_cx)
+                tracking_msg.y = float(self.bottle_cy)
+                tracking_msg.z = float(self.frame_width)
+                self.tracking_pub.publish(tracking_msg)
+                
+                # 短暂延时确保舵机到位（可选）
+                # time.sleep(0.3)
+                
+                # 发送采摘命令
                 harvest_cmd = HarvestCommand()
                 harvest_cmd.header.stamp = self.get_clock().now().to_msg()
                 harvest_cmd.start_harvest = True
                 self.harvest_cmd_pub.publish(harvest_cmd)
                 self.harvest_in_progress = True
         else:
-            # 使用舵机微调对准
+            # 未对准，继续调整
+            self.get_logger().warn(
+                f'到达采摘距离但未对准（偏移:{offset_x}px），'
+                f'继续调整舵机'
+            )
             tracking_msg = Point()
             tracking_msg.x = float(self.bottle_cx)
             tracking_msg.y = float(self.bottle_cy)
             tracking_msg.z = float(self.frame_width)
             self.tracking_pub.publish(tracking_msg)
+            
+            # 可以设置一个计数器，多次尝试后仍未对准则放弃或后退重试
     
     def search_for_bottle(self):
         """搜索瓶子"""
         # 简单的旋转搜索策略
         twist = Twist()
-        twist.angular.z = 0.25  # 慢速旋转
+        twist.angular.z = 0.10  # 慢速旋转
         self.cmd_vel_pub.publish(twist)
         self.get_logger().debug('搜索模式：旋转寻找目标')
     
@@ -535,7 +668,13 @@ class AutoHarvestController(Node):
         self.full_speed_start_time = 0.0
         self.full_speed_duration = 0.0
         self.initial_target_distance = None
-        self.get_logger().debug('全速前进模式状态已重置')
+        
+        # 重置近距离接近状态
+        self.near_approach_state = "waiting"
+        self.alignment_confirmed = False
+        self.alignment_check_count = 0
+        
+        self.get_logger().debug('全速前进模式和近距离接近状态已重置')
     
     def stop_robot(self):
         """停止机器人"""
