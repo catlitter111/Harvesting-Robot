@@ -143,9 +143,9 @@ class AutoHarvestController(Node):
         self.servo_cmd_pub = self.create_publisher(ServoCommand, 'servo/command', 10)
         self.tracking_pub = self.create_publisher(Point, 'servo/tracking_target', 10)
         
-        # 状态变量
-        self.current_mode = MODE_MANUAL
-        self.auto_harvest_active = False
+        # 状态变量 - 修改默认模式为自动
+        self.current_mode = MODE_AUTO
+        self.auto_harvest_active = True
         self.bottle_visible = False
         self.nearest_distance = None
         self.bottle_cx = 0

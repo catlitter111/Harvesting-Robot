@@ -102,8 +102,8 @@ current_config = QUALITY_PRESETS[INITIAL_PRESET]
 frame_queue = Queue(maxsize=10)  # 帧缓冲队列
 
 # 手动/自动模式控制
-operation_mode = "manual"  # 'manual'或'auto'
-auto_harvest_active = False  # 自动采摘是否激活
+operation_mode = "auto"  # 'manual'或'auto' - 修改默认模式为自动
+auto_harvest_active = True  # 自动采摘是否激活 - 修改默认为启用
 
 # 控制队列
 control_queue = Queue(maxsize=100)  # 控制命令队列

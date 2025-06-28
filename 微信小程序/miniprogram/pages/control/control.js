@@ -1,7 +1,7 @@
 // pages/control/control.js
 Page({
     data: {
-      operationMode: 'manual', // 'manual' 或 'auto'
+      operationMode: 'auto', // 'manual' 或 'auto' - 修改默认模式为自动
       connected: false,        // 小程序与服务器的连接状态
       connecting: false,       // 正在连接中
       robotConnected: false,   // 机器人与服务器的连接状态

@@ -921,7 +921,7 @@ class SmartAgricultureInterface(QMainWindow):
         try:
             self.system_running = True
             self.harvest_active = True
-            self.manual_mode = True
+            self.manual_mode = False  # 修改默认模式为自动（False=自动，True=手动）
             
             # 模拟数据
             self.battery_level = 75

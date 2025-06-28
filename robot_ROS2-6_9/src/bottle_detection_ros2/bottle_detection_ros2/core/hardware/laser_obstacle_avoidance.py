@@ -76,8 +76,8 @@ class LaserObstacleAvoidance(Node):
         self.obstacle_info_pub = self.create_publisher(String, 'obstacle/info', 10)
         self.avoidance_status_pub = self.create_publisher(String, 'avoidance/status', 10)
         
-        # 状态变量
-        self.current_mode = MODE_MANUAL
+        # 状态变量 - 修改默认模式为自动
+        self.current_mode = MODE_AUTO
         self.avoidance_enabled = True
         self.emergency_stop = False
         
