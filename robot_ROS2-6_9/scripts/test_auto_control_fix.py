@@ -80,15 +80,19 @@ class AutoControlTestNode(Node):
             "nearest_bottle": {
                 "pixel_x": 320,  # 屏幕中心
                 "pixel_y": 240,
+                "bbox": [250, 180, 390, 300],  # 边界框 [xmin, ymin, xmax, ymax]
                 "distance": 1.5,  # 1.5米距离，应该触发远距离控制
-                "confidence": 0.8
+                "confidence": 0.8,
+                "status": "正常"
             },
-            "timestamp": int(time.time() * 1000)
+            "total_count": 1,
+            "fps": 30.0,
+            "timestamp": time.time()
         }
         detection_msg.data = json.dumps(detection_data)
         self.detection_pub.publish(detection_msg)
         
-        self.get_logger().info(f'📡 发送测试瓶子检测数据: 距离=1.5m, 位置=(320,240)')
+        self.get_logger().info(f'📡 发送测试瓶子检测数据: 距离=1.5m, 位置=(320,240), 边界框=[250,180,390,300]')
     
     def cmd_vel_callback(self, msg):
         """cmd_vel回调函数"""

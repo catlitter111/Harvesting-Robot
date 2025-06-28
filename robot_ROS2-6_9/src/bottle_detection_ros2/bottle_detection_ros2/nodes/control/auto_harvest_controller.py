@@ -7,12 +7,17 @@
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist, Point
-from std_msgs.msg import String, Float32, Int32, Bool
+from std_msgs.msg import String, Float32, Int32, Bool, Header
+from sensor_msgs.msg import CompressedImage
 from bottle_detection_msgs.msg import HarvestCommand, ServoCommand
 import json
 import time
 import threading
+import cv2
+import numpy as np
+import base64
 
 # 距离阈值（米）
 DISTANCE_VERY_FAR = 0.6   # 超远距离阈值，超过此距离只进行大角度调整
@@ -107,6 +112,19 @@ class AutoHarvestController(Node):
             10
         )
         
+        # 摄像头图像订阅（用于采摘时截取瓶子区域）
+        image_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+        self.image_sub = self.create_subscription(
+            CompressedImage,
+            'bottle_detection/compressed_image',
+            self.image_callback,
+            image_qos
+        )
+        
         # 瓶子检测信息
         self.detection_sub = self.create_subscription(
             String,
@@ -143,6 +161,9 @@ class AutoHarvestController(Node):
         self.servo_cmd_pub = self.create_publisher(ServoCommand, 'servo/command', 10)
         self.tracking_pub = self.create_publisher(Point, 'servo/tracking_target', 10)
         
+        # 采摘图像发布者 - 发送截取的瓶子图像给AI识别
+        self.harvest_image_pub = self.create_publisher(CompressedImage, 'harvest/cropped_image', 10)
+        
         # 状态变量 - 修改默认模式为自动
         self.current_mode = MODE_AUTO
         self.auto_harvest_active = True
@@ -150,11 +171,23 @@ class AutoHarvestController(Node):
         self.nearest_distance = None
         self.bottle_cx = 0
         self.bottle_cy = 0
+        # 边界框信息变量
+        self.bottle_xmin = 0
+        self.bottle_ymin = 0
+        self.bottle_xmax = 0
+        self.bottle_ymax = 0
+        self.bottle_width = 0
+        self.bottle_height = 0
+        self.bottle_area = 0
         self.frame_width = 640
         self.frame_height = 480
         self.harvest_in_progress = False
         self.last_detection_time = time.time()
         self.searching = False
+        
+        # 图像截取相关变量
+        self.current_image = None  # 存储当前摄像头图像
+        self.image_timestamp = 0  # 图像时间戳
         
         # 全速前进状态变量
         self.full_speed_mode = False  # 是否启用全速前进模式
@@ -221,6 +254,34 @@ class AutoHarvestController(Node):
                     self.bottle_cx = bottle_info.get("pixel_x", 0)
                     self.bottle_cy = bottle_info.get("pixel_y", 0)
                     self.nearest_distance = bottle_info.get("distance", None)
+                    
+                    # 获取边界框信息进行精准控制
+                    bbox = bottle_info.get("bbox", [0, 0, 0, 0])  # [xmin, ymin, xmax, ymax]
+                    if len(bbox) >= 4:
+                        self.bottle_xmin = bbox[0]
+                        self.bottle_ymin = bbox[1] 
+                        self.bottle_xmax = bbox[2]
+                        self.bottle_ymax = bbox[3]
+                        
+                        # 计算边界框宽度和高度，用于判断瓶子大小
+                        self.bottle_width = self.bottle_xmax - self.bottle_xmin
+                        self.bottle_height = self.bottle_ymax - self.bottle_ymin
+                        self.bottle_area = self.bottle_width * self.bottle_height
+                        
+                        self.get_logger().debug(
+                            f'边界框信息: [{self.bottle_xmin},{self.bottle_ymin},{self.bottle_xmax},{self.bottle_ymax}], '
+                            f'尺寸: {self.bottle_width}x{self.bottle_height}, 面积: {self.bottle_area}'
+                        )
+                    else:
+                        # 如果没有边界框信息，使用默认值
+                        self.bottle_xmin = self.bottle_cx - 50
+                        self.bottle_ymin = self.bottle_cy - 50
+                        self.bottle_xmax = self.bottle_cx + 50
+                        self.bottle_ymax = self.bottle_cy + 50
+                        self.bottle_width = 100
+                        self.bottle_height = 100
+                        self.bottle_area = 10000
+                    
                     self.last_detection_time = time.time()
                     
         except Exception as e:
@@ -231,6 +292,16 @@ class AutoHarvestController(Node):
         if msg.data > 0:
             with self.control_lock:
                 self.nearest_distance = msg.data
+    
+    def image_callback(self, msg):
+        """摄像头图像回调 - 存储当前图像用于采摘时截取"""
+        try:
+            with self.control_lock:
+                self.current_image = msg.data  # 存储压缩图像数据
+                self.image_timestamp = msg.header.stamp.sec * 1000 + msg.header.stamp.nanosec // 1000000
+                # self.get_logger().debug(f'收到图像，大小: {len(msg.data)} bytes')
+        except Exception as e:
+            self.get_logger().error(f'处理图像回调时出错: {e}')
     
     def harvest_status_callback(self, msg):
         """采摘状态回调"""
@@ -527,7 +598,7 @@ class AutoHarvestController(Node):
         
         # 始终发送舵机跟踪命令
         tracking_msg = Point()
-        tracking_msg.x = float(self.frame_width // 2 + 80)
+        tracking_msg.x = float(self.bottle_cx)
         tracking_msg.y = float(self.bottle_cy)
         tracking_msg.z = float(self.frame_width)
         self.tracking_pub.publish(tracking_msg)
@@ -592,7 +663,7 @@ class AutoHarvestController(Node):
         self.cmd_vel_pub.publish(twist)
     
     def stop_and_harvest(self, offset_x):
-        """停止并执行采摘 - 优化版：增加容错机制"""
+        """停止并执行采摘 - 优化版：增加容错机制 + 截取瓶子图像"""
         # 停止移动
         self.stop_robot()
         self.current_direction = 0x04  # DIR_STOP
@@ -606,10 +677,13 @@ class AutoHarvestController(Node):
                 
                 # 先确保舵机对准目标
                 tracking_msg = Point()
-                tracking_msg.x = float(self.frame_width//2 + 80)
+                tracking_msg.x = float(self.bottle_cx)
                 tracking_msg.y = float(self.bottle_cy)
                 tracking_msg.z = float(self.frame_width)
                 self.tracking_pub.publish(tracking_msg)
+                
+                # 截取并发布瓶子图像用于AI识别
+                self.crop_and_publish_bottle_image()
                 
                 # 等待舵机调整完成（可选：添加小延时）
                 # time.sleep(0.5)
@@ -624,10 +698,101 @@ class AutoHarvestController(Node):
             # 使用舵机微调对准
             self.get_logger().info(f'采摘距离但未对准，继续调整舵机（偏移:{offset_x}px）')
             tracking_msg = Point()
-            tracking_msg.x = float(self.frame_width // 2 + 80)
+            tracking_msg.x = float(self.bottle_cx)
             tracking_msg.y = float(self.bottle_cy)
             tracking_msg.z = float(self.frame_width)
             self.tracking_pub.publish(tracking_msg)
+    
+    def crop_and_publish_bottle_image(self):
+        """截取瓶子区域图像并发布给AI识别"""
+        try:
+            # 检查是否有可用的图像和边界框信息
+            if self.current_image is None:
+                self.get_logger().warn('截取瓶子图像失败：没有可用的摄像头图像')
+                return
+            
+            if (self.bottle_xmin == 0 and self.bottle_ymin == 0 and 
+                self.bottle_xmax == 0 and self.bottle_ymax == 0):
+                self.get_logger().warn('截取瓶子图像失败：没有有效的边界框信息')
+                return
+            
+            # 解码压缩图像
+            np_arr = np.frombuffer(self.current_image, np.uint8)
+            image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            
+            if image is None:
+                self.get_logger().error('截取瓶子图像失败：图像解码失败')
+                return
+            
+            img_height, img_width = image.shape[:2]
+            
+            # 验证和修正边界框坐标
+            xmin = max(0, min(int(self.bottle_xmin), img_width - 1))
+            ymin = max(0, min(int(self.bottle_ymin), img_height - 1))
+            xmax = max(xmin + 1, min(int(self.bottle_xmax), img_width))
+            ymax = max(ymin + 1, min(int(self.bottle_ymax), img_height))
+            
+            # 添加边距以包含更多上下文（可选）
+            margin = 20  # 像素边距
+            xmin = max(0, xmin - margin)
+            ymin = max(0, ymin - margin)
+            xmax = min(img_width, xmax + margin)
+            ymax = min(img_height, ymax + margin)
+            
+            # 截取瓶子区域
+            cropped_image = image[ymin:ymax, xmin:xmax]
+            
+            # 验证截取的图像尺寸
+            if cropped_image.size == 0:
+                self.get_logger().error(f'截取瓶子图像失败：截取区域为空 [{xmin},{ymin},{xmax},{ymax}]')
+                return
+            
+            crop_height, crop_width = cropped_image.shape[:2]
+            
+            # 如果截取的图像太小，调整大小
+            min_size = 100  # 最小尺寸
+            if crop_width < min_size or crop_height < min_size:
+                scale = max(min_size / crop_width, min_size / crop_height)
+                new_width = int(crop_width * scale)
+                new_height = int(crop_height * scale)
+                cropped_image = cv2.resize(cropped_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+                self.get_logger().info(f'截取图像尺寸调整: {crop_width}x{crop_height} -> {new_width}x{new_height}')
+            
+            # 压缩为JPEG格式
+            encode_param = [cv2.IMWRITE_JPEG_QUALITY, 85]
+            success, encoded_image = cv2.imencode('.jpg', cropped_image, encode_param)
+            
+            if not success:
+                self.get_logger().error('截取瓶子图像失败：图像编码失败')
+                return
+            
+            # 创建CompressedImage消息
+            crop_msg = CompressedImage()
+            crop_msg.header = Header()
+            crop_msg.header.stamp = self.get_clock().now().to_msg()
+            crop_msg.header.frame_id = f'harvest_crop|bottle_{int(time.time() * 1000)}.jpg'
+            crop_msg.format = 'jpeg'
+            crop_msg.data = encoded_image.tobytes()
+            
+            # 发布截取的图像
+            self.harvest_image_pub.publish(crop_msg)
+            
+            # 记录日志
+            file_size_kb = len(encoded_image) / 1024
+            final_height, final_width = cropped_image.shape[:2]
+            self.get_logger().info(
+                f'🍎 瓶子图像截取成功: '
+                f'原图尺寸={img_width}x{img_height}, '
+                f'边界框=[{self.bottle_xmin},{self.bottle_ymin},{self.bottle_xmax},{self.bottle_ymax}], '
+                f'截取区域=[{xmin},{ymin},{xmax},{ymax}], '
+                f'最终尺寸={final_width}x{final_height}, '
+                f'文件大小={file_size_kb:.1f}KB'
+            )
+            
+        except Exception as e:
+            self.get_logger().error(f'截取瓶子图像时出错: {e}')
+            import traceback
+            self.get_logger().error(f'详细错误: {traceback.format_exc()}')
     
     def search_for_bottle(self):
         """搜索瓶子"""

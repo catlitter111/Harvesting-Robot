@@ -143,6 +143,14 @@ class WebSocketBridgeNode(Node):
             10
         )
         
+        # 新增：订阅采摘时截取的瓶子图像
+        self.harvest_image_sub = self.create_subscription(
+            CompressedImage,
+            'harvest/cropped_image',
+            self.harvest_image_callback,
+            10
+        )
+        
         # 创建发布者 - 发布控制命令
         self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.robot_cmd_pub = self.create_publisher(RobotCommand, 'robot/command', 10)
@@ -1663,6 +1671,31 @@ class WebSocketBridgeNode(Node):
             
         except Exception as e:
             self.get_logger().error(f'水果图片回调出错: {e}')
+    
+    def harvest_image_callback(self, msg):
+        """采摘图像回调 - 处理采摘时截取的瓶子图像进行AI识别"""
+        if not self.ai_enabled or not self.ai_vision_client:
+            self.get_logger().warn('AI功能未启用，跳过采摘图像识别')
+            return
+        
+        try:
+            # 提取文件名
+            filename = 'harvest_bottle.jpg'
+            if '|' in msg.header.frame_id:
+                filename = msg.header.frame_id.split('|')[1]
+            
+            self.get_logger().info(f'🍎 收到采摘瓶子图像进行AI识别: {filename}')
+            
+            # 在新线程中处理图片识别，避免阻塞 - 直接使用现有的process_fruit_recognition方法
+            recognition_thread = threading.Thread(
+                target=self.process_fruit_recognition,
+                args=(msg.data, filename)
+            )
+            recognition_thread.daemon = True
+            recognition_thread.start()
+            
+        except Exception as e:
+            self.get_logger().error(f'采摘图像回调出错: {e}')
     
     def process_fruit_recognition(self, image_data, filename):
         """在单独线程中处理水果识别（修复版本）"""
