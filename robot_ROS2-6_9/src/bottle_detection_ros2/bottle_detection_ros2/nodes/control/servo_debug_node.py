@@ -43,6 +43,10 @@ class ServoDebugNode(Node):
         self.current_horizontal = self.horizontal_center
         self.current_vertical = self.vertical_center
         
+        # 位置同步状态
+        self.position_synced = False
+        self.first_control_command = True
+        
         # 创建发布者
         self.servo_cmd_pub = self.create_publisher(
             ServoCommand,
@@ -85,6 +89,11 @@ class ServoDebugNode(Node):
         self.get_logger().info('  - arm_rotate_left: 机械臂向左转')
         self.get_logger().info('  - arm_rotate_right: 机械臂向右转')
         self.get_logger().info('  - arm_stop: 停止机械臂')
+        
+        # 启动时请求位置同步
+        self.get_logger().info('正在同步舵机当前位置...')
+        # 延迟一点时间确保舵机控制节点已启动
+        self.sync_timer = self.create_timer(1.0, self.initial_position_sync)
 
     
     def move_horizontal(self, delta):
@@ -166,11 +175,37 @@ class ServoDebugNode(Node):
             actual_h = msg.servo_positions[self.HORIZONTAL_SERVO_ID]
             actual_v = msg.servo_positions[self.VERTICAL_SERVO_ID]
             
-            # 如果实际位置与记录位置相差较大，更新记录
-            if abs(actual_h - self.current_horizontal) > 50:
+            # 如果还未同步过位置，或者实际位置与记录位置相差较大，更新记录
+            if not self.position_synced or abs(actual_h - self.current_horizontal) > 30 or abs(actual_v - self.current_vertical) > 30:
+                old_h, old_v = self.current_horizontal, self.current_vertical
                 self.current_horizontal = actual_h
-            if abs(actual_v - self.current_vertical) > 50:
                 self.current_vertical = actual_v
+                self.position_synced = True
+                
+                if abs(actual_h - old_h) > 30 or abs(actual_v - old_v) > 30:
+                    self.get_logger().info(f'位置已同步 - 水平: {old_h}→{actual_h}, 垂直: {old_v}→{actual_v}')
+    
+    def request_position_sync(self):
+        """请求舵机位置同步"""
+        # 发送位置读取请求给水平和垂直舵机
+        for servo_id in [self.HORIZONTAL_SERVO_ID, self.VERTICAL_SERVO_ID]:
+            msg = ServoCommand()
+            msg.servo_id = servo_id
+            msg.position = -1  # 特殊值，表示读取当前位置
+            msg.time_ms = 0
+            msg.stop = False
+            msg.set_mode = False
+            msg.mode = -1
+            self.servo_cmd_pub.publish(msg)
+        
+        self.get_logger().debug('已发送位置同步请求')
+    
+    def initial_position_sync(self):
+        """初始位置同步（只执行一次）"""
+        self.request_position_sync()
+        # 销毁这个定时器，只执行一次
+        self.sync_timer.cancel()
+        self.sync_timer = None
     
     def arm_control_callback(self, msg):
         """机械臂控制命令回调（来自WebSocket桥接节点）"""
@@ -181,6 +216,15 @@ class ServoDebugNode(Node):
             speed = data.get('speed', 50)
             
             self.get_logger().info(f'收到机械臂控制命令: {command}, 速度: {speed}%')
+            
+            # 如果是第一次控制命令，先请求位置同步
+            if self.first_control_command:
+                self.get_logger().info('第一次机械臂控制，正在同步舵机位置...')
+                self.request_position_sync()
+                self.first_control_command = False
+                # 等待一小段时间让位置同步
+                import time
+                time.sleep(0.1)
             
             # 根据速度计算步长（基础步长50，速度范围0-100）
             speed_factor = max(0.1, min(2.0, speed / 50.0))  # 0.1到2.0倍
