@@ -165,9 +165,9 @@ class WebSocketBridgeNode(Node):
         self.image_queue = queue.Queue(maxsize=10)
         self.status_queue = queue.Queue(maxsize=10)
         
-        # 状态变量
-        self.current_mode = "manual"
-        self.auto_harvest_active = False
+        # 状态变量 - 修改默认模式为自动
+        self.current_mode = "auto"  # 修改默认模式为自动
+        self.auto_harvest_active = True  # 修改默认为启用自动采摘
         
         # 机器人状态（用于function calling）
         self.robot_status = {
@@ -799,8 +799,8 @@ class WebSocketBridgeNode(Node):
     
     def handle_mode_control(self, data):
         """处理模式控制"""
-        new_mode = data.get("mode", "manual")
-        auto_harvest = data.get("harvest", False)
+        new_mode = data.get("mode", "auto")  # 修改默认值为自动模式
+        auto_harvest = data.get("harvest", True)  # 修改默认值为启用自动采摘
         
         self.current_mode = new_mode
         self.auto_harvest_active = auto_harvest

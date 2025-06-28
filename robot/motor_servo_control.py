@@ -71,9 +71,9 @@ class MotorServoController:
         self.running = False
         self.thread = None
         
-        # 控制状态
-        self.current_mode = "manual"  # 当前模式: manual或auto
-        self.auto_harvest_active = False  # 自动采摘是否激活
+        # 控制状态 - 修改默认模式为自动
+        self.current_mode = "auto"  # 当前模式: manual或auto - 修改默认为自动
+        self.auto_harvest_active = True  # 自动采摘是否激活 - 修改默认为启用
         self.current_speed = 50  # 当前速度百分比
         self.current_direction = DIR_STOP  # 当前方向
         
@@ -199,8 +199,8 @@ class MotorServoController:
         
         if cmd_type == "set_mode":
             # 设置操作模式
-            self.current_mode = cmd.get("mode", "manual")
-            self.auto_harvest_active = cmd.get("harvest", False)
+            self.current_mode = cmd.get("mode", "auto")  # 修改默认值为自动模式
+            self.auto_harvest_active = cmd.get("harvest", True)  # 修改默认值为启用自动采摘
             logger.info(f"模式已设置为 {self.current_mode}, 自动采摘: {self.auto_harvest_active}")
             
             # 切换模式时停止运动

@@ -23,10 +23,10 @@ class AgriculturalRobotGUI:
         self.setup_window()
         self.setup_style()
         
-        # 系统状态
+        # 系统状态 - 修改默认模式为自动
         self.system_running = False
-        self.current_mode = "manual"  # manual/auto
-        self.auto_harvest_active = False
+        self.current_mode = "auto"  # manual/auto - 修改默认为自动
+        self.auto_harvest_active = True  # 修改默认为启用自动采摘
         
         # 模拟数据（实际使用时从ROS2获取）
         self.robot_data = {

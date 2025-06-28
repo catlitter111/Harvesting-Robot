@@ -162,12 +162,12 @@ class IntegratedBottleDetectionNode(Node):
         # 线程锁
         self.lock = threading.Lock()
         
-        # 状态变量
+        # 状态变量 - 修改默认模式为自动以匹配控制器设置
         self.frame_count = 0
         self.last_fps_time = time.time()
         self.current_fps = 0.0
-        self.current_mode = "manual"
-        self.auto_harvest_active = False
+        self.current_mode = "auto"  # 修改默认模式为自动
+        self.auto_harvest_active = True  # 修改默认为启用自动采摘
         
         # 帧数据缓存
         self.frame_data_cache = {}
@@ -1019,8 +1019,8 @@ class IntegratedBottleDetectionNode(Node):
         """模式更新回调"""
         try:
             data = json.loads(msg.data)
-            self.current_mode = data.get("mode", "manual")
-            self.auto_harvest_active = data.get("auto_harvest", False)
+            self.current_mode = data.get("mode", "auto")  # 修改默认值为自动模式
+            self.auto_harvest_active = data.get("auto_harvest", True)  # 修改默认值为启用自动采摘
             
             self.get_logger().info(
                 f'模式更新: {self.current_mode}, '

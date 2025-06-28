@@ -33,9 +33,9 @@ MAX_POSSIBLE_DISTANCE = 15.0  # 米，与检测器保持一致
 
 # 默认速度参数（优化后）
 DEFAULT_APPROACH_SPEED = 60.0  # 提高默认接近速度
-DEFAULT_TURN_SPEED = 70.0      # 提高默认转向速度
+DEFAULT_TURN_SPEED = 50.0      # 提高默认转向速度
 DEFAULT_FINE_APPROACH_SPEED = 50.0  # 提高精细接近速度
-DEFAULT_FINE_TURN_SPEED = 60.0      # 提高精细转向速度
+DEFAULT_FINE_TURN_SPEED = 50.0      # 提高精细转向速度
 
 # 全速前进参数
 FULL_SPEED = 0.5  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
@@ -182,8 +182,8 @@ class AutoHarvestController(Node):
         """模式更新回调"""
         try:
             data = json.loads(msg.data)
-            self.current_mode = data.get("mode", MODE_MANUAL)
-            self.auto_harvest_active = data.get("auto_harvest", False)
+            self.current_mode = data.get("mode", MODE_AUTO)  # 修改默认值为自动模式
+            self.auto_harvest_active = data.get("auto_harvest", True)  # 修改默认值为启用自动采摘
             
             self.get_logger().info(
                 f'模式更新: {self.current_mode}, '
