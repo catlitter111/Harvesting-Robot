@@ -161,6 +161,9 @@ class WebSocketBridgeNode(Node):
         # 新增：水果识别结果发布者
         self.fruit_detection_result_pub = self.create_publisher(String, 'fruit_detection/result', 10)
         
+        # 新增：机械臂控制命令发布者
+        self.arm_control_pub = self.create_publisher(String, 'arm_control/command', 10)
+        
         # 消息队列
         self.image_queue = queue.Queue(maxsize=10)
         self.status_queue = queue.Queue(maxsize=10)
@@ -736,6 +739,10 @@ class WebSocketBridgeNode(Node):
             # 请求视频流 - 这里可以触发相机开始发送
             self.get_logger().info("处理视频流请求")
             return
+        elif cmd.startswith("arm_rotate_") or cmd == "arm_stop":
+            # 机械臂控制指令
+            self.handle_arm_control_command(cmd, params)
+            return
         
         # 发布命令
         self.cmd_vel_pub.publish(twist)
@@ -815,6 +822,35 @@ class WebSocketBridgeNode(Node):
         self.mode_pub.publish(mode_msg)
         
         self.get_logger().info(f'切换到{new_mode}模式，自动采摘: {auto_harvest}')
+    
+    def handle_arm_control_command(self, cmd, params):
+        """处理机械臂控制命令"""
+        # 映射机械臂指令到调试节点命令
+        arm_command_map = {
+            "arm_rotate_up": "arm_up",
+            "arm_rotate_down": "arm_down", 
+            "arm_rotate_left": "arm_left",
+            "arm_rotate_right": "arm_right",
+            "arm_stop": "arm_stop"
+        }
+        
+        debug_command = arm_command_map.get(cmd)
+        if debug_command:
+            # 构建发送给调试节点的消息
+            arm_control_data = {
+                "command": debug_command,
+                "speed": params.get("speed", 50),
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            # 发布到机械臂控制话题
+            arm_msg = String()
+            arm_msg.data = json.dumps(arm_control_data)
+            self.arm_control_pub.publish(arm_msg)
+            
+            self.get_logger().info(f'发送机械臂控制命令: {debug_command}, 速度: {params.get("speed", 50)}%')
+        else:
+            self.get_logger().warn(f'未知的机械臂控制命令: {cmd}')
     
     def handle_ai_chat_request(self, data):
         """处理AI聊天请求"""

@@ -9,12 +9,8 @@ import rclpy
 from rclpy.node import Node
 from bottle_detection_msgs.msg import ServoCommand, ServoStatus, HarvestCommand
 from std_msgs.msg import String
-import sys
-import select
-import termios
-import tty
-import threading
 import time
+import json
 from bottle_detection_ros2.core.qos_profiles import REALTIME_CONTROL_QOS, STATUS_UPDATE_QOS
 
 class ServoDebugNode(Node):
@@ -68,186 +64,28 @@ class ServoDebugNode(Node):
             STATUS_UPDATE_QOS
         )
         
-        # 高级控制模式标志
-        self.advanced_mode = False
-        
-        # 键盘输入设置
-        try:
-            self.settings = termios.tcgetattr(sys.stdin)
-            self.keyboard_enabled = True
-        except Exception as e:
-            self.get_logger().warn(f'无法初始化键盘输入: {e}')
-            self.get_logger().info('将使用ROS话题控制模式')
-            self.keyboard_enabled = False
-            self.settings = None
-        
-        # 控制说明
-        self.print_help()
-        
-        # 创建键盘监听线程（仅在键盘可用时）
-        self.running = True
-        if self.keyboard_enabled:
-            self.keyboard_thread = threading.Thread(target=self.keyboard_listener)
-            self.keyboard_thread.start()
-        else:
-            # 创建话题控制接口
-            self.create_topic_control_interface()
-        
-        self.get_logger().info('机械臂调试节点已启动')
-    
-    def create_topic_control_interface(self):
-        """创建话题控制接口（当键盘不可用时）"""
-        # 创建控制命令订阅者
-        self.debug_cmd_sub = self.create_subscription(
+        # 新增：订阅机械臂控制命令（来自WebSocket桥接节点）
+        self.arm_control_sub = self.create_subscription(
             String,
-            'servo/debug_command',
-            self.debug_command_callback,
+            'arm_control/command',
+            self.arm_control_callback,
             REALTIME_CONTROL_QOS
         )
         
-        self.get_logger().info('话题控制接口已创建')
-        self.get_logger().info('可以通过发布到 /servo/debug_command 话题来控制舵机')
-        self.get_logger().info('可用命令: center, up, down, left, right, preset_1-9, harvest_test')
-    
-    def debug_command_callback(self, msg):
-        """调试命令回调"""
-        command = msg.data.strip().lower()
+        # 高级控制模式标志
+        self.advanced_mode = False
         
-        if command == 'center':
-            self.move_to_center()
-        elif command == 'up':
-            self.move_vertical(self.step_size)
-        elif command == 'down':
-            self.move_vertical(-self.step_size)
-        elif command == 'left':
-            self.move_horizontal(self.step_size)
-        elif command == 'right':
-            self.move_horizontal(-self.step_size)
-        elif command.startswith('preset_') and len(command) == 8:
-            try:
-                preset_num = int(command[-1])
-                if 1 <= preset_num <= 9:
-                    self.move_to_preset(preset_num)
-            except ValueError:
-                pass
-        elif command == 'harvest_test':
-            self.test_harvest_sequence()
-        elif command == 'info':
-            self.print_servo_info()
-        else:
-            self.get_logger().warn(f'未知命令: {command}')
-    
-    def print_help(self):
-        """打印控制说明"""
-        print("\n" + "="*50)
-        print("机械臂调试控制")
-        print("="*50)
-        print("使用方向键控制舵机:")
-        print("  ↑/↓ : 控制垂直舵机 (上/下)")
-        print("  ←/→ : 控制水平舵机 (左/右)")
-        print("\n其他控制键:")
-        print("  Space : 回到中心位置")
-        print("  +/-   : 增加/减少步长")
-        print("  q     : 退出程序")
-        print("\n快捷位置:")
-        print("  1 : 左上角")
-        print("  2 : 正上方")
-        print("  3 : 右上角")
-        print("  4 : 左边")
-        print("  5 : 中心")
-        print("  6 : 右边")
-        print("  7 : 左下角")
-        print("  8 : 正下方")
-        print("  9 : 右下角")
-        print("\n高级功能:")
-        print("  h : 显示/隐藏帮助")
-        print("  i : 显示当前舵机信息")
-        print("  r : 读取所有舵机位置")
-        print("  t : 测试采摘动作序列")
-        print("  c : 回到中心并重置采摘系统")
-        print("="*50)
-        print(f"当前步长: {self.step_size} PWM")
-        print(f"当前位置 - 水平: {self.current_horizontal}, 垂直: {self.current_vertical}")
-        print("="*50 + "\n")
-    
-    def get_key(self):
-        """获取键盘输入"""
-        tty.setraw(sys.stdin.fileno())
-        rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
-        if rlist:
-            key = sys.stdin.read(1)
-            # 处理方向键（方向键会产生多个字符）
-            if key == '\x1b':  # ESC序列
-                additional_chars = sys.stdin.read(2)
-                if additional_chars == '[A':
-                    return 'UP'
-                elif additional_chars == '[B':
-                    return 'DOWN'
-                elif additional_chars == '[C':
-                    return 'RIGHT'
-                elif additional_chars == '[D':
-                    return 'LEFT'
-            return key
-        return None
-    
-    def keyboard_listener(self):
-        """键盘监听线程"""
-        try:
-            while self.running:
-                key = self.get_key()
-                if key:
-                    self.process_key(key)
-        except Exception as e:
-            self.get_logger().error(f'键盘监听错误: {e}')
-        finally:
-            if self.settings is not None:
-                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
-    
-    def process_key(self, key):
-        """处理键盘输入"""
-        # 方向键控制
-        if key == 'UP':
-            self.move_vertical(-self.step_size)
-        elif key == 'DOWN':
-            self.move_vertical(self.step_size)
-        elif key == 'LEFT':
-            self.move_horizontal(-self.step_size)
-        elif key == 'RIGHT':
-            self.move_horizontal(self.step_size)
+        # 节点运行状态
+        self.running = True
         
-        # 其他控制键
-        elif key == ' ':  # 空格键 - 回中心
-            self.move_to_center()
-        elif key == '+' or key == '=':
-            self.step_size = min(200, self.step_size + 10)
-            print(f"\n步长增加到: {self.step_size} PWM")
-        elif key == '-' or key == '_':
-            self.step_size = max(10, self.step_size - 10)
-            print(f"\n步长减少到: {self.step_size} PWM")
-        elif key == 'q' or key == 'Q':
-            print("\n退出程序...")
-            self.running = False
-            rclpy.shutdown()
-        
-        # 快捷位置（1-9数字键）
-        elif key in '123456789':
-            self.move_to_preset(int(key))
-        
-        # 高级功能
-        elif key == 'h' or key == 'H':
-            self.print_help()
-        elif key == 'i' or key == 'I':
-            self.print_servo_info()
-        elif key == 'r' or key == 'R':
-            self.read_all_servos()
-        elif key == 't' or key == 'T':
-            self.test_harvest_sequence()
-        elif key == 'c' or key == 'C':
-            self.reset_system()
-        
-        # 显示当前位置
-        if key in ['UP', 'DOWN', 'LEFT', 'RIGHT', ' '] or key in '123456789':
-            print(f"\r当前位置 - 水平: {self.current_horizontal}, 垂直: {self.current_vertical}  ", end='', flush=True)
+        self.get_logger().info('机械臂调试节点已启动，等待WebSocket控制指令...')
+        self.get_logger().info('支持的机械臂控制指令：')
+        self.get_logger().info('  - arm_rotate_up: 机械臂向上转')
+        self.get_logger().info('  - arm_rotate_down: 机械臂向下转')
+        self.get_logger().info('  - arm_rotate_left: 机械臂向左转')
+        self.get_logger().info('  - arm_rotate_right: 机械臂向右转')
+        self.get_logger().info('  - arm_stop: 停止机械臂')
+
     
     def move_horizontal(self, delta):
         """移动水平舵机"""
@@ -334,6 +172,53 @@ class ServoDebugNode(Node):
             if abs(actual_v - self.current_vertical) > 50:
                 self.current_vertical = actual_v
     
+    def arm_control_callback(self, msg):
+        """机械臂控制命令回调（来自WebSocket桥接节点）"""
+        try:
+            # 解析JSON数据
+            data = json.loads(msg.data)
+            command = data.get('command', '')
+            speed = data.get('speed', 50)
+            
+            self.get_logger().info(f'收到机械臂控制命令: {command}, 速度: {speed}%')
+            
+            # 根据速度计算步长（基础步长50，速度范围0-100）
+            speed_factor = max(0.1, min(2.0, speed / 50.0))  # 0.1到2.0倍
+            dynamic_step = int(self.step_size * speed_factor)
+            
+            # 处理机械臂控制命令
+            if command == 'arm_up':
+                self.move_vertical(-dynamic_step)  # 负值表示向上
+                self.get_logger().info(f'机械臂向上转动，步长: {dynamic_step}')
+            elif command == 'arm_down':
+                self.move_vertical(dynamic_step)   # 正值表示向下
+                self.get_logger().info(f'机械臂向下转动，步长: {dynamic_step}')
+            elif command == 'arm_left':
+                self.move_horizontal(dynamic_step) # 正值表示向左
+                self.get_logger().info(f'机械臂向左转动，步长: {dynamic_step}')
+            elif command == 'arm_right':
+                self.move_horizontal(-dynamic_step) # 负值表示向右
+                self.get_logger().info(f'机械臂向右转动，步长: {dynamic_step}')
+            elif command == 'arm_stop':
+                # 发送停止命令到舵机控制节点
+                for servo_id in [0, 1]:  # 停止水平和垂直舵机
+                    stop_msg = ServoCommand()
+                    stop_msg.servo_id = servo_id
+                    stop_msg.position = -1  # 无效位置
+                    stop_msg.time_ms = 0
+                    stop_msg.stop = True
+                    stop_msg.set_mode = False
+                    stop_msg.mode = -1
+                    self.servo_cmd_pub.publish(stop_msg)
+                self.get_logger().info('机械臂停止命令已发送')
+            else:
+                self.get_logger().warn(f'未知的机械臂控制命令: {command}')
+                
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f'解析机械臂控制命令JSON失败: {e}')
+        except Exception as e:
+            self.get_logger().error(f'处理机械臂控制命令失败: {e}')
+    
     def print_servo_info(self):
         """打印舵机信息"""
         print("\n" + "="*50)
@@ -393,13 +278,6 @@ class ServoDebugNode(Node):
     def destroy_node(self):
         """清理资源"""
         self.running = False
-        if hasattr(self, 'keyboard_thread'):
-            self.keyboard_thread.join()
-        
-        # 恢复终端设置
-        if self.settings is not None:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
-        
         super().destroy_node()
 
 

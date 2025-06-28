@@ -151,6 +151,24 @@ def generate_launch_description():
             'enable_tracking': True,
         }]
     )
+
+    # 机械臂调试节点
+    servo_debug_node = Node(
+        package='bottle_detection_ros2',
+        executable='servo_debug_node',
+        name='servo_debug',
+        output='screen',
+        parameters=[{
+            'step_size': 50,      # 机械臂移动步长（PWM）
+            'time_ms': 200,       # 舵机移动时间（毫秒）
+        }],
+        remappings=[
+            ('servo/command', 'servo/command'),
+            ('servo/status', 'servo/status'),
+            ('arm_control/command', 'arm_control/command'),
+            ('robot/harvest_command', 'robot/harvest_command'),
+        ]
+    )
     
     # 自动采摘控制器 - 修复：参数应该是百分比值（0-100）
     auto_harvest_node = Node(
@@ -192,6 +210,19 @@ def generate_launch_description():
             '相机参数文件: ', LaunchConfiguration('camera_params_file'), '\n',
             '模型路径: ', LaunchConfiguration('model_path'), '\n',
             '显示窗口: ', LaunchConfiguration('show_display'), '\n',
+            '机器人串口: ', LaunchConfiguration('robot_serial_port'), '\n',
+            '舵机串口: ', LaunchConfiguration('servo_serial_port'), '\n',
+            '========================================\n',
+            '启动的节点:\n',
+            '  • bottle_detection: 瓶子检测节点\n',
+            '  • websocket_bridge: WebSocket通信桥接\n',
+            '  • robot_control: 机器人控制节点\n',
+            '  • servo_control: 舵机控制节点\n',
+            '  • servo_debug: 机械臂调试节点\n',
+            '  • auto_harvest: 自动采摘控制器\n',
+            '  • local_control_gui: 本地控制界面\n',
+            '========================================\n',
+            '机械臂控制：通过微信小程序发送控制指令\n',
             '========================================\n'
         ]
     )
@@ -216,6 +247,7 @@ def generate_launch_description():
         websocket_bridge_node,
         robot_control_node,
         servo_control_node,
+        servo_debug_node,
         auto_harvest_node,
         local_control_gui_node,
     ])

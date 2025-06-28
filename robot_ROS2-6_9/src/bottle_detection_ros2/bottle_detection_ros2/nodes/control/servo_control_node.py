@@ -439,6 +439,11 @@ class ServoControlNode(Node):
     def servo_command_callback(self, msg):
         """舵机命令回调"""
         if msg.servo_id >= 0 and msg.position >= 0:
+            # 记录机械臂控制相关的舵机移动
+            if msg.servo_id in [0, 1]:  # 水平和垂直舵机
+                servo_name = "水平舵机" if msg.servo_id == 0 else "垂直舵机"
+                self.get_logger().info(f'执行机械臂控制 - {servo_name} 移动到位置: {msg.position} PWM')
+            
             self.move_servo(msg.servo_id, msg.position, msg.time_ms)
         
         if msg.stop:
