@@ -256,13 +256,14 @@ class ServoControlNode(Node):
             
             try:
                 self.serial.write(command.encode())
-                self.get_logger().debug(f'发送命令: {command}')
+                # 打印实际发送的命令
+                self.get_logger().info(f'[舵机控制] 发送命令到机械臂: {command}')
                 
                 if wait_for_response:
                     time.sleep(0.1)
                     if self.serial.in_waiting:
                         response = self.serial.read(self.serial.in_waiting).decode().strip()
-                        self.get_logger().debug(f'舵机响应: {response}')
+                        self.get_logger().info(f'[舵机控制] 机械臂响应: {response}')
                         return response
                 return True
             except Exception as e:
@@ -351,6 +352,13 @@ class ServoControlNode(Node):
         
         # 构造舵机控制命令
         command = f"#{servo_id:03d}P{position:04d}T{time_ms:04d}!"
+        servo_name = f"舵机{servo_id}"
+        if servo_id == 0:
+            servo_name = "水平舵机"
+        elif servo_id == 1:
+            servo_name = "垂直舵机"
+            
+        self.get_logger().info(f'[舵机控制] 移动{servo_name}: 目标位置={position}PWM, 时间={time_ms}ms')
         return self.send_command(command)
     
     def track_object(self, frame_width, frame_height, center_x, center_y):
