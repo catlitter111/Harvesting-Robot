@@ -289,8 +289,9 @@ class BottleDetectionNodeAsync(Node):
             if score < self.confidence_threshold:
                 continue
             
-            # 计算距离
-            distance = self.stereo_camera.get_bottle_distance(threeD, cx, cy)
+            # 计算距离 - 改进版本：使用检测框范围内的平均距离
+            bbox = (left, top, right, bottom)
+            distance = self.stereo_camera.get_bottle_distance(threeD, cx, cy, bbox)
             
             if distance and self.min_distance <= distance <= self.max_distance:
                 valid_detections.append({

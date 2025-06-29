@@ -383,14 +383,15 @@ class StereoCamera:
         
         return distance
     
-    def get_bottle_distance(self, threeD, cx, cy):
+    def get_bottle_distance(self, threeD, cx, cy, bbox=None):
         """
-        获取瓶子中心点的距离
+        获取瓶子的距离 - 改进版本
         
         参数:
         threeD: 3D点云数组
         cx: 瓶子中心x坐标
-        cy: 瓶子中心y坐标
+        cy: 瓶子中心y坐标  
+        bbox: 检测框边界 (left, top, right, bottom), 可选
         
         返回:
         距离（米），失败返回None
@@ -399,31 +400,88 @@ class StereoCamera:
             return None
         
         try:
-            # 确保坐标在有效范围内
             h, w = threeD.shape[:2]
-            if cx < 0 or cx >= w or cy < 0 or cy >= h:
-                return None
             
-            # 获取中心点周围区域的距离，提高稳定性
-            radius = 3
-            distances = []
-            
-            for dy in range(max(0, cy-radius), min(h, cy+radius+1)):
-                for dx in range(max(0, cx-radius), min(w, cx+radius+1)):
-                    point_3d = threeD[dy][dx]
-                    distance = self.calculate_distance(point_3d)
-                    if distance is not None:
-                        distances.append(distance)
-            
-            # 使用中位数作为最终距离（更稳定）
-            if distances:
+            # 如果提供了检测框信息，使用整个框范围内的距离平均值
+            if bbox is not None:
+                left, top, right, bottom = bbox
+                # 确保边界在有效范围内
+                left = max(0, min(int(left), w-1))
+                top = max(0, min(int(top), h-1))
+                right = max(left+1, min(int(right), w))
+                bottom = max(top+1, min(int(bottom), h))
+                
+                # print(f"使用检测框范围计算距离: ({left},{top}) -> ({right},{bottom})")
+                
+                # 在检测框范围内采样所有点的距离
+                distances = []
+                sample_step = max(1, min(3, (right-left)//10, (bottom-top)//10))  # 自适应采样步长
+                
+                for y in range(top, bottom, sample_step):
+                    for x in range(left, right, sample_step):
+                        if 0 <= y < h and 0 <= x < w:
+                            point_3d = threeD[y][x]
+                            distance = self.calculate_distance(point_3d)
+                            if distance is not None:
+                                distances.append(distance)
+                
+                # 如果检测框内有效距离太少，回退到中心点方法
+                if len(distances) < 5:
+                    # print(f"检测框内有效距离点太少({len(distances)})，回退到中心点方法")
+                    return self._get_center_distance(threeD, cx, cy, h, w)
+                
+                # 使用平均值作为最终距离，去除异常值
                 distances.sort()
-                return distances[len(distances)//2]
+                # 去除最大和最小的20%异常值
+                trim_count = max(1, len(distances) // 5)
+                trimmed_distances = distances[trim_count:-trim_count] if len(distances) > 2*trim_count else distances
+                
+                avg_distance = sum(trimmed_distances) / len(trimmed_distances)
+                # print(f"检测框内有效距离: 总数={len(distances)}, 修剪后={len(trimmed_distances)}, 平均距离={avg_distance:.3f}m")
+                return avg_distance
+            
             else:
-                return None
+                # 如果没有提供检测框，使用传统的中心点方法
+                return self._get_center_distance(threeD, cx, cy, h, w)
                 
         except Exception as e:
             print(f"计算瓶子距离失败: {e}")
+            return None
+    
+    def _get_center_distance(self, threeD, cx, cy, h, w):
+        """
+        使用中心点周围区域计算距离的传统方法
+        
+        参数:
+        threeD: 3D点云数组
+        cx: 中心x坐标
+        cy: 中心y坐标
+        h: 图像高度
+        w: 图像宽度
+        
+        返回:
+        距离（米），失败返回None
+        """
+        # 确保坐标在有效范围内
+        if cx < 0 or cx >= w or cy < 0 or cy >= h:
+            return None
+        
+        # 获取中心点周围区域的距离，提高稳定性
+        radius = 3
+        distances = []
+        
+        for dy in range(max(0, cy-radius), min(h, cy+radius+1)):
+            for dx in range(max(0, cx-radius), min(w, cx+radius+1)):
+                point_3d = threeD[dy][dx]
+                distance = self.calculate_distance(point_3d)
+                if distance is not None:
+                    distances.append(distance)
+        
+        # 使用中位数作为最终距离（更稳定）
+        if distances:
+            distances.sort()
+            return distances[len(distances)//2]
+        else:
             return None
     
     def set_distance_range(self, min_distance, max_distance):

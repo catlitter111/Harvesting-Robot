@@ -27,8 +27,8 @@ SERVO_MODE = 3  # 180度顺时针模式
 
 # 机械臂采摘动作指令
 ARM_COMMANDS = {
-    "rt_catch1": "#002P1650T2000!#003P1300T2000!#005P1700T2000!",
-    "rt_catch2": "#002P1650T2000!#003P1300T2000!#005P1950T2000!",
+    "rt_catch1": "#002P1650T2000!#003P1200T2000!#005P1700T2000!",
+    "rt_catch2": "#002P1650T2000!#003P1200T2000!#005P1950T2000!",
     "rt_catch3": "#000P2200T2000!#001P1600T2000!#002P1850T2000!#003P2300T2000!#005P1950T2000!",
     "rt_catch4": "#000P2200T2000!#001P1600T2000!#002P1850T2000!#003P2300T2000!#005P1700T0500!",
     "rt_catch5": "#000P1380T1500!#001P0650T1500!#002P2150T1500!#003P0750T1500!#004P1970T1500!#005P1700T1500!"
@@ -154,8 +154,8 @@ class ServoControlNode(Node):
         self.current_vertical_pos = self.vertical_servo_center
         
         # 死区和平滑参数
-        self.dead_zone_x = 30
-        self.dead_zone_y = 30
+        self.dead_zone_x = 20
+        self.dead_zone_y = 20
         self.smooth_factor = 0.85
         
         # 运动阈值 - 调整为PWM单位
@@ -366,8 +366,8 @@ class ServoControlNode(Node):
         if center_x is not None and center_y is not None:
             
             # 计算图像中心
-            frame_center_x = frame_width // 2 + 80
-            frame_center_y = frame_height // 2 - 40
+            frame_center_x = frame_width // 2 + 50
+            frame_center_y = frame_height // 2 +50
             
             # 计算像素误差
             pixel_error_x = center_x - frame_center_x

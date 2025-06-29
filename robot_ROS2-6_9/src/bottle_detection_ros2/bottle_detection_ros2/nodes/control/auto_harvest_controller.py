@@ -15,10 +15,10 @@ import time
 import threading
 
 # 距离阈值（米）
-DISTANCE_VERY_FAR = 0.6   # 超远距离阈值，超过此距离只进行大角度调整
-DISTANCE_FAR = 0.5       # 远距离阈值，超过此距离使用电机调整方向
+DISTANCE_VERY_FAR = 0.7   # 超远距离阈值，超过此距离只进行大角度调整
+DISTANCE_FAR = 0.7       # 远距离阈值，超过此距离使用电机调整方向
 DISTANCE_NEAR = 0.35       # 近距离阈值，低于此距离使用舵机调整方向
-DISTANCE_HARVEST = 0.3   # 采摘距离阈值，低于此距离开始采摘
+DISTANCE_HARVEST = 0.30   # 采摘距离阈值，低于此距离开始采摘
 
 
 # 图像中心死区（像素）
@@ -38,7 +38,7 @@ DEFAULT_FINE_APPROACH_SPEED =50.0  # 提高精细接近速度
 DEFAULT_FINE_TURN_SPEED = 50.0      # 提高精细转向速度
 
 # 全速前进参数
-FULL_SPEED = 0.6  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
+FULL_SPEED = 0.3  # m/s，根据测试数据：1秒60.5cm，2秒120cm，平均0.6m/s
 SAFETY_DISTANCE = 0.1  # 安全距离，米
 
 
@@ -191,7 +191,7 @@ class AutoHarvestController(Node):
         self.arm_adjustment_start_time = 0.0
         self.arm_adjustment_timeout = 3.0  # 机械臂调整超时时间（秒）
         self.center_tolerance_x = CENTER_DEADZONE  # X方向中心容忍度
-        self.center_tolerance_y = 50  # Y方向中心容忍度（像素）
+        self.center_tolerance_y = 20  # Y方向中心容忍度（像素）
         self._last_distance_state = None  # 跟踪上一次的距离状态
         
         # 控制锁
@@ -346,10 +346,10 @@ class AutoHarvestController(Node):
     
     def control_loop(self):
         """主控制循环"""
-        # 手动模式下的舵机跟踪
-        if self.current_mode == MODE_MANUAL and self.bottle_visible:
-            self._manual_servo_control()
-            return
+        # 手动模式下不执行自动跟踪，机械臂由用户手动控制
+        # if self.current_mode == MODE_MANUAL and self.bottle_visible:
+        #     self._manual_servo_control()
+        #     return
         
         # 只在自动模式且激活采摘时执行
         if self.current_mode != MODE_AUTO or not self.auto_harvest_active:
@@ -388,15 +388,18 @@ class AutoHarvestController(Node):
                 self.stop_robot()
     
     def _manual_servo_control(self):
-        """手动模式下的舵机控制 - 检测到瓶子时直接控制舵机跟踪，不考虑距离"""
+        """手动模式下的舵机控制 - 已禁用，机械臂现在不会在手动模式下自动跟踪物品"""
+        # 此方法已被禁用，手动模式下机械臂不再自动跟踪
         # 发布跟踪目标
-        tracking_msg = Point()
-        tracking_msg.x = float(self.bottle_cx)
-        tracking_msg.y = float(self.bottle_cy)
-        tracking_msg.z = float(self.frame_width)  # 传递图像宽度
+        # tracking_msg = Point()
+        # tracking_msg.x = float(self.bottle_cx)
+        # tracking_msg.y = float(self.bottle_cy)
+        # tracking_msg.z = float(self.frame_width)  # 传递图像宽度
+        # 
+        # self.tracking_pub.publish(tracking_msg)
+        # self.get_logger().debug(f"手动模式舵机跟踪: 坐标=({self.bottle_cx},{self.bottle_cy})")
         
-        self.tracking_pub.publish(tracking_msg)
-        self.get_logger().debug(f"手动模式舵机跟踪: 坐标=({self.bottle_cx},{self.bottle_cy})")
+        self.get_logger().debug("手动模式：机械臂自动跟踪已禁用")
     
     def approach_bottle(self):
         """接近瓶子的控制逻辑"""
@@ -602,18 +605,17 @@ class AutoHarvestController(Node):
         current_time = time.time()
         
         # 重新计算画面中心偏移（X和Y方向）- 与舵机控制保持一致
-        center_x = self.frame_width // 2 + 80  # 与servo_control_node保持一致的偏移
-        center_y = self.frame_height // 2
+        center_x = self.frame_width // 2 + 50  # 与servo_control_node保持一致的偏移
+        center_y = self.frame_height // 2 + 50
         offset_x_center = center_x - self.bottle_cx
         offset_y_center = center_y - self.bottle_cy
         
         # 检查是否在画面中心（X和Y都要满足）
-        is_centered = (abs(offset_x_center) <= self.center_tolerance_x and 
-                      abs(offset_y_center) <= self.center_tolerance_y)
+        is_centered = (abs(offset_y_center) <= self.center_tolerance_y)
         
         # 始终发送舵机跟踪命令
         tracking_msg = Point()
-        tracking_msg.x = float(self.bottle_cx)
+        tracking_msg.x = float(center_x)
         tracking_msg.y = float(self.bottle_cy)
         tracking_msg.z = float(self.frame_width)
         self.tracking_pub.publish(tracking_msg)
@@ -659,7 +661,7 @@ class AutoHarvestController(Node):
             # 状态2：确认对准后缓慢前进
             if is_centered:
                 # 目标仍在中心，继续缓慢前进
-                base_speed = 0.08  # m/s，非常慢的速度
+                base_speed = 0.03  # m/s，非常慢的速度
                 twist.linear.x = base_speed
                 self.current_direction = 0x00  # DIR_FORWARD
                 self.get_logger().info(

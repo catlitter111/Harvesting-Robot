@@ -552,8 +552,9 @@ class IntegratedBottleDetectionNode(Node):
                         logger.debug(f"  跳过低置信度检测: {score} < {self.confidence_threshold}")
                         continue
                     
-                    # 计算距离
-                    distance = self.stereo_camera.get_bottle_distance(threeD, cx, cy)
+                    # 计算距离 - 改进版本：使用检测框范围内的平均距离
+                    bbox = (left, top, right, bottom)
+                    distance = self.stereo_camera.get_bottle_distance(threeD, cx, cy, bbox)
                     logger.debug(f"  原始距离: type={type(distance)}, value={distance}")
                     
                     # 获取3D位置
