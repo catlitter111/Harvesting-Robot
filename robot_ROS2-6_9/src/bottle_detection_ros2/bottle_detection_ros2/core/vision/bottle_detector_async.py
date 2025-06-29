@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("bottle_detector_async")
 
 # YOLO检测参数
-OBJ_THRESH = 0.05  # 目标置信度阈值
+OBJ_THRESH = 0.02  # 目标置信度阈值
 NMS_THRESH = 0.5  # 非极大值抑制阈值
 MODEL_SIZE = (640, 640)  # 模型输入尺寸
 

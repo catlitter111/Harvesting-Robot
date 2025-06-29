@@ -10,7 +10,7 @@ import numpy as np
 from rknnlite.api import RKNNLite
 
 # YOLO检测参数
-OBJ_THRESH = 0.25  # 目标检测阈值
+OBJ_THRESH = 0.02 # 目标检测阈值
 NMS_THRESH = 0.45  # 非极大值抑制阈值
 
 # COCO数据集类别名称
