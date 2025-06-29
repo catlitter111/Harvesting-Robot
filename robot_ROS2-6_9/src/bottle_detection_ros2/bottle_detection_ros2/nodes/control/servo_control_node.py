@@ -561,6 +561,9 @@ class ServoControlNode(Node):
             # 采摘完成
             self.get_logger().info(f'采摘完成，总计: {self.harvested_count}')
             
+            # 读取实际舵机位置并更新位置记录
+            self.read_and_update_servo_positions()
+            
             # 发布采摘完成状态
             status_msg = String()
             status_msg.data = json.dumps({
@@ -570,6 +573,9 @@ class ServoControlNode(Node):
                 "timestamp": time.time()
             })
             self.harvest_status_pub.publish(status_msg)
+            
+            # 立即发布更新后的舵机状态
+            self.publish_status()
             
             # 重置状态
             self.harvest_state = HARVEST_IDLE
@@ -593,6 +599,51 @@ class ServoControlNode(Node):
                 self.get_logger().error(f'解析舵机位置错误: {e}')
                 return None
         return None
+    
+    def read_and_update_servo_positions(self):
+        """读取并更新所有舵机的实际位置（特别是水平和垂直舵机）"""
+        try:
+            self.get_logger().info('采摘完成后读取机械臂实际位置...')
+            
+            # 读取水平舵机位置（ID: 0）
+            horizontal_pos = self.read_position(0)
+            if horizontal_pos is not None:
+                self.current_positions[0] = horizontal_pos
+                self.current_horizontal_pos = horizontal_pos
+                self.get_logger().info(f'水平舵机实际位置: {horizontal_pos} PWM')
+            else:
+                self.get_logger().warn('无法读取水平舵机位置，使用记录值')
+            
+            # 读取垂直舵机位置（ID: 1）
+            vertical_pos = self.read_position(1)
+            if vertical_pos is not None:
+                self.current_positions[1] = vertical_pos
+                self.current_vertical_pos = vertical_pos
+                self.get_logger().info(f'垂直舵机实际位置: {vertical_pos} PWM')
+            else:
+                self.get_logger().warn('无法读取垂直舵机位置，使用记录值')
+            
+            # 读取其他舵机位置（可选）
+            for servo_id in range(2, 6):
+                try:
+                    position = self.read_position(servo_id)
+                    if position is not None:
+                        self.current_positions[servo_id] = position
+                        self.get_logger().debug(f'舵机{servo_id}实际位置: {position} PWM')
+                except Exception as e:
+                    self.get_logger().debug(f'读取舵机{servo_id}位置失败: {e}')
+            
+            self.get_logger().info(
+                f'机械臂位置读取完成 - 水平: {self.current_positions[0]}, '
+                f'垂直: {self.current_positions[1]}'
+            )
+            
+        except Exception as e:
+            self.get_logger().error(f'读取舵机位置时出错: {e}')
+            # 如果读取失败，使用默认值
+            self.current_positions[0] = self.horizontal_servo_center
+            self.current_positions[1] = self.vertical_servo_center
+            self.get_logger().warn('读取位置失败，使用中心位置作为默认值')
     
     def publish_status(self):
         """发布舵机状态"""
