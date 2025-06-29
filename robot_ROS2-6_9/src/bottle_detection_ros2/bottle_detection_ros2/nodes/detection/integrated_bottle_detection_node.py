@@ -654,8 +654,8 @@ class IntegratedBottleDetectionNode(Node):
             self._publish_detection_results(nearest_bottle, len(valid_detections), timestamp)
             
             # 手动模式下的舵机跟踪（仅跟踪有效距离的瓶子）
-            if self.current_mode == "manual" and self.enable_servo_tracking and nearest_bottle:
-                self._publish_tracking_target(nearest_bottle)
+            # if self.current_mode == "manual" and self.enable_servo_tracking and nearest_bottle:
+            #     self._publish_tracking_target(nearest_bottle)
             
             # 显示图像
             if self.show_display:
