@@ -83,7 +83,16 @@ Page({
       statusBarHeight: 20,
       navBarHeight: 44,
       availableHeight: 0,
-      windowHeight: 0
+      windowHeight: 0,
+      
+      // 新增：拖拽调整大小相关
+      videoHeight: 55, // 视频容器高度百分比（vh）
+      minVideoHeight: 25, // 最小视频高度（vh）
+      maxVideoHeight: 75, // 最大视频高度（vh）
+      isDragging: false, // 是否正在拖拽
+      dragStartY: 0, // 拖拽开始时的Y坐标
+      dragStartHeight: 0, // 拖拽开始时的高度
+      showDragHint: true, // 是否显示拖拽提示
     },
   
     onLoad: function(options) {
@@ -128,6 +137,13 @@ Page({
       
       // 更新连接状态
       this.checkGlobalConnectionState();
+      
+      // 新增：3秒后隐藏拖拽提示
+      setTimeout(() => {
+        this.setData({
+          showDragHint: false
+        });
+      }, 3000);
     },
   
     onShow: function() {
@@ -144,6 +160,14 @@ Page({
           now - this.data.lastFrameReceived > this.data.videoExpireTimeout && 
           this.data.connected && this.data.robotConnected) {
         this.requestVideoStream();
+      }
+      
+      // 新增：恢复用户保存的视频高度偏好
+      const savedHeight = wx.getStorageSync('userVideoHeight');
+      if (savedHeight) {
+        this.setData({
+          videoHeight: savedHeight
+        });
       }
     },
     
@@ -168,6 +192,59 @@ Page({
       if (this.videoExpireChecker) {
         clearInterval(this.videoExpireChecker);
       }
+    },
+    
+    // 新增：处理拖拽开始
+    handleDragStart: function(e) {
+      this.setData({
+        isDragging: true,
+        dragStartY: e.touches[0].clientY,
+        dragStartHeight: this.data.videoHeight,
+        showDragHint: false
+      });
+      
+      // 震动反馈
+      wx.vibrateShort({
+        type: 'light'
+      });
+    },
+    
+    // 新增：处理拖拽移动
+    handleDragMove: function(e) {
+      if (!this.data.isDragging) return;
+      
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - this.data.dragStartY;
+      
+      // 将像素差值转换为vh单位（windowHeight对应100vh）
+      const deltaVh = (deltaY / this.data.windowHeight) * 100;
+      
+      // 计算新的高度
+      let newHeight = this.data.dragStartHeight + deltaVh;
+      
+      // 限制高度范围
+      newHeight = Math.max(this.data.minVideoHeight, Math.min(this.data.maxVideoHeight, newHeight));
+      
+      this.setData({
+        videoHeight: newHeight
+      });
+    },
+    
+    // 新增：处理拖拽结束
+    handleDragEnd: function(e) {
+      if (!this.data.isDragging) return;
+      
+      this.setData({
+        isDragging: false
+      });
+      
+      // 震动反馈
+      wx.vibrateShort({
+        type: 'light'
+      });
+      
+      // 保存用户偏好（可选）
+      wx.setStorageSync('userVideoHeight', this.data.videoHeight);
     },
     
     // 检查全局连接状态

@@ -1,6 +1,7 @@
 <!-- pages/control/control.wxml -->
 <view class="container">
-  <view class="video-container">
+  <!-- 视频容器，高度动态调整 -->
+  <view class="video-container" style="height: {{videoHeight}}vh;">
     <view class="video-placeholder">
       <!-- 根据不同状态显示不同内容 -->
       <block wx:if="{{!connected}}">
@@ -123,8 +124,28 @@
       </view>
     </view>
   </view>
+  
+  <!-- 拖拽分隔条 -->
+  <view class="drag-divider {{isDragging ? 'dragging' : ''}}" 
+        bindtouchstart="handleDragStart"
+        bindtouchmove="handleDragMove"
+        bindtouchend="handleDragEnd"
+        bindtouchcancel="handleDragEnd">
+    <view class="drag-handle">
+      <view class="drag-line"></view>
+      <view class="drag-line"></view>
+      <view class="drag-line"></view>
+    </view>
+    <!-- 拖拽提示 -->
+    <view class="drag-hint" wx:if="{{showDragHint}}">
+      <text>↕ 上下拖动调整视频大小</text>
+    </view>
+  </view>
 
-  <scroll-view class="control-container {{!robotConnected ? 'disabled' : ''}}" scroll-y="true">
+  <!-- 控制容器，高度自适应 -->
+  <scroll-view class="control-container {{!robotConnected ? 'disabled' : ''}}" 
+               scroll-y="true"
+               style="height: calc(100vh - {{videoHeight}}vh - {{statusBarHeight + navBarHeight}}px - 40rpx);">
     <view class="control-header">
       <text class="title">操作控制</text>
       <view class="mode-switch">

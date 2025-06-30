@@ -6,26 +6,98 @@
     height: 100vh;
     background-color: #f6f6f6;
     padding: 0;
-    
   }
   
-  /* 视频部分 - 调整高度和位置 */
+  /* 视频部分 - 动态高度 */
   .video-container {
     width: 100%;
-    height: 55vh;  /* 增大高度，从40vh改为55vh，提供更大显示区域 */
-    min-height: 350rpx;  /* 增加最小高度 */
-    max-height: 700rpx;  /* 增加最大高度限制 */
+    /* height 通过内联样式动态设置 */
+    min-height: 25vh;  /* 与 JS 中的 minVideoHeight 对应 */
+    max-height: 75vh;  /* 与 JS 中的 maxVideoHeight 对应 */
     background-color: #fff;
-    border-bottom: 1rpx solid #eee;
     position: relative;
     box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.1);
     flex-shrink: 0;
-    margin-top: -10rpx;  /* 轻微上移，确保内容完整显示 */
+    transition: height 0.1s ease-out;  /* 添加平滑过渡效果 */
+  }
+  
+  /* 拖拽分隔条样式 */
+  .drag-divider {
+    width: 100%;
+    height: 40rpx;
+    background-color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: ns-resize;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background-color 0.2s;
+    z-index: 10;
+  }
+  
+  .drag-divider:active,
+  .drag-divider.dragging {
+    background-color: #e0e0e0;
+  }
+  
+  /* 拖拽把手 */
+  .drag-handle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rpx;
+    padding: 10rpx 60rpx;
+  }
+  
+  .drag-line {
+    width: 80rpx;
+    height: 3rpx;
+    background-color: #bbb;
+    border-radius: 3rpx;
+    transition: background-color 0.2s;
+  }
+  
+  .drag-divider:active .drag-line,
+  .drag-divider.dragging .drag-line {
+    background-color: #888;
+  }
+  
+  /* 拖拽提示 */
+  .drag-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8rpx 24rpx;
+    border-radius: 20rpx;
+    font-size: 24rpx;
+    white-space: nowrap;
+    animation: fadeInOut 2s ease-in-out;
+    pointer-events: none;
+  }
+  
+  @keyframes fadeInOut {
+    0% {
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
   }
   
   .video-placeholder {
     width: 100%;
-    height: calc(100% - 60rpx);  /* 适当调整底部信息栏的高度 */
+    height: calc(100% - 60rpx);
     background-color: #2c2c2c;
     position: relative;
     overflow: hidden;
@@ -112,13 +184,13 @@
   }
   
   .video-info {
-    height: 60rpx;  /* 恢复到合适的高度以配合新的布局 */
+    height: 60rpx;
     display: flex;
     justify-content: space-around;
     align-items: center;
     padding: 0 20rpx;
     background-color: white;
-    font-size: 26rpx;  /* 稍微增大字体以保持可读性 */
+    font-size: 26rpx;
   }
   
   .info-item {
@@ -275,14 +347,15 @@
     margin-top: 10rpx;
   }
   
-  /* 控制部分 */
+  /* 控制部分 - 高度自适应 */
   .control-container {
     flex: 1;
     width: 100%;
-    padding: 20rpx 30rpx;  /* 减少上下内边距，优化空间利用 */
+    padding: 20rpx 30rpx;
     box-sizing: border-box;
     overflow-y: auto;
-    min-height: 0;  /* 确保滚动容器可以正确计算高度 */
+    min-height: 0;
+    /* height 通过内联样式动态设置 */
   }
   
   /* 控制容器禁用样式 */
@@ -295,7 +368,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20rpx;  /* 减少底部边距 */
+    margin-bottom: 20rpx;
   }
   
   .title {
@@ -332,8 +405,8 @@
     width: 90%;
     background-color: #fff;
     border-radius: 20rpx;
-    padding: 25rpx;  /* 减少内边距 */
-    margin-bottom: 20rpx;  /* 减少底部边距 */
+    padding: 25rpx;
+    margin-bottom: 20rpx;
     box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
     border: 2rpx solid #f0f0f0;
   }
@@ -382,13 +455,13 @@
   
   .direction-controls {
     width: 100%;
-    margin-bottom: 15rpx;  /* 减少底部边距 */
+    margin-bottom: 15rpx;
   }
   
   .btn-row {
     display: flex;
     justify-content: center;
-    margin-bottom: 15rpx;  /* 减少行间距 */
+    margin-bottom: 15rpx;
   }
   
   .btn-control {
