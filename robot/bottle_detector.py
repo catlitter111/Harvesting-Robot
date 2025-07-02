@@ -274,3 +274,74 @@ class BottleDetector:
         scores = np.concatenate(nscores)
         
         return boxes, classes, scores
+
+
+def test_bottle_detection():
+    """测试瓶子检测功能"""
+    # 硬编码模型路径 - 请根据实际路径修改
+    MODEL_PATH = "/home/elf/Downloads/Harvesting-Robot/robot/data/yolo11n.rknn"  # 修改为你的模型路径
+    CAMERA_ID = 21
+    
+    # 初始化检测器
+    detector = BottleDetector(MODEL_PATH)
+    
+    # 加载模型
+    if not detector.load_model():
+        print("模型加载失败，退出程序")
+        return
+    
+    # 初始化摄像头
+    cap = cv2.VideoCapture(CAMERA_ID, cv2.CAP_V4L2)
+    if not cap.isOpened():
+        print(f"无法打开摄像头 {CAMERA_ID}")
+        detector.release_model()
+        return
+    cap.set(3, 1280)   # 设置宽度
+    cap.set(4, 480)  # 设置高度
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+    
+    print("开始检测，按 'q' 退出")
+    
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("无法读取摄像头数据")
+                break
+            
+            # 提取左目图像（假设双目图像是左右并排的）
+            height, width = frame.shape[:2]
+            left_frame = frame[:, :width//2]  # 取左半部分
+            
+            # 检测瓶子
+            detections = detector.detect(left_frame)
+            
+            # 绘制检测结果
+            for detection in detections:
+                detector.draw_detection(left_frame, detection)
+            
+            # 显示检测信息
+            info_text = f"detected {len(detections)} bottles"
+            cv2.putText(left_frame, info_text, (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
+            # 显示图像
+            cv2.imshow('bottle_detection', left_frame)
+            
+            # 按 'q' 退出
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+                
+    except KeyboardInterrupt:
+        print("程序被用户中断")
+    
+    finally:
+        # 清理资源
+        cap.release()
+        cv2.destroyAllWindows()
+        detector.release_model()
+        print("程序结束")
+
+
+if __name__ == "__main__":
+    test_bottle_detection()

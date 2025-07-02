@@ -1055,7 +1055,7 @@ class IntegratedBottleDetectionNode(Node):
     def _display_images(self, annotated_image, disparity):
         """显示图像窗口"""
         cv2.imshow('Bottle Detection', annotated_image)
-        cv2.imshow('Disparity', disparity)
+        # cv2.imshow('Disparity', disparity)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             self.get_logger().info('用户请求退出')
