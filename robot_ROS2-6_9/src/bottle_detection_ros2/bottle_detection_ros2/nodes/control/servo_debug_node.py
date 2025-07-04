@@ -202,11 +202,11 @@ class ServoDebugNode(Node):
                 self.get_logger().info(f'机械臂向下转动，步长: -{dynamic_step}, 位置: {old_pos} → {self.current_vertical}PWM')
             elif command == 'arm_left':
                 old_pos = self.current_horizontal
-                self.move_horizontal(-dynamic_step) # 负值表示向左
+                self.move_horizontal(dynamic_step) # 负值表示向左
                 self.get_logger().info(f'机械臂向左转动，步长: -{dynamic_step}, 位置: {old_pos} → {self.current_horizontal}PWM')
             elif command == 'arm_right':
                 old_pos = self.current_horizontal
-                self.move_horizontal(dynamic_step) # 正值表示向右
+                self.move_horizontal(-dynamic_step) # 正值表示向右
                 self.get_logger().info(f'机械臂向右转动，步长: +{dynamic_step}, 位置: {old_pos} → {self.current_horizontal}PWM')
             elif command == 'arm_stop':
                 # 发送停止命令到舵机控制节点

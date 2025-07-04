@@ -367,7 +367,7 @@ class ServoControlNode(Node):
             
             # 计算图像中心
             frame_center_x = frame_width // 2 + 50
-            frame_center_y = frame_height // 2 +50
+            frame_center_y = frame_height // 2 +45
             
             # 计算像素误差
             pixel_error_x = center_x - frame_center_x
@@ -375,6 +375,7 @@ class ServoControlNode(Node):
             
             # 将像素误差转换为PWM误差（总是计算，用于调试显示）
             pwm_error_x = pixel_error_x * self.pixel_to_pwm_ratio
+
             pwm_error_y = pixel_error_y * self.pixel_to_pwm_ratio
             
             # 死区检测

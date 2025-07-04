@@ -18,7 +18,7 @@ from enum import Enum
 # 核心参数定义
 FAR_DISTANCE_THRESHOLD = 0.7    # 远距离阈值（米）
 SERVO_ADJUST_THRESHOLD = 0.45    # 舵机调整距离阈值（米）
-HARVEST_DISTANCE_THRESHOLD = 0.31# 采摘距离阈值（米）
+HARVEST_DISTANCE_THRESHOLD = 0.32# 采摘距离阈值（米）
 ROBOT_FULL_SPEED = 0.3        # 小车全速（米/秒）
 SERVO_ALIGNMENT_TIME = 2.0       # 舵机对准固定时间（秒）
 
@@ -33,8 +33,8 @@ MODE_AUTO = "auto"
 MAX_POSSIBLE_DISTANCE = 1.5  # 米
 
 # 近距离控制速度
-NEAR_APPROACH_SPEED = 0.05  # 近距离接近速度（米/秒）
-NEAR_TURN_SPEED = 0.03   # 近距离转向速度（弧度/秒）
+NEAR_APPROACH_SPEED = 0.08  # 近距离接近速度（米/秒）
+NEAR_TURN_SPEED = 0.05   # 近距离转向速度（弧度/秒）
 
 
 class HarvestState(Enum):
