@@ -534,7 +534,7 @@ class AutoHarvestController(Node):
             debug_msg += f" | 瓶子位置: ({self.bottle_cx}, {self.bottle_cy})"
             debug_msg += f" | 偏移: {offset_x}px"
         
-        self.get_logger().info(debug_msg)
+        # self.get_logger().info(debug_msg)
     
     def stop_robot(self):
         """停止机器人"""

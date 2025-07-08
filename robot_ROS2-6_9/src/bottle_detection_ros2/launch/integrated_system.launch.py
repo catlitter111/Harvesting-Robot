@@ -25,7 +25,7 @@ def generate_launch_description():
     # 相机参数
     camera_id_arg = DeclareLaunchArgument(
         'camera_id',
-        default_value='1',
+        default_value='0',
         description='双目相机设备ID'
     )
     
