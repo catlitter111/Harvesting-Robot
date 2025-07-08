@@ -25,7 +25,7 @@ def generate_launch_description():
     # 相机参数
     camera_id_arg = DeclareLaunchArgument(
         'camera_id',
-        default_value='21',
+        default_value='1',
         description='双目相机设备ID'
     )
     
@@ -39,7 +39,7 @@ def generate_launch_description():
     # 模型参数
     model_path_arg = DeclareLaunchArgument(
         'model_path',
-        default_value="/home/elf/Downloads/Harvesting-Robot/robot_ROS2-6_9/src/bottle_detection_ros2/data/yolo11n.rknn",
+        default_value="/home/sunrise/Desktop/Harvesting-Robot/robot_ROS2-6_9/src/bottle_detection_ros2/data/RDK_yolo11s.bin",
         description='RKNN模型文件路径'
     )
     
@@ -60,13 +60,13 @@ def generate_launch_description():
     # 串口参数
     robot_serial_arg = DeclareLaunchArgument(
         'robot_serial_port',
-        default_value='/dev/ttyS3',
+        default_value='/dev/ttyS7',
         description='机器人控制串口'
     )
     
     servo_serial_arg = DeclareLaunchArgument(
         'servo_serial_port',
-        default_value='/dev/ttyS9',
+        default_value='/dev/ttyS1',
         description='舵机控制串口'
     )
     
