@@ -1,1 +1,4 @@
 stm32/mytest_ABlun_/MDK-ARM/mytest_ABlun
+__pycache__
+.vscode
+.cursor
